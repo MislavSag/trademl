@@ -54,8 +54,8 @@ from sklearn.metrics import (
 # from  mlfinlab.backtest_statistics import  information_ratio
 import pyfolio as pf
 # other
-import trademl
-import  trademl.modeling as ms
+import trademl.modeling as tm
+
 from sklearn.base import clone
 
 
@@ -95,7 +95,7 @@ if __name__ == '__main__':
         pt_sl=pt_sl,
         target=daily_vol,
         min_ret=min_ret,
-        num_threads=4,
+        num_threads=8,
         vertical_barrier_times=vertical_barriers)
     display(triple_barrier_events.head(10))
 
