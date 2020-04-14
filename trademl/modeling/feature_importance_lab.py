@@ -39,7 +39,7 @@ from sklearn.metrics import (
 # from  mlfinlab.backtest_statistics import  information_ratio
 import pyfolio as pf
 # other
-import trademl
+import trademl.trademl.metrics_summary as msum
 from sklearn.base import clone
 
 
@@ -73,20 +73,20 @@ vertical_barriers = ml.labeling.add_vertical_barrier(t_events=cusum_events,
                                                         close=spy['close_orig'],
                                                         num_days=4200)
     
-if __name__ == '__main__':
-    # make triple barriers (if side_prediction arg is omitted, return -1, 0, 1 
-    # (w/t which touched first))
-    pt_sl = [2, 2]  # IF ONLY SECONDARY (ML) MODEL HORIZONTAL BARRIERS SYMMETRIC!
-    min_ret = 0.004
-    triple_barrier_events = ml.labeling.get_events(
-        close=spy['close_orig'],
-        t_events=cusum_events,
-        pt_sl=pt_sl,
-        target=daily_vol,
-        min_ret=min_ret,
-        num_threads=8,
-        vertical_barrier_times=vertical_barriers)
-    display(triple_barrier_events.head(10))
+
+# make triple barriers (if side_prediction arg is omitted, return -1, 0, 1 
+# (w/t which touched first))
+pt_sl = [2, 2]  # IF ONLY SECONDARY (ML) MODEL HORIZONTAL BARRIERS SYMMETRIC!
+min_ret = 0.004
+triple_barrier_events = ml.labeling.get_events(
+    close=spy['close_orig'],
+    t_events=cusum_events,
+    pt_sl=pt_sl,
+    target=daily_vol,
+    min_ret=min_ret,
+    num_threads=1,
+    vertical_barrier_times=vertical_barriers)
+display(triple_barrier_events.head(10))
 
 # labels
 labels = ml.labeling.get_bins(triple_barrier_events, spy['close_orig'])
@@ -134,7 +134,7 @@ parameters = {'max_depth': [2, 3, 4, 5, 10],
                 'n_estimators': [600, 1000, 1400]}
 
 # CV generators
-cv_gen_purged = PurgedKFold(
+cv_gen_purged = ml.cross_validation.PurgedKFold(
     n_splits=4,
     samples_info_sets=triple_barrier_events.reindex(X_train.index).t1)
 rf = RandomForestClassifier(criterion='entropy',
@@ -155,11 +155,11 @@ rf_best = RandomForestClassifier(criterion='entropy',
                                     n_estimators=n_estimators,
                                     class_weight='balanced_subsample')
 rf_best.fit(X_train, y_train, sample_weight=return_sample_weights)
-trademl.metrics_summary.display_clf_metrics(
+trademl.modeling.metrics_summary.display_clf_metrics(
     rf_best, X_train, X_test, y_train, y_test)
 
-display_clf_metrics(rf_best, X_train, X_test, y_train, y_test)
-plot_roc_curve(rf_best, X_train, X_test, y_train, y_test)
+msum.display_clf_metrics(rf_best, X_train, X_test, y_train, y_test)
+msum.plot_roc_curve(rf_best, X_train, X_test, y_train, y_test)
 
 # SequentiallyBootstrappedBaggingClassifier
 # if __name__ == '__main__':   
@@ -179,7 +179,7 @@ mdi_feature_imp = ml.feature_importance.mean_decrease_impurity(
     rf_best, X_train.columns)
 ml.feature_importance.plot_feature_importance(
     mdi_feature_imp, 0, 0, save_fig=True,
-    output_path='features/mdi_feat_imp.png')
+    output_path='model_images/mdi_feat_imp.png')
 
 # mean decreasing accuracy
 mda_feature_imp = ml.feature_importance.mean_decrease_accuracy(
@@ -200,3 +200,4 @@ plot_feature_importance(sfi_feature_imp, 0, 0, save_fig=True,
 
 # clustered feature importance algorithm
 ml.clustering.get_onc_clusters()
+
