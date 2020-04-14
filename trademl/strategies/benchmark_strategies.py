@@ -3,7 +3,7 @@ import datetime
 import pandas as pd
 from pathlib import Path
 import backtrader as bt
-from backtrader_data import PandasData
+from trademl.strategies.backtrader_data import PandasData
 
 
 class BuyAndHold_Buy(bt.Strategy):
