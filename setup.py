@@ -7,6 +7,6 @@ setup(
     author='Mislav Sagovac',
     author_email='mislav.sagovac@contenio.biz',
     url='https://github.com/MislavSag/trademl',
-    packages=['trademl', 'trademl.strategies'],
+    packages=['trademl', 'trademl.strategies', 'trademl.modeling'],
     include_package_data=True
 )
