@@ -44,9 +44,6 @@ from sklearn.base import clone
 
 
 
-
-
-    
 ### GLOBAL (CONFIGS)
 
 DATA_PATH = Path('C:/Users/Mislav/algoAItrader/data/spy_store_stat.h5')
@@ -179,24 +176,26 @@ mdi_feature_imp = ml.feature_importance.mean_decrease_impurity(
     rf_best, X_train.columns)
 ml.feature_importance.plot_feature_importance(
     mdi_feature_imp, 0, 0, save_fig=True,
-    output_path='model_images/mdi_feat_imp.png')
+    output_path='mdi_feat_imp.png')
 
 # mean decreasing accuracy
 mda_feature_imp = ml.feature_importance.mean_decrease_accuracy(
     rf_best, X_train, y_train, cv_gen_purged,
     scoring=log_loss,
-    sample_weight=return_sample_weights.values)
-plot_feature_importance(mda_feature_imp, 0, 0, save_fig=True,
-                        output_path='features/mda_feat_imp.png')
+    sample_weight_train=return_sample_weights.values)
+ml.feature_importance.plot_feature_importance(
+    mda_feature_imp, 0, 0, save_fig=True,
+    output_path='mda_feat_imp.png')
 
 # single feature importance
 rf_best_ = clone(rf_best)  # seems sfi change learner somehow, and can't use it later
 sfi_feature_imp = ml.feature_importance.single_feature_importance(
     rf_best_, X_train, y_train, cv_gen_purged,
     scoring=accuracy_score,
-    sample_weight=return_sample_weights.values)
-plot_feature_importance(sfi_feature_imp, 0, 0, save_fig=True,
-                        output_path='features/sfi_feat_imp.png')
+    sample_weight_train=return_sample_weights.values)
+ml.feature_importance.plot_feature_importance(
+    sfi_feature_imp, 0, 0, save_fig=True,
+    output_path='sfi_feat_imp.png')
 
 # clustered feature importance algorithm
 ml.clustering.get_onc_clusters()
