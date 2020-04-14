@@ -6,5 +6,7 @@ setup(
     license='MIT',
     author='Mislav Sagovac',
     author_email='mislav.sagovac@contenio.biz',
-    packages=find_packages()
+    url='https://github.com/MislavSag/trademl',
+    packages=['trademl'],
+    include_package_data=True
 )
