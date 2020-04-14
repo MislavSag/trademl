@@ -24,22 +24,7 @@ from sklearn.metrics import (
     roc_curve,
     log_loss
     )
-# features engeenering
-# from mlfinlab.feature_importance import (
-#     mean_decrease_impurity,
-#     mean_decrease_accuracy,
-#     single_feature_importance,
-#     plot_feature_importance,
-#     get_orthogonal_features,
-# )
-# from mlfinlab.structural_breaks import (
-#     get_chu_stinchcombe_white_statistics,
-#     get_chow_type_stat, get_sadf)
 # finance packages
-# from mlfinlab.sample_weights import (
-#     get_weights_by_return,
-#     get_weights_by_time_decay
-#     )
 # from mlfinlab.cross_validation import PurgedKFold, ml_cross_val_score
 # from mlfinlab.backtest_statistics import timing_of_flattening_and_flips
 # from mlfinlab.bet_sizing import (
@@ -54,11 +39,14 @@ from sklearn.metrics import (
 # from  mlfinlab.backtest_statistics import  information_ratio
 import pyfolio as pf
 # other
-import trademl.modeling as tm
-
+import trademl
 from sklearn.base import clone
 
 
+
+
+
+    
 ### GLOBAL (CONFIGS)
 
 DATA_PATH = Path('C:/Users/Mislav/algoAItrader/data/spy_store_stat.h5')
@@ -68,6 +56,7 @@ DATA_PATH = Path('C:/Users/Mislav/algoAItrader/data/spy_store_stat.h5')
 
 with pd.HDFStore(DATA_PATH) as store:
     spy = store.get('spy_store_stat')
+spy = spy.iloc[:500000]
     
 
 ### TRIPLE-BARRIER LABELING
@@ -83,8 +72,8 @@ cusum_events = ml.filters.cusum_filter(spy['close_orig'],
 vertical_barriers = ml.labeling.add_vertical_barrier(t_events=cusum_events,
                                                         close=spy['close_orig'],
                                                         num_days=4200)
-
-if __name__ == '__main__':   
+    
+if __name__ == '__main__':
     # make triple barriers (if side_prediction arg is omitted, return -1, 0, 1 
     # (w/t which touched first))
     pt_sl = [2, 2]  # IF ONLY SECONDARY (ML) MODEL HORIZONTAL BARRIERS SYMMETRIC!
@@ -126,11 +115,11 @@ print(X_test.shape); print(y_test.shape)
 
 ### SAMPLE WEIGHTS
 
-return_sample_weights = get_weights_by_return(
+return_sample_weights = ml.sample_weights.get_weights_by_return(
     triple_barrier_events.loc[X_train.index],
     spy.loc[X_train.index, 'close_orig'],
     num_threads=1)
-time_sample_weights = get_weights_by_time_decay(
+time_sample_weights = ml.sample_weights.get_weights_by_time_decay(
     triple_barrier_events.loc[X_train.index],
     spy.loc[X_train.index, 'close_orig'],
     decay=0.5, num_threads=1)
@@ -210,3 +199,4 @@ plot_feature_importance(sfi_feature_imp, 0, 0, save_fig=True,
                         output_path='features/sfi_feat_imp.png')
 
 # clustered feature importance algorithm
+ml.clustering.get_onc_clusters()
