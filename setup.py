@@ -6,5 +6,5 @@ setup(
     license='MIT',
     author='Mislav Sagovac',
     author_email='mislav.sagovac@contenio.biz',
-    packages=[]
+    packages=find_packages()
 )
