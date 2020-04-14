@@ -12,11 +12,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, BaggingClassifier
 from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.base import clone
 # from mlfinlab.ensemble import SequentiallyBootstrappedBaggingClassifier
 import xgboost
 from sacred import Experiment
 # metrics 
-import mlfinlab as ml
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
@@ -24,24 +24,10 @@ from sklearn.metrics import (
     roc_curve,
     log_loss
     )
-# finance packages
-# from mlfinlab.cross_validation import PurgedKFold, ml_cross_val_score
-# from mlfinlab.backtest_statistics import timing_of_flattening_and_flips
-# from mlfinlab.bet_sizing import (
-#     bet_size_probability, bet_size_dynamic, bet_size_budget, bet_size_reserve,
-#     confirm_and_cast_to_df, get_concurrent_sides, cdf_mixture,
-#     single_bet_size_mixed, M2N, centered_moment, raw_moment, 
-#     most_likely_parameters
-#     )
-# from mlfinlab.backtest_statistics import average_holding_period
-# backtesting
-# import  mlfinlab.backtest_statistics as bs
-# from  mlfinlab.backtest_statistics import  information_ratio
+# finance
+import mlfinlab as ml
 import pyfolio as pf
-# other
-import trademl.trademl.metrics_summary as msum
-from sklearn.base import clone
-
+import trademl
 
 
 ### GLOBAL (CONFIGS)
