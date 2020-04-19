@@ -1,3 +1,7 @@
+"""
+Modeling
+"""
+
 from trademl.modeling.metrics_summary import (
     display_mental_model_metrics, display_clf_metrics, plot_roc_curve)
 from trademl.modeling.features import (

@@ -30,6 +30,8 @@ def display_clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='bin
     print("Recall test: %.2f" % recall_score(y_test, predictions_test, average=avg))
     print("Precision train: %.2f" % precision_score(y_train, predictions_train, average=avg))
     print("Precisoin test: %.2f" % precision_score(y_test, predictions_test, average=avg))
+    print("f1 score train: %.2f" % f1_score(y_train, predictions_train, average=avg))
+    print("f1 score test: %.2f" % f1_score(y_test, predictions_test, average=avg))
     # if binary:
     print('True values: ', y_test.iloc[:10].values)
     print('Predictions: ', predictions_train[:10])
