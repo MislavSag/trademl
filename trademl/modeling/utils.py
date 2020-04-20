@@ -12,5 +12,6 @@ def cbind_pandas_h2o(X_train, y_train):
     """
     X_train_h2o = h2o.H2OFrame(X_train)
     y_train_h2o = h2o.H2OFrame(y_train.to_frame())
+    y_train_h2o['bin'] = y_train_h2o['bin'].asfactor()
     train = X_train_h2o.cbind(y_train_h2o)
     return train
