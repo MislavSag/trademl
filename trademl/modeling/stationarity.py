@@ -221,7 +221,7 @@ def unstat_cols_to_stat(data):
 
     # get minimum values of d for every column
     seq = np.linspace(0, 1, 16)
-    min_d = data[stationaryCols].iloc[].apply(lambda x: min_ffd_value(x.to_frame(), seq))
+    min_d = data[stationaryCols].apply(lambda x: min_ffd_value(x.to_frame(), seq))
 
     # make stationary spy
     dataStationary = data[stationaryCols].loc[:, min_d > 0]
