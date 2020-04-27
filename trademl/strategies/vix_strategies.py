@@ -251,13 +251,11 @@ def run(args=None):
             kwargs[d] = datetime.datetime.strptime(a, strpfmt)
 
     # import data
-    data_store = Path('C:/Users/Mislav/algoAItrader/data/spy.h5')
+    data_store = Path(args.data)
     with pd.HDFStore(data_store) as store:
         df = store.get('spy')
-        
-    n_obs = args.nos
-        
-    df = df.iloc[:n_obs]
+               
+    df = df.iloc[:int(args.nos)]
     df['openinterest'] = 0
     df.index = df.index.rename('datetime')
     print(df.head())

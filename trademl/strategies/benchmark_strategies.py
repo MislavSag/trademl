@@ -151,7 +151,8 @@ def run(args=None):
     # import data
     with pd.HDFStore(args.data) as store:
         df = store.get('spy')
-    df = df.iloc[:500000]
+
+    df = df.iloc[:int(args.nos)]
     df['openinterest'] = 0
     df.index = df.index.rename('datetime')
     print(df.head())
@@ -208,6 +209,9 @@ def parse_args(pargs=None):
 
     parser.add_argument('--todate', required=False, default='',
                         help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+    
+    parser.add_argument('--nos', required=False, default=10000,
+                        metavar='kwargs', help='kwargs in key=value format')
 
     parser.add_argument('--cerebro', required=False, default='',
                         metavar='kwargs', help='kwargs in key=value format')
