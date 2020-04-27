@@ -422,3 +422,6 @@ def parse_args(pargs=None):
                         help='Buy and Hold More with Fund ROI')
 
     return parser.parse_args(pargs)
+
+if __name__ == '__main__':
+    run()
