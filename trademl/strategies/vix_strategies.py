@@ -255,7 +255,7 @@ def run(args=None):
     with pd.HDFStore(data_store) as store:
         df = store.get('spy')
         
-    n_obs = args.nox
+    n_obs = args.nos
         
     df = df.iloc[:n_obs]
     df['openinterest'] = 0
