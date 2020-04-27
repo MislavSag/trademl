@@ -1,4 +1,9 @@
+import argparse
+import datetime
+import pandas as pd
+from pathlib import Path
 import backtrader as bt
+
 
 class TestStrategy(bt.Strategy):
     
@@ -270,3 +275,142 @@ class SmaOptimizationStrategy(bt.Strategy):
     def stop(self):
         self.log('(MA Period %2d) Ending Value %.2f' %
                  (self.params.maperiod, self.broker.getvalue()), doprint=True)
+
+
+# Pandas data feed
+class PandasData(bt.feeds.PandasData):
+    '''
+    The ``dataname`` parameter inherited from ``feed.DataBase`` is the pandas
+    DataFrame
+    '''
+    
+    # Add a 'pe' line to the inherited ones from the base class
+    lines = ('vixClose',)
+
+    params = (
+        # Possible values for datetime (must always be present)
+        #  None : datetime is the "index" in the Pandas Dataframe
+        #  -1 : autodetect position or case-wise equal name
+        #  >= 0 : numeric index to the colum in the pandas dataframe
+        #  string : column name (as index) in the pandas dataframe
+        ('datetime', None),
+        
+        # Possible values below:
+        #  None : column not present
+        #  -1 : autodetect position or case-wise equal name
+        #  >= 0 : numeric index to the colum in the pandas dataframe
+        #  string : column name (as index) in the pandas dataframe
+        ('open', -1),
+        ('high', -1),
+        ('low', -1),
+        ('close', -1),
+        ('volume', -1),
+        ('openinterest', -1), 
+        ('vixClose', -1)  
+    )
+
+
+def run(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    kwargs = dict(**eval('dict(' + args.dargs + ')'))
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    # import data
+    with pd.HDFStore(args.data) as store:
+        df = store.get('spy')
+    df = df.iloc[:100000]
+    df['openinterest'] = 0
+    df.index = df.index.rename('datetime')
+    print(df.head())
+    df['vixClose'].describe()
+    
+    
+    data = PandasData(dataname=df)
+    cerebro.adddata(data)
+
+    # Strategy
+    if args.teststr:
+        stclass = TestStrategy
+    elif args.teststrind:
+        stclass = TestStrategyIndicators
+    elif args.testopt:
+        stclass = SmaOptimizationStrategy
+
+    cerebro.addstrategy(stclass, **eval('dict(' + args.strat + ')'))
+
+    # Broker
+    broker_kwargs = dict(coc=True)  # default is cheat-on-close active
+    broker_kwargs.update(eval('dict(' + args.broker + ')'))
+    cerebro.broker = bt.brokers.BackBroker(**broker_kwargs)
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'Backtrader Basic Script'
+        )
+    )
+
+    parser.add_argument('--data', default='../../datas/2005-2006-day-001.txt',
+                        required=False, help='Data to read in')
+
+    parser.add_argument('--dargs', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', '--strategy', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    pgroup = parser.add_mutually_exclusive_group(required=True)
+    pgroup.add_argument('--teststr', required=False, action='store_true',
+                        help='Buy and Hold with buy method')
+
+    pgroup.add_argument('--teststrind', required=False, action='store_true',
+                        help='Buy and Hold with order_target method')
+
+    pgroup.add_argument('--testopt', required=False, action='store_true',
+                        help='Buy and Hold More')
+
+    pgroup.add_argument('--bh-more-fund', required=False, action='store_true',
+                        help='Buy and Hold More with Fund ROI')
+
+    return parser.parse_args(pargs)
