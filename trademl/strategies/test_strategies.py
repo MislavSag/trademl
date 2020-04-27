@@ -10,6 +10,9 @@ class TestStrategy(bt.Strategy):
     params = (
         ('exitbars', 5),
     )
+    
+    def start(self):
+        self.val_start = self.broker.get_cash()  # keep the starting cash
 
     def log(self, txt, dt=None):
         ''' Logging function for this strategy'''
@@ -84,6 +87,11 @@ class TestStrategy(bt.Strategy):
                 self.log('SELL CREATE, %.2f' % self.dataclose[0])
                 # Keep track of the created order to avoid a 2nd order
                 self.order = self.sell()
+                
+    def stop(self):
+        # calculate the actual returns
+        self.roi = (self.broker.get_value() / self.val_start) - 1.0
+        print('ROI:        {:.2f}%'.format(100.0 * self.roi))
 
 
 class TestStrategyIndicators(bt.Strategy):
