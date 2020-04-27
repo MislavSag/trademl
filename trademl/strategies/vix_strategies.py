@@ -254,7 +254,10 @@ def run(args=None):
     data_store = Path('C:/Users/Mislav/algoAItrader/data/spy.h5')
     with pd.HDFStore(data_store) as store:
         df = store.get('spy')
-    df = df.iloc[:500000]
+        
+    n_obs = args.nox
+        
+    df = df.iloc[:n_obs]
     df['openinterest'] = 0
     df.index = df.index.rename('datetime')
     print(df.head())
@@ -306,6 +309,9 @@ def parse_args(pargs=None):
 
     parser.add_argument('--todate', required=False, default='',
                         help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--nos', required=False, default=10000,
+                        metavar='kwargs', help='kwargs in key=value format')
 
     parser.add_argument('--cerebro', required=False, default='',
                         metavar='kwargs', help='kwargs in key=value format')
