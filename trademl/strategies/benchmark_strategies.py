@@ -151,7 +151,7 @@ def run(args=None):
     # import data
     with pd.HDFStore(args.data) as store:
         df = store.get('spy')
-    df = df.iloc[:100000]
+    df = df.iloc[:500000]
     df['openinterest'] = 0
     df.index = df.index.rename('datetime')
     print(df.head())

@@ -254,7 +254,7 @@ def run(args=None):
     data_store = Path('C:/Users/Mislav/algoAItrader/data/spy.h5')
     with pd.HDFStore(data_store) as store:
         df = store.get('spy')
-    df = df.iloc[:100000]
+    df = df.iloc[:500000]
     df['openinterest'] = 0
     df.index = df.index.rename('datetime')
     print(df.head())
