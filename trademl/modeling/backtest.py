@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 
 def cumulative_returns(close, raw=True):
