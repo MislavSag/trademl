@@ -113,10 +113,33 @@ rf_best = RandomForestClassifier(criterion='entropy',
 rf_best.fit(X_train, y_train, sample_weight=sample_weigths)
 
 
+### MODEL EVALUATION
+# tml.modeling.metrics_summary.display_clf_metrics(
+#     rf_best, X_train, X_test, y_train, y_test)
+# tml.modeling.metrics_summary.plot_roc_curve(
+#     rf_best, X_train, X_test, y_train, y_test)
+
+
+### EVALUATION
+# Predictions
+predictions_train = rf_best.predict(X_train)
+predictions_test = rf_best.predict(X_test)
+
+# Accuracy
+accuracy_train = accuracy_score(y_train, predictions_train)
+accuracy_test = accuracy_score(y_test, predictions_test)
+
+print(f'accuracy_train: {accuracy_train}')
+print(f'accuracy_test: {accuracy_test}')
+
+# print("Accuracy train: %.2f" % accuracy_train)
+# print("Accuracy test: %.2f" % accuracy_test)
+
+
 # def train():
 #     data = mnist_data.load()
 #     model = mnist_model.init()
-#     model.train(data)
+#     model.train(data  )
 
 # if __name__ == "__main__":
 #     train()
