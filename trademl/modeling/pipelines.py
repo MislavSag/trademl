@@ -54,14 +54,14 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         # labels
         labels = ml.labeling.get_bins(triple_barrier_events, close)
         labels = ml.labeling.drop_labels(labels)
-        self.triple_barrier_labels = triple_barrier_events.reindex(labels.index)
+        self.triple_barrier_info = pd.concat([triple_barrier_events.t1, labels], axis=1)
         
         return self
 
     def transform(self, X, y=None):
         
         # subsample
-        X = X.reindex(self.triple_barrier_labels.index)
+        X = X.reindex(self.self.triple_barrier_info.index)
         
         return X
 
@@ -86,6 +86,7 @@ class OutlierStdRemove(BaseEstimator, TransformerMixin):
 
 DATA_PATH = 'C:/Users/Mislav/algoAItrader/data/spy_with_vix.h5'
 df = pd.read_hdf(DATA_PATH, start=0, stop=1000)
+
 
 pipeline = Pipeline([
     ('remove_outlier', OutlierStdRemove(10)),
