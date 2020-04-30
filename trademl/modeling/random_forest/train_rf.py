@@ -2,11 +2,8 @@
 import numpy as np
 import pandas as pd
 from numba import njit
-from pathlib import Path
 import matplotlib.pyplot as plt
-from matplotlib import pyplot
 from IPython.display import display, Image
-from IPython.core.display import HTML 
 # preprocessing
 from sklearn.model_selection import train_test_split
 # modelling
@@ -37,10 +34,22 @@ spy.sort_index(inplace=True)
 spy = spy.iloc[:50000]
 
 
-def train():
-    data = mnist_data.load()
-    model = mnist_model.init()
-    model.train(data)
+### HYPER PARAMETERS
+std_outlier = 10
+tb_volatility_lookback = 50
+tb_volatility_scaler = 1
+tb_triplebar_num_days = 3
+tb_triplebar_pt_sl = [1, 1]
+tb_triplebar_min_ret = 0.003
+sample_weights_type = 'returns'
+cv_type = 'purged_kfold'
+cv_number = 4
 
-if __name__ == "__main__":
-    train()
+
+# def train():
+#     data = mnist_data.load()
+#     model = mnist_model.init()
+#     model.train(data)
+
+# if __name__ == "__main__":
+#     train()

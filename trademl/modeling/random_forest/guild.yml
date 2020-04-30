@@ -1,8 +1,8 @@
-model: random_forest
-description: Random forest model
-operations:
-  train:
-    description: Trainer for random forest  
-    main: train_rf
-requirements:
-  file: 
+- model: random_forest
+  description: Random forest model
+  operations:
+    train:
+      description: Trainer for random forest  
+      main: train_rf
+  requirements:
+    file: 
