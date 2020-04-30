@@ -54,6 +54,8 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         # labels
         labels = ml.labeling.get_bins(triple_barrier_events, close)
         labels = ml.labeling.drop_labels(labels)
+        
+        # merge labels and triple barrier events
         self.triple_barrier_info = pd.concat([triple_barrier_events.t1, labels], axis=1)
         
         return self
@@ -61,7 +63,7 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         
         # subsample
-        X = X.reindex(self.self.triple_barrier_info.index)
+        X = X.reindex(self.triple_barrier_info.index)
         
         return X
 
@@ -84,13 +86,37 @@ class OutlierStdRemove(BaseEstimator, TransformerMixin):
 ### TESTS
 
 
-DATA_PATH = 'C:/Users/Mislav/algoAItrader/data/spy_with_vix.h5'
-df = pd.read_hdf(DATA_PATH, start=0, stop=1000)
+# DATA_PATH = 'C:/Users/Mislav/algoAItrader/data/spy_with_vix.h5'
+# df = pd.read_hdf(DATA_PATH, start=0, stop=4000)
 
 
-pipeline = Pipeline([
-    ('remove_outlier', OutlierStdRemove(10)),
-    ('triple_barrier_labeling', TripleBarierLabeling(close_name='close_orig')),
-])
+# ### HYPER PARAMETERS
+# std_outlier = 10
+# tb_volatility_lookback = 50
+# tb_volatility_scaler = 1
+# tb_triplebar_num_days = 3
+# tb_triplebar_pt_sl = [1, 1]
+# tb_triplebar_min_ret = 0.003
 
-pipe_out = pipeline.fit_transform(df)
+
+# # triple barrier alone
+# triple_barrier_pipe= TripleBarierLabeling(
+#     close_name='close_orig',
+#     volatility_lookback=tb_volatility_lookback,
+#     volatility_scaler=tb_volatility_scaler,
+#     triplebar_num_days=tb_triplebar_num_days,
+#     triplebar_pt_sl=tb_triplebar_pt_sl,
+#     triplebar_min_ret=tb_triplebar_min_ret,
+#     num_threads=1
+# )
+# tb_fit = triple_barrier_pipe.fit(df)
+# tb_fit.triple_barrier_info
+# X = triple_barrier_pipe.transform(df)
+
+# # 
+# pipeline = Pipeline([
+#     ('remove_outlier', OutlierStdRemove(10)),
+#     ('triple_barrier_labeling', TripleBarierLabeling(close_name='close_orig')),
+# ])
+
+# pipe_out = pipeline.fit_transform(df)
