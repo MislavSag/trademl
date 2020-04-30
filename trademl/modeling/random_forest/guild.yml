@@ -4,5 +4,7 @@
     train:
       description: Trainer for random forest  
       main: train_rf
-  requirements:
-    file: 
+      flags:
+        std_outlier:
+          description: Standard devaition threshold. Remove observations from X above/below std_oulier
+          min: 2

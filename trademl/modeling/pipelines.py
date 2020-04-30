@@ -57,6 +57,7 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         
         # merge labels and triple barrier events
         self.triple_barrier_info = pd.concat([triple_barrier_events.t1, labels], axis=1)
+        self.triple_barrier_info.reindex(labels.index)
         
         return self
 
