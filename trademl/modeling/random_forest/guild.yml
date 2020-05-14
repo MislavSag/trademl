@@ -8,3 +8,4 @@
         std_outlier:
           description: Standard devaition threshold. Remove observations from X above/below std_oulier
           min: 2
+          max: 20
