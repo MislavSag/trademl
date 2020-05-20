@@ -43,3 +43,18 @@ def minute_to_daily_return(trbar_info, predictions, bet_sizes=None):
     return_adj = pd.Series(return_adj, index=trbar_info.t1)
     daily_returns = (1 + return_adj).resample('B').prod() - 1
     return daily_returns
+
+
+@njit
+def enter_positions(positions):
+    for i in range(positions.shape[0]): # postitions.shape[0]
+        if i > 0:
+            if (positions[i-1, 1] == -1):
+                positions[i, 1] = -1
+            elif (positions[i-1, 1] == -1) & (np.isnan(positions[i, 1])):
+                positions[i, 1] = -1
+            else: 
+                positions[i, 1] = 1
+        else:
+            positions[i, 1] = 1
+    return positions
