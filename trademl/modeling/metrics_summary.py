@@ -12,7 +12,7 @@ def display_mental_model_metrics(actual, pred):
     print(accuracy_score(actual, pred))
 
 
-def display_clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='binary'):
+def clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='binary'):
     """
     Show main matrics from classification: accuracy, precision, recall, 
     confusion matrix.
@@ -24,17 +24,17 @@ def display_clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='bin
     predictions_test = fitted_model.predict(X_test)
     print(f'Confusion matrix train: \n{confusion_matrix(y_train, predictions_train)}')
     print(f'Confusion matrix test: \n{confusion_matrix(y_test, predictions_test)}')
-    print("Accuracy train: %.2f" % accuracy_score(y_train, predictions_train))
-    print("Accuracy test: %.2f" % accuracy_score(y_test, predictions_test))
-    print("Recall train: %.2f" % recall_score(y_train, predictions_train, average=avg))
-    print("Recall test: %.2f" % recall_score(y_test, predictions_test, average=avg))
-    print("Precision train: %.2f" % precision_score(y_train, predictions_train, average=avg))
-    print("Precisoin test: %.2f" % precision_score(y_test, predictions_test, average=avg))
-    print("f1 score train: %.2f" % f1_score(y_train, predictions_train, average=avg))
-    print("f1 score test: %.2f" % f1_score(y_test, predictions_test, average=avg))
+    print(f'accuracy_train: {accuracy_score(y_train, predictions_train)}')
+    print(f'accuracy_test: {accuracy_score(y_test, predictions_test)}')
+    print(f"recall_train: {recall_score(y_train, predictions_train, average=avg)}")
+    print(f"recall_test: {recall_score(y_test, predictions_test, average=avg)}")
+    print(f"precision_train: {precision_score(y_train, predictions_train, average=avg)}")
+    print(f"precisoin_test: {precision_score(y_test, predictions_test, average=avg)}")
+    print(f"f1_train: {f1_score(y_train, predictions_train, average=avg)}")
+    print(f"f1_test: {f1_score(y_test, predictions_test, average=avg)}")
     # if binary:
-    print('True values: ', y_test.iloc[:10].values)
-    print('Predictions: ', predictions_train[:10])
+    # print(f'True values: ', y_test.iloc[:10].values)
+    # print(f'Predictions: ', predictions_train[:10])
 
 
 def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test):
@@ -42,8 +42,8 @@ def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test):
     Show main matrics from classification: accuracy, precision, recall, 
     confusion matrix.
     
-    Arguments:
-        fitted_model {[type]} -- [description]
+    :param fitted_model: (sklearn.model) Estimated skelarn model.
+    :param X_train: (pd.DataFrame) X train set data frame.
     """
     # train set
     y_pred_rf = fitted_model.predict_proba(X_train)[:, 1]
