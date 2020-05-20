@@ -1,22 +1,15 @@
 import pandas as pd
 import numpy as np
+from numpy.fft import fft, ifft
 # from mlfinlab.features.fracdiff import frac_diff_ffd
 from statsmodels.tsa.stattools import adfuller
 # import matplotlib.pyplot as plt
-
-
-
-
-
 #### PERFORMANCE !!! FROM 
 # https://github.com/cottrell/fractional-differentiation-time-series/blob/master/fracdiff/fracdiff.py
-
-import numpy as np
-from numpy.fft import fft, ifft
-
 # from: http://www.mirzatrokic.ca/FILES/codes/fracdiff.py
 # small modification: wrapped 2**np.ceil(...) around int()
 # https://github.com/SimonOuellette35/FractionalDiff/blob/master/question2.py
+
 
 _default_thresh = 1e-4
 
@@ -205,9 +198,9 @@ def min_ffd_value(unstationary_series, d_domain, pvalue_threshold=0.05):
     return d_min
 
 
-def unstat_cols_to_stat(data):
+def min_ffd_all_cols(data):
     """
-    Convert unstationary columns to stationary.
+    Get min_d for all columns
     
     :param data: (pd.DataFrame) Pandas DF with unstationary columns.
     :return: (pd.DataFrame) Pandas DF with stationary columns.
@@ -222,6 +215,27 @@ def unstat_cols_to_stat(data):
     # get minimum values of d for every column
     seq = np.linspace(0, 1, 16)
     min_d = data[stationaryCols].apply(lambda x: min_ffd_value(x.to_frame(), seq))
+    
+    return stationaryCols, min_d
+
+
+def unstat_cols_to_stat(data, min_d, stationaryCols):
+    """
+    Convert unstationary columns to stationary.
+    
+    :param data: (pd.DataFrame) Pandas DF with unstationary columns.
+    :return: (pd.DataFrame) Pandas DF with stationary columns.
+    """
+    # # stationarity tests
+    # adfTest = data.apply(lambda x: adfuller(x, maxlag=1, regression='c',
+    #                                     autolag=None), axis=0)
+    # adfTestPval = [adf[1] for adf in adfTest]
+    # adfTestPval = pd.Series(adfTestPval)
+    # stationaryCols = data.loc[:, (adfTestPval > 0.1).to_list()].columns
+
+    # # get minimum values of d for every column
+    # seq = np.linspace(0, 1, 16)
+    # min_d = data[stationaryCols].apply(lambda x: min_ffd_value(x.to_frame(), seq))
 
     # make stationary spy
     dataStationary = data[stationaryCols].loc[:, min_d > 0]
