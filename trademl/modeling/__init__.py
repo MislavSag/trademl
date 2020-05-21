@@ -15,6 +15,6 @@ from trademl.modeling.utils import (
 from trademl.modeling.features import (
     add_ind, add_ind_df, add_technical_indicators, add_fourier_transform)
 from trademl.modeling.backtest import (
-    cumulative_returns, cumulative_returns_tb, minute_to_daily_return)
+    cumulative_returns, hold_cash_backtest)
 from trademl.modeling.pipelines import (
     TripleBarierLabeling, OutlierStdRemove)
