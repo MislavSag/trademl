@@ -3,6 +3,8 @@ import numpy as np
 from numpy.fft import fft, ifft
 # from mlfinlab.features.fracdiff import frac_diff_ffd
 from statsmodels.tsa.stattools import adfuller
+import numba
+from numba import njit
 # import matplotlib.pyplot as plt
 #### PERFORMANCE !!! FROM 
 # https://github.com/cottrell/fractional-differentiation-time-series/blob/master/fracdiff/fracdiff.py
@@ -11,7 +13,9 @@ from statsmodels.tsa.stattools import adfuller
 # https://github.com/SimonOuellette35/FractionalDiff/blob/master/question2.py
 
 
+### PARAMETER
 _default_thresh = 1e-4
+
 
 def get_weights(d, size):
     """Expanding window fraction difference weights."""
@@ -21,8 +25,6 @@ def get_weights(d, size):
         w.append(w_)
     w = np.array(w[::-1]).reshape(-1, 1)
     return w
-
-import numba
 
 @numba.njit
 def get_weights_ffd(d, thres, lim=99999):
