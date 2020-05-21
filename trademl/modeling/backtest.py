@@ -17,41 +17,11 @@ def cumulative_returns(close, raw=True):
     return close.dropna()
 
 
-def cumulative_returns_tb(trbar_info, predictions, bet_sizes=None, time_index=True):
-    """
-    
-    """
-    
-    return_adj = np.where(
-        predictions == trbar_info['bin'],
-        trbar_info['ret'].abs(), -(trbar_info['ret'].abs()))
-    if bet_sizes is not None:
-        return_adj = return_adj * bet_sizes
-    if time_index:
-        return_adj = pd.Series(return_adj, index=trbar_info.t1) #.to_frame()
-        return_adj.index.name = None
-    else:
-        return_adj = pd.Series(return_adj)
-    perf = cumulative_returns(return_adj, raw=False)
-    return perf.rename('cumulative_return', inplace=True)
-
-
-def minute_to_daily_return(trbar_info, predictions, bet_sizes=None):
-    return_adj = np.where(
-        predictions == trbar_info['bin'],
-        trbar_info['ret'].abs(), -(trbar_info['ret'].abs()))
-    if bet_sizes is not None:
-        return_adj = return_adj * bet_sizes
-    return_adj = pd.Series(return_adj, index=trbar_info.t1)
-    daily_returns = (1 + return_adj).resample('B').prod() - 1
-    return daily_returns
-
-
 @njit
 def enter_positions(positions):
     for i in range(positions.shape[0]): # postitions.shape[0]
         if i > 0:
-            if (positions[i-1, 1] == -1):
+            if (positions[i, 1] == -1):
                 positions[i, 1] = -1
             elif (positions[i-1, 1] == -1) & (np.isnan(positions[i, 1])):
                 positions[i, 1] = -1
@@ -60,3 +30,30 @@ def enter_positions(positions):
         else:
             positions[i, 1] = 1
     return positions
+
+
+def hold_cash_backtest(close, signs):
+    """
+    Backtest strategy that has only two positions; holding asset or cash position.
+
+    :param close: (pd.seires) of true close prices
+    :param signs: (pd.Series) of signs (1 - holding, 0 -cash) 
+    :param result: ()
+    """
+    # true cumulative returns
+    close_cum = cumulative_returns(close)
+
+    # concat close true and predictions
+    positions = pd.concat([close, signs.rename('position')], axis=1)
+    
+    # enter posistions for all dates: nter -1 untill 1 appears, vice versa
+    predictions = enter_positions(positions.values)
+    predictions = pd.DataFrame(predictions, index=close.index, columns=['close', 'position'])
+    
+    # calculate returns of the strategy
+    predictions['adjusted_close'] = np.where(predictions.position == 1, predictions.close, np.nan)
+    predictions['return'] = predictions['adjusted_close'].pct_change(fill_method=None)
+    predictions['cum_return'] = (1 + predictions['return']).cumprod()
+    true_vs_pred = pd.concat([close_cum, predictions], axis=1)
+
+    return true_vs_pred
