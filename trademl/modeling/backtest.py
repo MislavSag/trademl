@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import numba
+from numba import njit
 
 
 def cumulative_returns(close, raw=True):
