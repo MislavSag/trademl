@@ -161,40 +161,9 @@ tml.modeling.metrics_summary.plot_roc_curve(
 
 
 ### FEATURE SELECTION
-def feature_importance(clf, X_train, y_train):
-
-    # clone clf to not change it
-    clf_ = sklearn.clone(clf)
-    clf_.fit(X_train, y_train)
-
-    # SHAPE values
-    explainer = shap.TreeExplainer(model=clf_, model_output='raw')
-    shap_values = explainer.shap_values(X_train)
-
-    return shap_values
-
-
-def feature_importnace_vec(shap_val):
-    # SHAP values
-    vals= np.abs(shap_val).mean(0)
-    feature_importance = pd.DataFrame(
-        list(zip(X_train.columns, sum(vals))),
-        columns=['col_name','feature_importance_vals'])
-    feature_importance.sort_values(
-        by=['feature_importance_vals'], ascending=False, inplace=True)
-    return feature_importance
-
-
-def plot_feature_importance(shap_val):
-    # SHAP values
-    shap.initjs()
-    shap.summary_plot(shap_val, X_train, plot_type='bar', max_display=25)
-
-
-fmp = tml.modeling.feature_importance.feature_importance(clf, X_train, y_train)
-fpm = feature_importance(clf, X_train, y_train)
-fpmv = feature_importnace_vec(shap_val=fpm)
-plot_feature_importance(shap_val=fpm)
+fival = feature_importance_values(clf, X_train, y_train)  #tml.modeling.feature_importance.
+fivec = feature_importnace_vec(fival, X_train)
+plot_feature_importance(fival, X_train)
 
 
 ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
@@ -208,11 +177,11 @@ plot_feature_importance(shap_val=fpm)
 
 
 ### SAVE THE MODEL AND FEATURES
-joblib.dump(clf, "rf_model.pkl")
-pd.Series(X_train.columns).to_csv('feature_names.csv', sep=',')
-serialized_model = serialize_random_forest(clf)
-with open('rf_model.json', 'w') as f:
-    json.dump(serialized_model, f)
+# joblib.dump(clf, "rf_model.pkl")
+# pd.Series(X_train.columns).to_csv('feature_names.csv', sep=',')
+# serialized_model = serialize_random_forest(clf)
+# with open('rf_model.json', 'w') as f:
+#     json.dump(serialized_model, f)
 
 
 ### BACKTESTING (RADI)
