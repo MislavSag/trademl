@@ -4,7 +4,7 @@ import sklearn
 import shap
 
 
-def feature_importance(clf, X_train, y_train):
+def feature_importance_values(clf, X_train, y_train):
 
     # clone clf to not change it
     clf_ = sklearn.clone(clf)
