@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import sklearn
+import shap
 
 
 def feature_importance(clf, X_train, y_train):
@@ -16,7 +17,7 @@ def feature_importance(clf, X_train, y_train):
     return shap_values
 
 
-def feature_importnace_vec(shap_val):
+def feature_importnace_vec(shap_val, X_train):
     # SHAP values
     vals= np.abs(shap_val).mean(0)
     feature_importance = pd.DataFrame(
@@ -27,7 +28,7 @@ def feature_importnace_vec(shap_val):
     return feature_importance
 
 
-def plot_feature_importance(shap_val):
+def plot_feature_importance(shap_val, X_train):
     # SHAP values
     shap.initjs()
     shap.summary_plot(shap_val, X_train, plot_type='bar', max_display=25)
