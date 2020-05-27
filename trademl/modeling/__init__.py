@@ -17,7 +17,7 @@ from trademl.modeling.backtest import (
 from trademl.modeling.pipelines import (
     TripleBarierLabeling, OutlierStdRemove)
 from trademl.modeling.feature_importance import (
-    feature_importance, feature_importnace_vec, plot_feature_importance)
+    feature_importance_values, feature_importnace_vec, plot_feature_importance)
 from trademl.modeling.utils import (
     serialize_random_forest
 )
