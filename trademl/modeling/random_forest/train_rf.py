@@ -167,21 +167,14 @@ plot_feature_importance(fival, X_train)
 
 
 ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
-# X_train_important = X_train[fpmv['col_name'].head(25)]
-# X_test_important = X_test[fpmv['col_name'].head(25)]
-# clf_important = clf.fit(X_train_important, y_train)
-# tml.modeling.metrics_summary.clf_metrics(
-#     clf, X_train, X_test, y_train, y_test, avg='binary')  # HAVE TO FIX
-# tml.modeling.metrics_summary.plot_roc_curve(
-#     clf_important, X_train_important, X_test_important, y_train, y_test)
-
-
-### SAVE THE MODEL AND FEATURES
-# joblib.dump(clf, "rf_model.pkl")
-# pd.Series(X_train.columns).to_csv('feature_names.csv', sep=',')
-# serialized_model = serialize_random_forest(clf)
-# with open('rf_model.json', 'w') as f:
-#     json.dump(serialized_model, f)
+X_train_important = X_train[fivec['col_name'].head(25)]
+X_test_important = X_test[fivec['col_name'].head(25)]
+clf_important = clf.fit(X_train_important, y_train)
+tml.modeling.metrics_summary.clf_metrics(
+    clf_important, X_train_important,
+    X_test_important, y_train, y_test, avg='binary')  # HAVE TO FIX
+tml.modeling.metrics_summary.plot_roc_curve(
+    clf_important, X_train_important, X_test_important, y_train, y_test)
 
 
 ### BACKTESTING (RADI)
@@ -195,6 +188,23 @@ predictions = pd.Series(clf.predict(X_test), index=X_test.index)
 # plot cumulative returns
 hold_cash = tml.modeling.backtest.hold_cash_backtest(close, predictions)
 hold_cash[['close_orig', 'cum_return']].plot()
+
+# VECTORBT
+positions = pd.concat([close, predictions.rename('position')], axis=1)
+positions = enter_positions(positions.values)
+positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
+entries = (positions[['position']] == 1).vbt.signals.first() # buy at first 1
+exits = (positions[['position']] == -1).vbt.signals.first() # sell at first 0
+portfolio = vbt.Portfolio.from_signals(close, entries, exits)
+print(portfolio.total_return)
+
+
+### SAVE THE MODEL AND FEATURES
+joblib.dump(clf, "rf_model_25.pkl")
+pd.Series(X_train_important.columns).to_csv('feature_names_25.csv', sep=',')
+serialized_model = tml.modeling.utils.serialize_random_forest(clf)
+with open('rf_model_25.json', 'w') as f:
+    json.dump(serialized_model, f)
 
 
 ### BACKTEST STATISTICS 
@@ -249,3 +259,18 @@ hold_cash[['close_orig', 'cum_return']].plot()
 # returns = hold_cash['return'].dropna()
 # price_series = hold_cash['adjusted_close'].dropna()
 # backtest_stat(returns)
+
+
+############## TEST
+# model_features = pd.Series(X_train.columns)
+# min_d = pd.read_csv('min_d.csv', sep=';', names=['feature', 'value'])
+# min_d = min_d[1:]
+# min_d_close = min_d.loc[(min_d['feature'] == 'close') | (min_d['feature'] == 'open'), ['feature', 'value']]
+# min_d_close.set_index(min_d_close['feature'], inplace=True)
+# min_d_close = min_d_close['value']
+# min_d.set_index(min_d['feature'], inplace=True)
+
+# tripple barrier vector vs backtest
+# tb_fit.triple_barrier_info
+# tb_fit.triple_barrier_info.loc['2016-07-07 00:00:00':]
+############## TEST
