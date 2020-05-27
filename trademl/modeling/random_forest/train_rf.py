@@ -161,9 +161,11 @@ tml.modeling.metrics_summary.plot_roc_curve(
 
 
 ### FEATURE SELECTION
-fival = feature_importance_values(clf, X_train, y_train)  #tml.modeling.feature_importance.
-fivec = feature_importnace_vec(fival, X_train)
-plot_feature_importance(fival, X_train)
+fival = tml.modeling.feature_importance.feature_importance_values(
+    clf, X_train, y_train)
+fivec = tml.modeling.feature_importance.feature_importnace_vec(
+    fival, X_train)
+tml.modeling.feature_importance.plot_feature_importance(fival, X_train)
 
 
 ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
@@ -271,6 +273,6 @@ with open('rf_model_25.json', 'w') as f:
 # min_d.set_index(min_d['feature'], inplace=True)
 
 # tripple barrier vector vs backtest
-# tb_fit.triple_barrier_info
-# tb_fit.triple_barrier_info.loc['2016-07-07 00:00:00':]
+tb_fit.triple_barrier_info
+tb_fit.triple_barrier_info.loc['2016-07-07 00:00:00':]
 ############## TEST

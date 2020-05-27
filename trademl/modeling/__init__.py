@@ -13,7 +13,7 @@ from trademl.modeling.stationarity import (
 from trademl.modeling.utils import (
     cbind_pandas_h2o)
 from trademl.modeling.backtest import (
-    cumulative_returns, hold_cash_backtest)
+    cumulative_returns, hold_cash_backtest, enter_positions)
 from trademl.modeling.pipelines import (
     TripleBarierLabeling, OutlierStdRemove)
 from trademl.modeling.feature_importance import (
