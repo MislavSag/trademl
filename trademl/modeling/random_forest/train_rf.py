@@ -208,7 +208,7 @@ exits = (positions[['position']] == -1).vbt.signals.first() # sell at first 0
 portfolio = vbt.Portfolio.from_signals(close, entries, exits,
                                        slippage=vectorbt_slippage,
                                        fees=vectorbt_fees)
-print(portfolio.total_return)
+print(f'vectorbt_total_return: {portfolio.total_return}')
 
 #TRIPLE-BARRIER BACKTEST
 tbpred = tb_fit.triple_barrier_info.loc[predictions.index]
