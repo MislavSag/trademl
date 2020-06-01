@@ -1,12 +1,11 @@
-# fundamental modules
+import glob
+import os
 import numpy as np
 import pandas as pd
+from numba import njit
 from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib import pyplot
-# my functions
-# from features import add_technical_indicators
-# from stationarity import min_ffd_plot, min_ffd_value, unstat_cols_to_stat
 from mlfinlab.structural_breaks import (
     get_chu_stinchcombe_white_statistics,
     get_chow_type_stat, get_sadf)
@@ -14,9 +13,9 @@ import mlfinlab as ml
 import trademl as tml
 
 
-### GLOBAL (CONFIGS)
+### GLOBAL
 
-DATA_PATH = 'C:/Users/Mislav/algoAItrader/data/'
+DATA_PATH = 'D:/market_data/usa/'
 
 
 ### PANDAS OPTIONS
@@ -28,107 +27,130 @@ pd.set_option('display.width', 1000)
 
 ### IMPORT DATA
 
-spy = Path(DATA_PATH + 'spy.h5')
-with pd.HDFStore(spy) as store:
-    spy = store.get('spy')
-spy.drop(columns=['average', 'barCount', 'vixAverage', 'vixBarCount'],
-         inplace=True)  # from IB, remove for now
+# SPY
+spy_store = Path('C:/Users/Mislav/algoAItrader/data/' + 'spy.h5')
+with pd.HDFStore(spy_store) as store:
+    data = store.get('spy')
+data.sort_index(inplace=True)
+data.drop(columns=['average', 'barCount', 'vixAverage', 'vixBarCount'],
+          inplace=True)  # from IB, remove for now
+
+
+# NON SPY
+# paths = glob.glob(DATA_PATH + 'ohlcv/*')
+# contracts = [os.path.basename(p).replace('.h5', '') for p in paths]
+# with pd.HDFStore(paths[0]) as store:
+#     data = store.get(contracts[0])
+
+# # clean initial tabl;e
+# data.set_index(data.date, inplace=True)
+# data.drop(columns=['date', 'ticker'], inplace=True)
+# data['volume'] = data['volume'].astype(float)
 
     
 # ADD FEATURES
 
 # add technical indicators
 periods = [5, 30, 60, 300, 480, 2400, 12000, 96000]
-spy = tml.modeling.features.add_technical_indicators(spy, periods=periods)
-spy.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in spy.columns]
-spy.isna().sum().sort_values()
-spy.drop(columns=['T396000'], inplace=True)
+data = tml.modeling.features.add_technical_indicators(data, periods=periods)
+data.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in data.columns]
 
 # add ohlc transformations
-spy['high_low'] = spy['high'] - spy['low']
-spy['close_open'] = spy['close'] - spy['open']
+data['high_low'] = data['high'] - data['low']
+data['close_open'] = data['close'] - data['open']
 
 # simple momentum
-spy['mom1'] = spy['close'].pct_change(periods=1)
-spy['mom2'] = spy['close'].pct_change(periods=2)
-spy['mom3'] = spy['close'].pct_change(periods=3)
-spy['mom4'] = spy['close'].pct_change(periods=4)
-spy['mom5'] = spy['close'].pct_change(periods=5)
+data['mom1'] = data['close'].pct_change(periods=1)
+data['mom2'] = data['close'].pct_change(periods=2)
+data['mom3'] = data['close'].pct_change(periods=3)
+data['mom4'] = data['close'].pct_change(periods=4)
+data['mom5'] = data['close'].pct_change(periods=5)
 
 # Volatility
-spy['volatility_60'] = np.log(spy['close']).diff().rolling(
+data['volatility_60'] = np.log(data['close']).diff().rolling(
     window=60, min_periods=60, center=False).std()
-spy['volatility_30'] = np.log(spy['close']).diff().rolling(
+data['volatility_30'] = np.log(data['close']).diff().rolling(
     window=30, min_periods=30, center=False).std()
-spy['volatility_15'] = np.log(spy['close']).diff().rolling(
+data['volatility_15'] = np.log(data['close']).diff().rolling(
     window=15, min_periods=15, center=False).std()
-spy['volatility_10'] = np.log(spy['close']).diff().rolling(
+data['volatility_10'] = np.log(data['close']).diff().rolling(
     window=10, min_periods=10, center=False).std()
-spy['volatility_5'] =np.log(spy['close']).diff().rolling(
+data['volatility_5'] =np.log(data['close']).diff().rolling(
     window=5, min_periods=5, center=False).std()
 
 # Serial Correlation (Takes time)
 window_autocorr = 50
 
-spy['autocorr_1'] = np.log(spy['close']).diff().rolling(
+data['autocorr_1'] = np.log(data['close']).diff().rolling(
     window=window_autocorr, min_periods=window_autocorr,
     center=False).apply(lambda x: x.autocorr(lag=1), raw=False)
-spy['autocorr_2'] = np.log(spy['close']).diff().rolling(
+data['autocorr_2'] = np.log(data['close']).diff().rolling(
     window=window_autocorr, min_periods=window_autocorr,
     center=False).apply(lambda x: x.autocorr(lag=2), raw=False)
-spy['autocorr_3'] = np.log(spy['close']).diff().rolling(
+data['autocorr_3'] = np.log(data['close']).diff().rolling(
     window=window_autocorr, min_periods=window_autocorr,
     center=False).apply(lambda x: x.autocorr(lag=3), raw=False)
-spy['autocorr_4'] = np.log(spy['close']).diff().rolling(
+data['autocorr_4'] = np.log(data['close']).diff().rolling(
     window=window_autocorr, min_periods=window_autocorr,
     center=False).apply(lambda x: x.autocorr(lag=4), raw=False)
-spy['autocorr_5'] = np.log(spy['close']).diff().rolling(
+data['autocorr_5'] = np.log(data['close']).diff().rolling(
     window=window_autocorr, min_periods=window_autocorr,
     center=False).apply(lambda x: x.autocorr(lag=5), raw=False)
 
 # Skewness
-spy['skew_60'] = np.log(spy['close']).diff().rolling(
+data['skew_60'] = np.log(data['close']).diff().rolling(
     window=60, min_periods=60, center=False).skew()
-spy['skew_30'] = np.log(spy['close']).diff().rolling(
+data['skew_30'] = np.log(data['close']).diff().rolling(
     window=30, min_periods=30, center=False).skew()
-spy['skew_15'] = np.log(spy['close']).diff().rolling(
+data['skew_15'] = np.log(data['close']).diff().rolling(
     window=15, min_periods=15, center=False).skew()
-spy['skew_10'] = np.log(spy['close']).diff().rolling(
+data['skew_10'] = np.log(data['close']).diff().rolling(
     window=10, min_periods=10, center=False).skew()
-spy['skew_5'] =np.log(spy['close']).diff().rolling(
+data['skew_5'] =np.log(data['close']).diff().rolling(
     window=5, min_periods=5, center=False).skew()
 
 # kurtosis
-spy['kurtosis_60'] = np.log(spy['close']).diff().rolling(
+data['kurtosis_60'] = np.log(data['close']).diff().rolling(
     window=60, min_periods=60, center=False).kurt()
-spy['kurtosis_30'] = np.log(spy['close']).diff().rolling(
+data['kurtosis_30'] = np.log(data['close']).diff().rolling(
     window=30, min_periods=30, center=False).kurt()
-spy['kurtosis_15'] = np.log(spy['close']).diff().rolling(
+data['kurtosis_15'] = np.log(data['close']).diff().rolling(
     window=15, min_periods=15, center=False).kurt()
-spy['kurtosis_10'] = np.log(spy['close']).diff().rolling(
+data['kurtosis_10'] = np.log(data['close']).diff().rolling(
     window=10, min_periods=10, center=False).kurt()
-spy['kurtosis_5'] =np.log(spy['close']).diff().rolling(
+data['kurtosis_5'] =np.log(data['close']).diff().rolling(
     window=5, min_periods=5, center=False).kurt()
 
 # remove na
-spy.isna().sum().sort_values(ascending=False).head(20)
-cols_remove_na = range((np.where(spy.columns == 'vixVolume')[0].item() + 1), spy.shape[1])
-spy.dropna(subset=spy.columns[cols_remove_na], inplace=True)
+data.isna().sum().sort_values(ascending=False).head(20)
+data.drop(columns=['T396000'], inplace=True)  # T396000 575994, TRIX96000 TEMA96000 ADXR96000 287998, ADX96000 DEMA96000 191998
+# T312000 71994, ADXR12000 TRIX12000  35998, TEMA12000 35997, ADX12000 APO_5 23999, DEMA12000 23998, T32400 14394
+# data.drop(columns=['T312000', 'ADXR12000', 'TRIX12000', 'TEMA12000', 'ADX12000', 'APO_5', 
+#                    'DEMA12000', 'T32400'], inplace=True)
+cols_remove_na = range((np.where(data.columns == 'volume')[0].item() + 1), data.shape[1])
+data.dropna(subset=data.columns[cols_remove_na], inplace=True)
 
 
 ###  STATIONARITY
+ohlc = data[['open', 'high', 'low', 'close']]  # save for later
+ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig']
+# get dmin for every column
+stationaryCols, min_d = min_ffd_all_cols(data)
 
-spy_with_vix = tml.modeling.stationarity.unstat_cols_to_stat(spy)
-spy_with_vix.dropna(inplace=True)
+# save to github for later 
+min_dmin_d_save_for_backtesting = pd.Series(0, index=data.columns)
+min_dmin_d_save_for_backtesting.update(min_d)
+min_dmin_d_save_for_backtesting.dropna(inplace=True)
+min_dmin_d_save_for_backtesting.to_csv('min_d.csv', sep=';')
 
+# convert unstationary to stationary
+data = unstat_cols_to_stat(data, min_d, stationaryCols)  # tml.modeling.stationarity.unstat_cols_to_stat
+data.dropna(inplace=True)
 
 # merge orig ohlc to spyStat
-ohlc = spy[['open', 'high', 'low', 'close']]
-ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig']
-spy_with_vix = spy_with_vix.merge(ohlc, how='left', left_index=True, right_index=True)
-print(spy_with_vix.shape)
-display(spy_with_vix.head())
-display(spy_with_vix.tail())
+data = data.merge(ohlc, how='left', left_index=True, right_index=True)
+data.head()
+data.tail()
 
 
 ### STRUCTURAL BRAKES
@@ -203,12 +225,12 @@ def get_chow_type_stat(series: pd.Series, min_length: int = 20) -> pd.Series:
     return dfc_series
 
 
-chow = get_chow_type_stat(series=spy_with_vix['close_orig'], min_length=20)
+# chow = get_chow_type_stat(series=spy_with_vix['close_orig'], min_length=20)
 
 
 ### SAVE SPY WITH VIX
 
 # save SPY
-spy_with_vix_path = DATA_PATH + '/spy_with_vix.h5'
-with pd.HDFStore(spy_with_vix_path) as store:
-    store.put(' ', spy_with_vix)
+save_path = DATA_PATH + 'ohlcv_features/' + 'SPY' + '.h5'
+with pd.HDFStore(save_path) as store:
+    store.put('SPY', data)
