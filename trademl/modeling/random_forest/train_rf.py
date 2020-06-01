@@ -56,7 +56,7 @@ tb_volatility_lookback = 50
 tb_volatility_scaler = 1
 tb_triplebar_num_days = 3
 tb_triplebar_pt_sl = [1, 1]
-tb_triplebar_min_ret = 0.003
+tb_triplebar_min_ret = 0.004
 sample_weights_type = 'returns'
 cv_type = 'purged_kfold'
 cv_number = 4
@@ -169,8 +169,8 @@ tml.modeling.feature_importance.plot_feature_importance(fival, X_train)
 
 
 ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
-X_train_important = X_train[fivec['col_name'].head(25)]
-X_test_important = X_test[fivec['col_name'].head(25)]
+X_train_important = X_train[fivec['col_name'].head(25)].drop(columns=['STOCHRSI_96000_fastk'])
+X_test_important = X_test[fivec['col_name'].head(25)].drop(columns=['STOCHRSI_96000_fastk'])
 clf_important = clf.fit(X_train_important, y_train)
 tml.modeling.metrics_summary.clf_metrics(
     clf_important, X_train_important,
@@ -186,7 +186,7 @@ tml.modeling.metrics_summary.plot_roc_curve(
 time_range = pd.date_range(X_test.index[0], X_test.index[-1], freq='1Min')
 close = data.close_orig.reindex(time_range).to_frame().dropna()
 # predictions on test set
-predictions = pd.Series(clf.predict(X_test), index=X_test.index)
+predictions = pd.Series(clf.predict(X_test_important), index=X_test_important.index)
 # plot cumulative returns
 hold_cash = tml.modeling.backtest.hold_cash_backtest(close, predictions)
 hold_cash[['close_orig', 'cum_return']].plot()
@@ -197,16 +197,21 @@ positions = enter_positions(positions.values)
 positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
 entries = (positions[['position']] == 1).vbt.signals.first() # buy at first 1
 exits = (positions[['position']] == -1).vbt.signals.first() # sell at first 0
-portfolio = vbt.Portfolio.from_signals(close, entries, exits)
+portfolio = vbt.Portfolio.from_signals(close, entries, exits, slippage=0.0025, fees=0)
 print(portfolio.total_return)
+
+#TRIPLE-BARRIER BACKTEST
+tbpred = tb_fit.triple_barrier_info.loc[predictions.index]
+tbpred['ret_adj'] = np.where(tbpred['bin']==predictions, np.abs(tbpred['ret']), -np.abs(tbpred['ret']))
+print((1 + tbpred['ret_adj']).cumprod().iloc[-1])
 
 
 ### SAVE THE MODEL AND FEATURES
-joblib.dump(clf, "rf_model_25.pkl")
-pd.Series(X_train_important.columns).to_csv('feature_names_25.csv', sep=',')
-serialized_model = tml.modeling.utils.serialize_random_forest(clf)
-with open('rf_model_25.json', 'w') as f:
-    json.dump(serialized_model, f)
+# joblib.dump(clf, "rf_model_25.pkl")
+# pd.Series(X_train_important.columns).to_csv('feature_names_25.csv', sep=',')
+# serialized_model = tml.modeling.utils.serialize_random_forest(clf)
+# with open('rf_model_25.json', 'w') as f:
+#     json.dump(serialized_model, f)
 
 
 ### BACKTEST STATISTICS 
@@ -273,6 +278,46 @@ with open('rf_model_25.json', 'w') as f:
 # min_d.set_index(min_d['feature'], inplace=True)
 
 # tripple barrier vector vs backtest
-tb_fit.triple_barrier_info
-tb_fit.triple_barrier_info.loc['2016-07-07 00:00:00':]
+# tb_fit.triple_barrier_info
+# tb_fit.triple_barrier_info.loc['2019-01-01 00:00:00':]
+# tb_fit.triple_barrier_info.loc['2016-07-07']
+# tb_fit.triple_barrier_info.loc['2016-07-07 00:00:00':].shape
+# 1000000 / 200
+# costs_per_transaction = (1000000 / 200) * 0.05
+# costs_per_transaction * tb_fit.triple_barrier_info.loc['2016-07-07 00:00:00':].shape[0]
+
+# # test multiplie orders
+# data.close_orig
+# test = ml.util.get_daily_vol(data.close_orig, lookback=50)
+# test[tb_fit.triple_barrier_info.index]
+
+# # extract close series
+# close_test = data.close_orig
+
+# # Compute volatility
+# daily_vol_test = ml.util.get_daily_vol(close_test, lookback=50)
+
+# # Apply Symmetric CUSUM Filter and get timestamps for events
+# cusum_events_test = ml.filters.cusum_filter(close_test,
+#     threshold=daily_vol_test.mean()*1)
+
+# # Compute vertical barrier
+# vertical_barriers_test = ml.labeling.add_vertical_barrier(
+#     t_events=cusum_events_test,
+#     close=close_test,
+#     num_days=2) 
+
+# # tripple barier events
+# triple_barrier_events_test = ml.labeling.get_events(
+#     close=close_test,
+#     t_events=cusum_events_test,
+#     pt_sl=[1, 1],
+#     target=daily_vol_test,
+#     min_ret=0.01,
+#     num_threads=1,
+#     vertical_barrier_times=vertical_barriers)
+
+# # labels
+# labels = ml.labeling.get_bins(triple_barrier_events, close)
+# labels = ml.labeling.drop_labels(labels)
 ############## TEST
