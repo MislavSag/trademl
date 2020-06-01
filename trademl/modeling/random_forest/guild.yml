@@ -4,8 +4,8 @@
     train:
       description: Trainer for random forest  
       main: train_rf  # Python module when running the operation
-      flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
-      flags‑import: all
+      # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
+      # flags‑import: all
       flags:
         std_outlier:
           description: Standard devaition threshold. Remove observations from X above/below std_oulier
