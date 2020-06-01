@@ -12,7 +12,7 @@ def display_mental_model_metrics(actual, pred):
     print(accuracy_score(actual, pred))
 
 
-def clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='binary'):
+def clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='binary', prefix=''):
     """
     Show main matrics from classification: accuracy, precision, recall, 
     confusion matrix.
@@ -24,20 +24,20 @@ def clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='binary'):
     predictions_test = fitted_model.predict(X_test)
     print(f'Confusion matrix train: \n{confusion_matrix(y_train, predictions_train)}')
     print(f'Confusion matrix test: \n{confusion_matrix(y_test, predictions_test)}')
-    print(f'accuracy_train: {accuracy_score(y_train, predictions_train)}')
-    print(f'accuracy_test: {accuracy_score(y_test, predictions_test)}')
-    print(f"recall_train: {recall_score(y_train, predictions_train, average=avg)}")
-    print(f"recall_test: {recall_score(y_test, predictions_test, average=avg)}")
-    print(f"precision_train: {precision_score(y_train, predictions_train, average=avg)}")
-    print(f"precisoin_test: {precision_score(y_test, predictions_test, average=avg)}")
-    print(f"f1_train: {f1_score(y_train, predictions_train, average=avg)}")
-    print(f"f1_test: {f1_score(y_test, predictions_test, average=avg)}")
+    print(f'{prefix}_accuracy_train: {accuracy_score(y_train, predictions_train)}')
+    print(f'{prefix}_accuracy_test: {accuracy_score(y_test, predictions_test)}')
+    print(f"{prefix}_recall_train: {recall_score(y_train, predictions_train, average=avg)}")
+    print(f"{prefix}_recall_test: {recall_score(y_test, predictions_test, average=avg)}")
+    print(f"{prefix}_precision_train: {precision_score(y_train, predictions_train, average=avg)}")
+    print(f"{prefix}_precisoin_test: {precision_score(y_test, predictions_test, average=avg)}")
+    print(f"{prefix}_f1_train: {f1_score(y_train, predictions_train, average=avg)}")
+    print(f"{prefix}_f1_test: {f1_score(y_test, predictions_test, average=avg)}")
     # if binary:
     # print(f'True values: ', y_test.iloc[:10].values)
     # print(f'Predictions: ', predictions_train[:10])
 
 
-def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test):
+def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test, suffix=''):
     """
     Show main matrics from classification: accuracy, precision, recall, 
     confusion matrix.
@@ -54,7 +54,7 @@ def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test):
     plt.plot(fpr_rf, tpr_rf, label='Train set ')
     plt.xlabel('False positive rate')
     plt.ylabel('True positive rate')
-    plt.title('ROC curve')
+    plt.title(f'ROC curve {suffix}')
     plt.legend(loc='best')
     plt.show()
     
@@ -67,7 +67,7 @@ def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test):
     plt.plot(fpr_rf, tpr_rf, label='Test set ')
     plt.xlabel('False positive rate')
     plt.ylabel('True positive rate')
-    plt.title('ROC curve')
+    plt.title(f'ROC curve {suffix}')
     plt.legend(loc='best')
     plt.show()
     

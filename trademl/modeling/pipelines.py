@@ -8,7 +8,7 @@ import mlfinlab as ml
 class TripleBarierLabeling(BaseEstimator, TransformerMixin):
 
     def __init__(self, close_name='close', volatility_lookback=50,
-                 volatility_scaler=1, triplebar_num_days=3,
+                 volatility_scaler=1, triplebar_num_days=5,
                  triplebar_pt_sl=[1, 1], triplebar_min_ret=0.003,
                  num_threads=1):
         # hyperparameters for all functions

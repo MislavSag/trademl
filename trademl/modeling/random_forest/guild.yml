@@ -3,9 +3,19 @@
   operations:
     train:
       description: Trainer for random forest  
-      main: train_rf
+      main: train_rf  # Python module when running the operation
+      flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
+      flags‑import: all
       flags:
         std_outlier:
           description: Standard devaition threshold. Remove observations from X above/below std_oulier
           min: 2
           max: 20
+        tb_volatility_scaler:
+          description: Scalar which multiplies daily_vol to make sampling more/less frequent
+          min: .1
+          max: 3
+        max_depth:
+          description: Maximum depth for the tree in random forest algorithm
+          min: 1
+          max: 10

@@ -65,6 +65,9 @@ max_depth = 2
 rand_state = 3
 n_estimators = 1000
 remove_ind_with_high_period = True
+keep_important_features = 25
+vectorbt_slippage = 0.0015
+vectorbt_fees = 0.0015
 
 
 ### REMOVE INDICATORS WITH HIGH PERIOD
@@ -169,14 +172,19 @@ tml.modeling.feature_importance.plot_feature_importance(fival, X_train)
 
 
 ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
-X_train_important = X_train[fivec['col_name'].head(25)].drop(columns=['STOCHRSI_96000_fastk'])
-X_test_important = X_test[fivec['col_name'].head(25)].drop(columns=['STOCHRSI_96000_fastk'])
+X_train_important = X_train[
+    fivec['col_name'].
+    head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
+X_test_important = X_test[
+    fivec['col_name'].
+    head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
 clf_important = clf.fit(X_train_important, y_train)
 tml.modeling.metrics_summary.clf_metrics(
     clf_important, X_train_important,
-    X_test_important, y_train, y_test, avg='binary')  # HAVE TO FIX
+    X_test_important, y_train, y_test, avg='binary', prefix='fi')
 tml.modeling.metrics_summary.plot_roc_curve(
-    clf_important, X_train_important, X_test_important, y_train, y_test)
+    clf_important, X_train_important, X_test_important,
+    y_train, y_test, suffix=' with importnat features')
 
 
 ### BACKTESTING (RADI)
@@ -193,17 +201,20 @@ hold_cash[['close_orig', 'cum_return']].plot()
 
 # VECTORBT
 positions = pd.concat([close, predictions.rename('position')], axis=1)
-positions = enter_positions(positions.values)
+positions = tml.modeling.backtest.enter_positions(positions.values)
 positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
 entries = (positions[['position']] == 1).vbt.signals.first() # buy at first 1
 exits = (positions[['position']] == -1).vbt.signals.first() # sell at first 0
-portfolio = vbt.Portfolio.from_signals(close, entries, exits, slippage=0.0025, fees=0)
+portfolio = vbt.Portfolio.from_signals(close, entries, exits,
+                                       slippage=vectorbt_slippage,
+                                       fees=vectorbt_fees)
 print(portfolio.total_return)
 
 #TRIPLE-BARRIER BACKTEST
 tbpred = tb_fit.triple_barrier_info.loc[predictions.index]
 tbpred['ret_adj'] = np.where(tbpred['bin']==predictions, np.abs(tbpred['ret']), -np.abs(tbpred['ret']))
-print((1 + tbpred['ret_adj']).cumprod().iloc[-1])
+total_return = (1 + tbpred['ret_adj']).cumprod().iloc[-1]
+print(f'tb_return_nofees_noslippage: {total_return}')
 
 
 ### SAVE THE MODEL AND FEATURES
