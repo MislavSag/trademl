@@ -53,10 +53,11 @@ data['close_orig'] = data['close']  # with original close reslts are pretty bad!
 ### NON-MODEL HYPERPARAMETERS
 std_outlier = 10
 tb_volatility_lookback = 50
-tb_volatility_scaler = 1
-tb_triplebar_num_days = 3
-tb_triplebar_pt_sl = [1, 1]
-tb_triplebar_min_ret = 0.004
+tb_volatility_scaler = 2
+tb_triplebar_num_days = 90
+tb_triplebar_pt_sl = [10, 10]
+tb_triplebar_min_ret = 0.005
+tb_min_pct = 0.010
 sample_weights_type = 'returns'
 cv_type = 'purged_kfold'
 cv_number = 4
@@ -91,10 +92,13 @@ triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
     triplebar_num_days=tb_triplebar_num_days,
     triplebar_pt_sl=tb_triplebar_pt_sl,
     triplebar_min_ret=tb_triplebar_min_ret,
-    num_threads=1
+    num_threads=1,
+    min_pct=tb_min_pct
 )
 tb_fit = triple_barrier_pipe.fit(data)
 X = tb_fit.transform(data)
+
+tb_fit.triple_barrier_info.bin.value_counts()
 
 
 ### TRAIN TEST SPLIT

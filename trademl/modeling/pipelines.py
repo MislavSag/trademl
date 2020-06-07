@@ -10,7 +10,7 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
     def __init__(self, close_name='close', volatility_lookback=50,
                  volatility_scaler=1, triplebar_num_days=5,
                  triplebar_pt_sl=[1, 1], triplebar_min_ret=0.003,
-                 num_threads=1):
+                 num_threads=1, tb_min_pct=0.05):
         # hyperparameters for all functions
         self.close_name = close_name
         self.volatility_lookback = volatility_lookback
@@ -19,6 +19,7 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         self.triplebar_pt_sl = triplebar_pt_sl
         self.triplebar_min_ret = triplebar_min_ret
         self.num_threads = num_threads
+        self.min_pct = tb_min_pct
 
     def fit(self, X, y=None):
         
@@ -53,7 +54,7 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         
         # labels
         labels = ml.labeling.get_bins(triple_barrier_events, close)
-        labels = ml.labeling.drop_labels(labels)
+        labels = ml.labeling.drop_labels(labels, self.min_pct)
         
         # merge labels and triple barrier events
         self.triple_barrier_info = pd.concat([triple_barrier_events.t1, labels], axis=1)
