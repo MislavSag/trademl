@@ -56,12 +56,16 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 
 
 ### NON-MODEL HYPERPARAMETERS
+labeling_technique = 'tripple_barrier'
 std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
 tb_triplebar_num_days = 30
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.005
+ts_look_forward_window = 4800  # 60 * 8 * 10 (10 days)
+ts_min_sample_length = 30
+ts_step = 5
 tb_min_pct = 0.10
 sample_weights_type = 'returns'
 cv_type = 'purged_kfold'
@@ -93,19 +97,33 @@ if remove_ind_with_high_period:
 outlier_remove = tml.modeling.pipelines.OutlierStdRemove(std_outlier)
 data = outlier_remove.fit_transform(data)
 
-### TRIPLE BARRIER LABELING
-triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-    close_name='close_orig',
-    volatility_lookback=tb_volatility_lookback,
-    volatility_scaler=tb_volatility_scaler,
-    triplebar_num_days=tb_triplebar_num_days,
-    triplebar_pt_sl=tb_triplebar_pt_sl,
-    triplebar_min_ret=tb_triplebar_min_ret,
-    num_threads=1,
-    tb_min_pct=tb_min_pct
-)
-tb_fit = triple_barrier_pipe.fit(data)
-X = tb_fit.transform(data)
+
+### LABELING
+if labeling_technique == 'tripple_barrier':
+    # TRIPLE BARRIER LABELING
+    triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
+        close_name='close_orig',
+        volatility_lookback=tb_volatility_lookback,
+        volatility_scaler=tb_volatility_scaler,
+        triplebar_num_days=tb_triplebar_num_days,
+        triplebar_pt_sl=tb_triplebar_pt_sl,
+        triplebar_min_ret=tb_triplebar_min_ret,
+        num_threads=1,
+        tb_min_pct=tb_min_pct
+    )
+    tb_fit = triple_barrier_pipe.fit(data)
+    X = tb_fit.transform(data)
+elif labeling_technique == 'trend_scanning':
+    trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
+        close_name='close',
+        volatility_lookback=tb_volatility_lookback,
+        volatility_scaler=tb_volatility_scaler,
+        ts_look_forward_window=ts_look_forward_window,
+        ts_min_sample_length=ts_min_sample_length,
+        ts_step=ts_step
+        )
+    ts_fit = trend_scanning_pipe.fit(data)
+    X = trend_scanning_pipe.transform(data)
 
 
 ### TRAIN TEST SPLIT

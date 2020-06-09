@@ -289,9 +289,9 @@ class TrendScanning(BaseEstimator, TransformerMixin):
 # ts_look_forward_window=20
 # ts_min_sample_length=5
 # ts_step=1
-# trend_scanning_pipe = TrendScanning(
-#     close_name, ts_look_forward_window, ts_min_sample_length, ts_step
-#     )
-# ts_fit = trend_scanning_pipe.fit(df)
-# X = trend_scanning_pipe.transform(df)
+    # trend_scanning_pipe = TrendScanning(
+    #     close_name, ts_look_forward_window, ts_min_sample_length, ts_step
+    #     )
+    # ts_fit = trend_scanning_pipe.fit(df)
+    # X = trend_scanning_pipe.transform(df)
 #################### TESTS
