@@ -37,7 +37,7 @@ matplotlib.use("Agg")
 
 ### GLOBALS
 DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
-NUMEXPR_MAX_THREADS = 10
+# NUMEXPR_MAX_THREADS = 10
 
 ### IMPORT DATA
 contract = ['SPY']
@@ -60,7 +60,7 @@ std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
 tb_triplebar_num_days = 30
-tb_triplebar_pt_sl = [2, 2]
+tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.005
 tb_min_pct = 0.10
 sample_weights_type = 'returns'
@@ -69,13 +69,15 @@ cv_number = 4
 rand_state = 3
 n_estimators = 1000
 remove_ind_with_high_period = True
+
+### MODEL HYPERPARAMETERS
+max_depth=3
+max_features = 15
+
+### POSTMODEL PARAMETERS
 keep_important_features = 25
 vectorbt_slippage = 0.0015
 vectorbt_fees = 0.0015
-
-### MODEL HYPERPARAMETERS
-max_depth = 3
-max_features = 15
 
 
 ### REMOVE INDICATORS WITH HIGH PERIOD
@@ -118,7 +120,7 @@ if sample_weights_type == 'returns':
         tb_fit.triple_barrier_info.reindex(X_train.index),
         data.loc[X_train.index, 'close_orig'],
         num_threads=1)
-elif sample_weights_type ==     :
+elif sample_weights_type == 'time_decay':
     sample_weigths = ml.sample_weights.get_weights_by_time_decay(
         tb_fit.triple_barrier_info.reindex(X_train.index),
         data.loc[X_train.index, 'close_orig'],

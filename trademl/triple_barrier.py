@@ -47,7 +47,6 @@ remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
               'vixVolume', 'open_orig', 'high_orig', 'low_orig']
 remove_ohl = [col for col in remove_ohl if col in data.columns]
 data.drop(columns=remove_ohl, inplace=True)  #correlated with close
-data['close_orig'] = data['close']  # with original close reslts are pretty bad!
 
 
 ### NON-MODEL HYPERPARAMETERS
@@ -98,9 +97,10 @@ X = tb_fit.transform(data)
 
 # triple barrier
 daily_vol = ml.util.get_daily_vol(data.close_orig, lookback=tb_volatility_lookback)
-cusum_events = ml.filters.cusum_filter(data.close_orig, threshold=daily_vol.mean()*tb_volatility_scaler)
+daily_vol_stat = ml.util.get_daily_vol(data.close, lookback=tb_volatility_lookback)
+print(daily_vol.mean(), daily_vol_stat.mean())
 
-# 
+cusum_events = ml.filters.cusum_filter(data.close_orig, threshold=daily_vol.mean()*tb_volatility_scaler)
 vertical_barriers = ml.labeling.add_vertical_barrier(
     t_events=cusum_events, close=data.close_orig, num_days=tb_triplebar_num_days) 
 
@@ -111,7 +111,7 @@ pt_sl = tb_triplebar_pt_sl
 min_ret = tb_triplebar_min_ret
 target = daily_vol
 num_threads = 1
-vertical_barrier_times = vertical_barriers
+vertical_barrier_times = vertical_barriers.copy()
 side_prediction=None
 
 triple_barrier_events = ml.labeling.get_events(
@@ -164,13 +164,18 @@ if stop_loss_multiple > 0:
 else:
     stop_loss = pd.Series(index=events.index)  # NaNs
 
-vertical_barriers_filled = events_['t1'].fillna(close.index[-1]).values
-for vb in vertical_barriers_filled:
-    closing_prices = close[loc: vertical_barrier]  # Path prices for a given trade
 
+t0 = events_.index
+t1 = events_['t1'].fillna(close.index[-1])
 
+t0_ = t0[0]
+t1_ = t1[0]
+
+for t0_, t1_ in zip(t0, t1):
+    idx = 
+    closing_prices = close[t0:vertical_barrier]  # Path prices for a given trade
+    
 for loc, vertical_barrier in events_['t1'].fillna(close.index[-1]).iteritems():
-    print(loc)
     # closing_prices = close[loc: vertical_barrier]  # Path prices for a given trade
     # cum_returns = (closing_prices / close[loc] - 1) * events_.at[loc, 'side']  # Path returns
     # out.loc[loc, 'sl'] = cum_returns[cum_returns < stop_loss[loc]].index.min()  # Earliest stop loss date
