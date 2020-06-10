@@ -22,3 +22,6 @@
           arg_name: max_depth
           min: 1
           max: 10
+        labeling_technique:
+          description: Labeling technique to use for classification
+          arg_name: labeling_technique
