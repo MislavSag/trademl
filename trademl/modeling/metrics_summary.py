@@ -37,7 +37,7 @@ def clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='binary', pr
     # print(f'Predictions: ', predictions_train[:10])
 
 
-def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test, suffix=''):
+def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test, name, suffix=''):
     """
     Show main matrics from classification: accuracy, precision, recall, 
     confusion matrix.
@@ -56,12 +56,12 @@ def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test, suffix=''):
     plt.ylabel('True positive rate')
     plt.title(f'ROC curve {suffix}')
     plt.legend(loc='best')
-    plt.savefig('train_roc.png')
+    plt.savefig(f'plots/train_roc_{name}.png')
     # plt.show()
     
     # test set
     y_pred_rf = fitted_model.predict_proba(X_test)[:, 1]
-    fpr_rf, tpr_rf, _ = roc_curve(y_test, y_pred_rf)
+    fpr_rf, tpr_rf, _ = roc_curve(y_test, y_pred_rf)    
     
     plt.figure(1)
     plt.plot([0, 1], [0, 1], 'k--')
@@ -70,6 +70,6 @@ def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test, suffix=''):
     plt.ylabel('True positive rate')
     plt.title(f'ROC curve {suffix}')
     plt.legend(loc='best')
-    plt.savefig('test_roc.png')
+    plt.savefig(f'plots/test_roc_{name}.png')
     # plt.show()
     

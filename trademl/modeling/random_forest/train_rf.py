@@ -57,7 +57,7 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 
 
 ### NON-MODEL HYPERPARAMETERS
-labeling_technique = 'tripple_barrier'
+labeling_technique = '  '
 std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
@@ -69,7 +69,7 @@ ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
 sample_weights_type = 'returns'
-if labeling_technique == 'trend_acanning':
+if labeling_technique == 'trend_scanning':
     sample_weights_type = 't_values'
 cv_type = 'purged_kfold'
 cv_number = 4
@@ -187,15 +187,14 @@ print(f'confidence_intervals_95: {scores.std() * 2}')
 # retrain the model if mean score is high enough (higher than 0.5)
 if scores.mean() < 0.55:
     print('Bad performance')
-    
 else:
     clf.fit(X_train, y_train, sample_weight=sample_weigths)
 
     ### CLF METRICS
     tml.modeling.metrics_summary.clf_metrics(
     clf, X_train, X_test, y_train, y_test, avg='binary')  # HAVE TO FIX
-    # tml.modeling.metrics_summary.plot_roc_curve(
-    # clf, X_train, X_test, y_train, y_test)
+    tml.modeling.metrics_summary.plot_roc_curve(
+    clf, X_train, X_test, y_train, y_test, name='rf_')
 
 
     ### FEATURE SELECTION
@@ -203,7 +202,7 @@ else:
     clf, X_train, y_train)
     fivec = tml.modeling.feature_importance.feature_importnace_vec(
     fival, X_train)
-    tml.modeling.feature_importance.plot_feature_importance(fival, X_train)
+    tml.modeling.feature_importance.plot_feature_importance(fival, X_train, name='rf_')
 
 
     ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES

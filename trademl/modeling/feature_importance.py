@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import sklearn
 import shap
+import matplotlib.pyplot as plt
 
 
 def feature_importance_values(clf, X_train, y_train):
@@ -28,7 +29,9 @@ def feature_importnace_vec(shap_val, X_train):
     return feature_importance
 
 
-def plot_feature_importance(shap_val, X_train):
+def plot_feature_importance(shap_val, X_train, name):
     # SHAP values
     shap.initjs()
-    shap.summary_plot(shap_val, X_train, plot_type='bar', max_display=25)
+    shap.summary_plot(shap_val, X_train, plot_type='bar', max_display=25,
+                      show=False)
+    plt.savefig('{name}feature_importance.png')
