@@ -5,6 +5,8 @@ import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree._tree import Tree
 from sklearn.ensemble import RandomForestClassifier
+import time
+from functools import wraps
 
 
 def cbind_pandas_h2o(X_train, y_train):
@@ -139,6 +141,25 @@ def deserialize_random_forest(model_dict):
 
     return model
 
+
 def load_model(url):
     model = deserialize_random_forest(json.loads(url))
     return model
+
+
+def time_method(func):
+    @wraps(func)
+    def timed(*args, **kw):
+        time_thresh = 1 # Function time taken printed if greater than this number
+        
+        ts = time.time()
+        result = func(*args, **kw)
+        te = time.time()
+        
+        if te - ts > time_thresh:
+            algo = args[0]
+            algo.Debug("%r took %2.2f seconds to run." % (func.__name__, te - ts))
+
+        return result
+
+    return timed
