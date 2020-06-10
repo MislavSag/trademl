@@ -214,11 +214,11 @@ else:
     head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
     clf_important = clf.fit(X_train_important, y_train)
     tml.modeling.metrics_summary.clf_metrics(
-    clf_important, X_train_important,
-    X_test_important, y_train, y_test, avg='binary', prefix='fi_')
+        clf_important, X_train_important,
+        X_test_important, y_train, y_test, avg='binary', prefix='fi_')
     tml.modeling.metrics_summary.plot_roc_curve(
-    clf_important, X_train_important, X_test_important,
-    y_train, y_test, suffix=' with importnat features')
+        clf_important, X_train_important, X_test_important,
+        y_train, y_test, suffix=' with importnat features', name='rf_fi_')
 
 
     ### BACKTESTING (RADI)
@@ -231,31 +231,32 @@ else:
     predictions = pd.Series(clf.predict(X_test_important), index=X_test_important.index)
     # plot cumulative returns
     hold_cash = tml.modeling.backtest.hold_cash_backtest(close, predictions)
-    hold_cash[['close_orig', 'cum_return']].plot()
+    fig = hold_cash[['close_orig', 'cum_return']].plot().get_figure()
+    fig.savefig(f'backtest_hold_cash.png')
 
     # VECTORBT
     positions = pd.concat([close, predictions.rename('position')], axis=1)
     positions = tml.modeling.backtest.enter_positions(positions.values)
     positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
-    entries = (positions[['position']] == 1).vbt.signals.first() # buy at first 1
-    exits = (positions[['position']] == -1).vbt.signals.first() # sell at first 0
+    entries = (positions[['position']] == 1).vbt.signals.first()  # buy at first 1
+    exits = (positions[['position']] == -1).vbt.signals.first()  # sell at first 0
     portfolio = vbt.Portfolio.from_signals(close, entries, exits,
                                         slippage=vectorbt_slippage,
                                         fees=vectorbt_fees)
     print(f'vectorbt_total_return: {portfolio.total_return}')
 
     #TRIPLE-BARRIER BACKTEST
-    tbpred = tb_fit.triple_barrier_info.loc[predictions.index]
+    tbpred = labeling_info.loc[predictions.index]
     tbpred['ret_adj'] = np.where(tbpred['bin']==predictions, np.abs(tbpred['ret']), -np.abs(tbpred['ret']))
     total_return = (1 + tbpred['ret_adj']).cumprod().iloc[-1]
     print(f'tb_return_nofees_noslippage: {total_return}')
 
 
     ### SAVE THE MODEL AND FEATURES
-    # joblib.dump(clf, "rf_model_25.pkl")
-    # pd.Series(X_train_important.columns).to_csv('feature_names_25.csv', sep=',')
+    # joblib.dump(clf, "rf_model_25_ts.pkl")
+    # pd.Series(X_train_important.columns).to_csv('feature_names_25_ts.csv', sep=',')
     # serialized_model = tml.modeling.utils.serialize_random_forest(clf)
-    # with open('rf_model_25.json', 'w') as f:
+    # with open('rf_model_25_ts.json', 'w') as f:
     #     json.dump(serialized_model, f)
 
 
