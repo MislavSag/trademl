@@ -157,8 +157,7 @@ def time_method(func):
         te = time.time()
         
         if te - ts > time_thresh:
-            algo = args[0]
-            algo.Debug("%r took %2.2f seconds to run." % (func.__name__, te - ts))
+            print("%r took %2.2f seconds to run." % (func.__name__, te - ts))
 
         return result
 
