@@ -34,4 +34,4 @@ def plot_feature_importance(shap_val, X_train, name):
     shap.initjs()
     shap.summary_plot(shap_val, X_train, plot_type='bar', max_display=25,
                       show=False)
-    plt.savefig('{name}feature_importance.png')
+    plt.savefig(f'{name}feature_importance.png')
