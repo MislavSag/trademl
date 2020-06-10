@@ -57,7 +57,7 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 
 
 ### NON-MODEL HYPERPARAMETERS
-labeling_technique = '  '
+labeling_technique = 'trend_scanning'
 std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
@@ -69,8 +69,6 @@ ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
 sample_weights_type = 'returns'
-if labeling_technique == 'trend_scanning':
-    sample_weights_type = 't_values'
 cv_type = 'purged_kfold'
 cv_number = 4
 rand_state = 3
@@ -137,6 +135,9 @@ X_train, X_test, y_train, y_test = train_test_split(
     
 
 ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
+if labeling_technique == 'trend_scanning':
+    sample_weights_type = 't_values'
+    
 if sample_weights_type == 'returns':
     sample_weigths = ml.sample_weights.get_weights_by_return(
         labeling_info.reindex(X_train.index),
