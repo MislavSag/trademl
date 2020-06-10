@@ -4,6 +4,7 @@ from numba import njit
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 import mlfinlab as ml
+from trademl.modeling.utils import time_method
 
 
 class TripleBarierLabeling(BaseEstimator, TransformerMixin):

@@ -28,7 +28,6 @@ from boruta import BorutaPy
 # finance packagesb
 import mlfinlab as ml
 import trademl as tml
-from trademl.modeling.utils import time_method
 import vectorbt as vbt
 
 
@@ -97,7 +96,6 @@ if remove_ind_with_high_period:
 
 ### REMOVE OUTLIERS
 outlier_remove = tml.modeling.pipelines.OutlierStdRemove(std_outlier)
-
 data = outlier_remove.fit_transform(data)
 
 
