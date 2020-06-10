@@ -69,6 +69,8 @@ ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
 sample_weights_type = 'returns'
+if labeling_technique == 'trend_acanning':
+    sample_weights_type = 't_values'
 cv_type = 'purged_kfold'
 cv_number = 4
 rand_state = 3
@@ -113,6 +115,7 @@ if labeling_technique == 'tripple_barrier':
         tb_min_pct=tb_min_pct
     )
     tb_fit = triple_barrier_pipe.fit(data)
+    labeling_info = tb_fit.triple_barrier_info
     X = tb_fit.transform(data)
 elif labeling_technique == 'trend_scanning':
     trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
@@ -123,34 +126,36 @@ elif labeling_technique == 'trend_scanning':
         ts_min_sample_length=ts_min_sample_length,
         ts_step=ts_step
         )
-    ts_fit = trend_scanning_pipe.fit(data)
+    labeling_info = trend_scanning_pipe.fit(data)
     X = trend_scanning_pipe.transform(data)
 
 
-### TRAIN TEST SPLIT
+# TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
-    X.drop(columns=['close_orig']), tb_fit.triple_barrier_info['bin'],
+    X.drop(columns=['close_orig']), labeling_info['bin'],
     test_size=0.10, shuffle=False, stratify=None)
-
+    
 
 ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
 if sample_weights_type == 'returns':
     sample_weigths = ml.sample_weights.get_weights_by_return(
-        tb_fit.triple_barrier_info.reindex(X_train.index),
+        labeling_info.reindex(X_train.index),
         data.loc[X_train.index, 'close_orig'],
         num_threads=1)
 elif sample_weights_type == 'time_decay':
     sample_weigths = ml.sample_weights.get_weights_by_time_decay(
-        tb_fit.triple_barrier_info.reindex(X_train.index),
+        labeling_info.reindex(X_train.index),
         data.loc[X_train.index, 'close_orig'],
         decay=0.5, num_threads=1)
+elif sample_weights_type == 't_values':
+    sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
 
 
 ### CROS VALIDATION STEPS
 if cv_type == 'purged_kfold':
     cv = ml.cross_validation.PurgedKFold(
         n_splits=cv_number,
-        samples_info_sets=tb_fit.triple_barrier_info.reindex(X_train.index).t1)
+        samples_info_sets=labeling_info['t1'].reindex(X_train.index))
 
 
 # MODEL
