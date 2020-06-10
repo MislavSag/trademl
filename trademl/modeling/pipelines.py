@@ -22,6 +22,7 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         self.num_threads = num_threads
         self.min_pct = tb_min_pct
 
+    @time_method
     def fit(self, X, y=None):
         
         # extract close series
@@ -62,7 +63,8 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         self.triple_barrier_info.dropna(inplace=True)
         
         return self
-
+    
+    @time_method
     def transform(self, X, y=None):
         
         # subsample
@@ -77,9 +79,11 @@ class OutlierStdRemove(BaseEstimator, TransformerMixin):
     def __init__(self, std_threshold):
         self.std_threshold = std_threshold
 
+    @time_method
     def fit(self, X, y=None):
         return self
 
+    @time_method
     def transform(self, X, y=None):
         X = X[X.apply(lambda x: np.abs(x - x.mean()) / x.std() < self.std_threshold).
               all(axis=1)]
@@ -193,7 +197,7 @@ def trend_scanning_labels(price_series: pd.Series, t_events: list = None, look_f
 
 
 class TrendScanning(BaseEstimator, TransformerMixin):
-    
+
     def __init__(self, close_name='close', volatility_lookback=50,
                  volatility_scaler=1, ts_look_forward_window=20, # 4800,  # 60 * 8 * 10 (10 days)
                  ts_min_sample_length=5, ts_step=1):
@@ -204,21 +208,22 @@ class TrendScanning(BaseEstimator, TransformerMixin):
         self.ts_min_sample_length = ts_min_sample_length
         self.ts_step = ts_step
         self.ts = None
-    
+
+    @time_method
     def fit(self, X, y=None):
-        
+
         # extract close series
         close = X.loc[:, self.close_name]
-        
+
         # Compute volatility
         daily_vol = ml.util.get_daily_vol(
             close,
             lookback=self.volatility_lookback)
-        
+
         # Apply Symmetric CUSUM Filter and get timestamps for events
         cusum_events = ml.filters.cusum_filter(close,
             threshold=daily_vol.mean()*self.volatility_scaler)
-        
+
         # get trend scanning labels
         trend_scanning = trend_scanning_labels(
             close, 
@@ -227,16 +232,17 @@ class TrendScanning(BaseEstimator, TransformerMixin):
             min_sample_length=5,
             step=1)
         trend_scanning.dropna(inplace=True)
-        
+
         self.ts = trend_scanning
-        
+
         return self.ts
 
+    @time_method
     def transform(self, X, y=None):
-        
+
         # subsample
         X = X.reindex(self.ts.index)
-        
+
         return X
 
 
