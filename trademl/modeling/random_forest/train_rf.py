@@ -128,10 +128,10 @@ elif labeling_technique == 'trend_scanning':
     X = trend_scanning_pipe.transform(data)
 
 
-# # TRAIN TEST SPLIT
-# X_train, X_test, y_train, y_test = train_test_split(
-#     X.drop(columns=['close_orig']), labeling_info['bin'],
-#     test_size=0.10, shuffle=False, stratify=None)
+# TRAIN TEST SPLIT
+X_train, X_test, y_train, y_test = train_test_split(
+    X.drop(columns=['close_orig']), labeling_info['bin'],
+    test_size=0.10, shuffle=False, stratify=None)
     
 
 # ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
