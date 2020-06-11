@@ -135,7 +135,7 @@ X_train, X_test, y_train, y_test = train_test_split(
     
 
 ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
-if labeling_technique == 'trend_scanning':
+if labeling_technique is 'trend_scanning':
     sample_weights_type = 't_values'
     
 # if sample_weights_type == 'returns':
