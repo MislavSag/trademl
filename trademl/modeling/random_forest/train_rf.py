@@ -134,9 +134,9 @@ X_train, X_test, y_train, y_test = train_test_split(
     test_size=0.10, shuffle=False, stratify=None)
     
 
-# ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
-# if labeling_technique == 'trend_scanning':
-#     sample_weights_type = 't_values'
+### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
+if labeling_technique == 'trend_scanning':
+    sample_weights_type = 't_values'
     
 # if sample_weights_type == 'returns':
 #     sample_weigths = ml.sample_weights.get_weights_by_return(
