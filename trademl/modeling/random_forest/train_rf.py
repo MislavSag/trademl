@@ -57,12 +57,12 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 
 
 ### NON-MODEL HYPERPARAMETERS
-labeling_technique = 'trend_scanning'
+labeling_technique = 'tripple_barrier'
 std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
 tb_triplebar_num_days = 30
-tb_triplebar_pt_sl = [1, 1]
+tb_triplebar_pt_sl = [2, 2]
 tb_triplebar_min_ret = 0.005
 ts_look_forward_window = 4800  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
@@ -117,7 +117,7 @@ if labeling_technique == 'tripple_barrier':
     X = tb_fit.transform(data)
 elif labeling_technique == 'trend_scanning':
     trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-        close_name='close',
+        close_name='close_orig',
         volatility_lookback=tb_volatility_lookback,
         volatility_scaler=tb_volatility_scaler,
         ts_look_forward_window=ts_look_forward_window,
