@@ -62,7 +62,7 @@ std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
 tb_triplebar_num_days = 30
-tb_triplebar_pt_sl = [2, 2]
+tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.005
 ts_look_forward_window = 4800  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
@@ -99,158 +99,166 @@ outlier_remove = tml.modeling.pipelines.OutlierStdRemove(std_outlier)
 data = outlier_remove.fit_transform(data)
 
 
-### LABELING
-if labeling_technique == 'tripple_barrier':
-    # TRIPLE BARRIER LABELING
-    triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-        close_name='close_orig',
-        volatility_lookback=tb_volatility_lookback,
-        volatility_scaler=tb_volatility_scaler,
-        triplebar_num_days=tb_triplebar_num_days,
-        triplebar_pt_sl=tb_triplebar_pt_sl,
-        triplebar_min_ret=tb_triplebar_min_ret,
-        num_threads=1,
-        tb_min_pct=tb_min_pct
-    )
-    tb_fit = triple_barrier_pipe.fit(data)
-    labeling_info = tb_fit.triple_barrier_info
-    X = tb_fit.transform(data)
-elif labeling_technique == 'trend_scanning':
-    trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-        close_name='close_orig',
-        volatility_lookback=tb_volatility_lookback,
-        volatility_scaler=tb_volatility_scaler,
-        ts_look_forward_window=ts_look_forward_window,
-        ts_min_sample_length=ts_min_sample_length,
-        ts_step=ts_step
-        )
-    labeling_info = trend_scanning_pipe.fit(data)
-    X = trend_scanning_pipe.transform(data)
+# ### LABELING
+# if labeling_technique == 'tripple_barrier':
+#     # TRIPLE BARRIER LABELING
+#     triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
+#         close_name='close_orig',
+#         volatility_lookback=tb_volatility_lookback,
+#         volatility_scaler=tb_volatility_scaler,
+#         triplebar_num_days=tb_triplebar_num_days,
+#         triplebar_pt_sl=tb_triplebar_pt_sl,
+#         triplebar_min_ret=tb_triplebar_min_ret,
+#         num_threads=1,
+#         tb_min_pct=tb_min_pct
+#     )
+#     tb_fit = triple_barrier_pipe.fit(data)
+#     labeling_info = tb_fit.triple_barrier_info
+#     X = tb_fit.transform(data)
+# elif labeling_technique == 'trend_scanning':
+#     trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
+#         close_name='close_orig',
+#         volatility_lookback=tb_volatility_lookback,
+#         volatility_scaler=tb_volatility_scaler,
+#         ts_look_forward_window=ts_look_forward_window,
+#         ts_min_sample_length=ts_min_sample_length,
+#         ts_step=ts_step
+#         )
+#     labeling_info = trend_scanning_pipe.fit(data)
+#     X = trend_scanning_pipe.transform(data)
 
 
-# TRAIN TEST SPLIT
-X_train, X_test, y_train, y_test = train_test_split(
-    X.drop(columns=['close_orig']), labeling_info['bin'],
-    test_size=0.10, shuffle=False, stratify=None)
+# # TRAIN TEST SPLIT
+# X_train, X_test, y_train, y_test = train_test_split(
+#     X.drop(columns=['close_orig']), labeling_info['bin'],
+#     test_size=0.10, shuffle=False, stratify=None)
     
 
-### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
-if labeling_technique == 'trend_scanning':
-    sample_weights_type = 't_values'
+# ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
+# if labeling_technique == 'trend_scanning':
+#     sample_weights_type = 't_values'
     
-if sample_weights_type == 'returns':
-    sample_weigths = ml.sample_weights.get_weights_by_return(
-        labeling_info.reindex(X_train.index),
-        data.loc[X_train.index, 'close_orig'],
-        num_threads=1)
-elif sample_weights_type == 'time_decay':
-    sample_weigths = ml.sample_weights.get_weights_by_time_decay(
-        labeling_info.reindex(X_train.index),
-        data.loc[X_train.index, 'close_orig'],
-        decay=0.5, num_threads=1)
-elif sample_weights_type == 't_values':
-    sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
+# if sample_weights_type == 'returns':
+#     sample_weigths = ml.sample_weights.get_weights_by_return(
+#         labeling_info.reindex(X_train.index),
+#         data.loc[X_train.index, 'close_orig'],
+#         num_threads=1)
+# elif sample_weights_type == 'time_decay':
+#     sample_weigths = ml.sample_weights.get_weights_by_time_decay(
+#         labeling_info.reindex(X_train.index),
+#         data.loc[X_train.index, 'close_orig'],
+#         decay=0.5, num_threads=1)
+# elif sample_weights_type == 't_values':
+#     sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
 
 
-### CROS VALIDATION STEPS
-if cv_type == 'purged_kfold':
-    cv = ml.cross_validation.PurgedKFold(
-        n_splits=cv_number,
-        samples_info_sets=labeling_info['t1'].reindex(X_train.index))
+# ### CROS VALIDATION STEPS
+# if cv_type == 'purged_kfold':
+#     cv = ml.cross_validation.PurgedKFold(
+#         n_splits=cv_number,
+#         samples_info_sets=labeling_info['t1'].reindex(X_train.index))
 
 
-# MODEL
+# # MODEL
 
-# clf = joblib.load("rf_model.pkl")
-clf = RandomForestClassifier(criterion='entropy',
-                             max_features=max_features,
-                             min_weight_fraction_leaf=0.05,
-                             max_depth=max_depth,
-                             n_estimators=n_estimators,
-                             class_weight='balanced_subsample',
-                             random_state=rand_state,
-                             n_jobs=16)
-# clf.fit(X_train, y_train, sample_weight=sample_weigths)
-scores = ml.cross_validation.ml_cross_val_score(
-    clf, X_train, y_train, cv_gen=cv, 
-    sample_weight_train=sample_weigths,
-    scoring=sklearn.metrics.balanced_accuracy_score)  #sklearn.metrics.f1_score(average='weighted')
-
-
-### MODEL EVALUATION
-# pogledati zero one loss: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.zero_one_loss.html
-# mean, std and 95 percent intervals of scorers
-print(f'mean_score: {scores.mean()}')
-print(f'score_std: {scores.std()}')
-print(f'confidence_intervals_95: {scores.std() * 2}')
+# # clf = joblib.load("rf_model.pkl")
+# clf = RandomForestClassifier(criterion='entropy',
+#                              max_features=max_features,
+#                              min_weight_fraction_leaf=0.05,
+#                              max_depth=max_depth,
+#                              n_estimators=n_estimators,
+#                              class_weight='balanced_subsample',
+#                              random_state=rand_state,
+#                              n_jobs=16)
+# # clf.fit(X_train, y_train, sample_weight=sample_weigths)
+# scores = ml.cross_validation.ml_cross_val_score(
+#     clf, X_train, y_train, cv_gen=cv, 
+#     sample_weight_train=sample_weigths,
+#     scoring=sklearn.metrics.balanced_accuracy_score)  #sklearn.metrics.f1_score(average='weighted')
 
 
-# retrain the model if mean score is high enough (higher than 0.5)
-if scores.mean() < 0.55:
-    print('Bad performance')
-else:
-    clf.fit(X_train, y_train, sample_weight=sample_weigths)
-
-    ### CLF METRICS
-    tml.modeling.metrics_summary.clf_metrics(
-    clf, X_train, X_test, y_train, y_test, avg='binary')  # HAVE TO FIX
-    tml.modeling.metrics_summary.plot_roc_curve(
-    clf, X_train, X_test, y_train, y_test, name='rf_')
+# ### MODEL EVALUATION
+# # pogledati zero one loss: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.zero_one_loss.html
+# # mean, std and 95 percent intervals of scorers
+# print(f'mean_score: {scores.mean()}')
+# print(f'score_std: {scores.std()}')
+# print(f'confidence_intervals_95: {scores.std() * 2}')
 
 
-    ### FEATURE SELECTION
-    fival = tml.modeling.feature_importance.feature_importance_values(
-    clf, X_train, y_train)
-    fivec = tml.modeling.feature_importance.feature_importnace_vec(
-    fival, X_train)
-    tml.modeling.feature_importance.plot_feature_importance(fival, X_train, name='rf_')
+# # retrain the model if mean score is high enough (higher than 0.5)
+# if scores.mean() < 0.55:
+#     print('Bad performance')
+# else:
+#     clf.fit(X_train, y_train, sample_weight=sample_weigths)
+
+#     ### CLF METRICS
+#     tml.modeling.metrics_summary.clf_metrics(
+#     clf, X_train, X_test, y_train, y_test, avg='binary')  # HAVE TO FIX
+#     tml.modeling.metrics_summary.plot_roc_curve(
+#     clf, X_train, X_test, y_train, y_test, name='rf_')
 
 
-    ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
-    X_train_important = X_train[
-    fivec['col_name'].
-    head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
-    X_test_important = X_test[
-    fivec['col_name'].
-    head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
-    clf_important = clf.fit(X_train_important, y_train)
-    tml.modeling.metrics_summary.clf_metrics(
-        clf_important, X_train_important,
-        X_test_important, y_train, y_test, avg='binary', prefix='fi_')
-    tml.modeling.metrics_summary.plot_roc_curve(
-        clf_important, X_train_important, X_test_important,
-        y_train, y_test, suffix=' with importnat features', name='rf_fi_')
+#     ### FEATURE SELECTION
+#     fival = tml.modeling.feature_importance.feature_importance_values(
+#     clf, X_train, y_train)
+#     fivec = tml.modeling.feature_importance.feature_importnace_vec(
+#     fival, X_train)
+#     tml.modeling.feature_importance.plot_feature_importance(fival, X_train, name='rf_')
 
 
-    ### BACKTESTING (RADI)
+#     ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
+#     X_train_important = X_train[
+#     fivec['col_name'].
+#     head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
+#     X_test_important = X_test[
+#     fivec['col_name'].
+#     head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
+#     clf_important = clf.fit(X_train_important, y_train)
+#     tml.modeling.metrics_summary.clf_metrics(
+#         clf_important, X_train_important,
+#         X_test_important, y_train, y_test, avg='binary', prefix='fi_')
+#     tml.modeling.metrics_summary.plot_roc_curve(
+#         clf_important, X_train_important, X_test_important,
+#         y_train, y_test, suffix=' with importnat features', name='rf_fi_')
 
-    # BUY-SELL BACKTESTING STRATEGY
-    # true close 
-    time_range = pd.date_range(X_test.index[0], X_test.index[-1], freq='1Min')
-    close = data.close_orig.reindex(time_range).to_frame().dropna()
-    # predictions on test set
-    predictions = pd.Series(clf.predict(X_test_important), index=X_test_important.index)
-    # plot cumulative returns
-    hold_cash = tml.modeling.backtest.hold_cash_backtest(close, predictions)
-    fig = hold_cash[['close_orig', 'cum_return']].plot().get_figure()
-    fig.savefig(f'backtest_hold_cash.png')
 
-    # VECTORBT
-    positions = pd.concat([close, predictions.rename('position')], axis=1)
-    positions = tml.modeling.backtest.enter_positions(positions.values)
-    positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
-    entries = (positions[['position']] == 1).vbt.signals.first()  # buy at first 1
-    exits = (positions[['position']] == -1).vbt.signals.first()  # sell at first 0
-    portfolio = vbt.Portfolio.from_signals(close, entries, exits,
-                                        slippage=vectorbt_slippage,
-                                        fees=vectorbt_fees)
-    print(f'vectorbt_total_return: {portfolio.total_return}')
+#     ### BACKTESTING (RADI)
 
-    #TRIPLE-BARRIER BACKTEST
-    tbpred = labeling_info.loc[predictions.index]
-    tbpred['ret_adj'] = np.where(tbpred['bin']==predictions, np.abs(tbpred['ret']), -np.abs(tbpred['ret']))
-    total_return = (1 + tbpred['ret_adj']).cumprod().iloc[-1]
-    print(f'tb_return_nofees_noslippage: {total_return}')
+#     # BUY-SELL BACKTESTING STRATEGY
+#     # true close 
+#     time_range = pd.date_range(X_test.index[0], X_test.index[-1], freq='1Min')
+#     close = data.close_orig.reindex(time_range).to_frame().dropna()
+#     # predictions on test set
+#     predictions = pd.Series(clf.predict(X_test_important), index=X_test_important.index)
+#     # plot cumulative returns
+#     hold_cash = tml.modeling.backtest.hold_cash_backtest(close, predictions)
+#     fig = hold_cash[['close_orig', 'cum_return']].plot().get_figure()
+#     fig.savefig(f'backtest_hold_cash.png')
+
+#     # VECTORBT
+#     positions = pd.concat([close, predictions.rename('position')], axis=1)
+#     positions = tml.modeling.backtest.enter_positions(positions.values)
+#     positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
+#     entries = (positions[['position']] == 1).vbt.signals.first()  # buy at first 1
+#     exits = (positions[['position']] == -1).vbt.signals.first()  # sell at first 0
+#     portfolio = vbt.Portfolio.from_signals(close, entries, exits,
+#                                         slippage=vectorbt_slippage,
+#                                         fees=vectorbt_fees)
+#     print(f'vectorbt_total_return: {portfolio.total_return}')
+
+#     #TRIPLE-BARRIER BACKTEST
+#     tbpred = labeling_info.loc[predictions.index]
+#     tbpred['ret_adj'] = np.where(tbpred['bin']==predictions, np.abs(tbpred['ret']), -np.abs(tbpred['ret']))
+#     total_return = (1 + tbpred['ret_adj']).cumprod().iloc[-1]
+#     print(f'tb_return_nofees_noslippage: {total_return}')
+
+
+
+
+
+
+
+
 
 
     ### SAVE THE MODEL AND FEATURES
