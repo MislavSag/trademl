@@ -25,7 +25,9 @@
         labeling_technique:
           description: Labeling technique to use for classification
           arg_name: labeling_technique
+          type: string
+          default: 'triple_barrier'
+          choices: ['triple_barrier','trend_scanning']
         sample_weights_type:
           description: Sample weights to use.
-          arg_name: sample_weights_type
-          
+          arg_name: sample_weights_type          
