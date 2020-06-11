@@ -99,33 +99,33 @@ outlier_remove = tml.modeling.pipelines.OutlierStdRemove(std_outlier)
 data = outlier_remove.fit_transform(data)
 
 
-# ### LABELING
-# if labeling_technique == 'tripple_barrier':
-#     # TRIPLE BARRIER LABELING
-#     triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-#         close_name='close_orig',
-#         volatility_lookback=tb_volatility_lookback,
-#         volatility_scaler=tb_volatility_scaler,
-#         triplebar_num_days=tb_triplebar_num_days,
-#         triplebar_pt_sl=tb_triplebar_pt_sl,
-#         triplebar_min_ret=tb_triplebar_min_ret,
-#         num_threads=1,
-#         tb_min_pct=tb_min_pct
-#     )
-#     tb_fit = triple_barrier_pipe.fit(data)
-#     labeling_info = tb_fit.triple_barrier_info
-#     X = tb_fit.transform(data)
-# elif labeling_technique == 'trend_scanning':
-#     trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-#         close_name='close_orig',
-#         volatility_lookback=tb_volatility_lookback,
-#         volatility_scaler=tb_volatility_scaler,
-#         ts_look_forward_window=ts_look_forward_window,
-#         ts_min_sample_length=ts_min_sample_length,
-#         ts_step=ts_step
-#         )
-#     labeling_info = trend_scanning_pipe.fit(data)
-#     X = trend_scanning_pipe.transform(data)
+### LABELING
+if labeling_technique == 'tripple_barrier':
+    # TRIPLE BARRIER LABELING
+    triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
+        close_name='close_orig',
+        volatility_lookback=tb_volatility_lookback,
+        volatility_scaler=tb_volatility_scaler,
+        triplebar_num_days=tb_triplebar_num_days,
+        triplebar_pt_sl=tb_triplebar_pt_sl,
+        triplebar_min_ret=tb_triplebar_min_ret,
+        num_threads=1,
+        tb_min_pct=tb_min_pct
+    )
+    tb_fit = triple_barrier_pipe.fit(data)
+    labeling_info = tb_fit.triple_barrier_info
+    X = tb_fit.transform(data)
+elif labeling_technique == 'trend_scanning':
+    trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
+        close_name='close_orig',
+        volatility_lookback=tb_volatility_lookback,
+        volatility_scaler=tb_volatility_scaler,
+        ts_look_forward_window=ts_look_forward_window,
+        ts_min_sample_length=ts_min_sample_length,
+        ts_step=ts_step
+        )
+    labeling_info = trend_scanning_pipe.fit(data)
+    X = trend_scanning_pipe.transform(data)
 
 
 # # TRAIN TEST SPLIT
