@@ -53,7 +53,7 @@ remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
               'vixVolume', 'open_orig', 'high_orig', 'low_orig']
 remove_ohl = [col for col in remove_ohl if col in data.columns]
 data.drop(columns=remove_ohl, inplace=True)  #correlated with close
-# data['close_orig'] = data['close']  # with original close reslts are pretty bad!
+
 
 
 ### NON-MODEL HYPERPARAMETERS
@@ -74,6 +74,7 @@ cv_number = 4
 rand_state = 3
 n_estimators = 1000
 remove_ind_with_high_period = True
+stationary_close_lables = False
 
 ### MODEL HYPERPARAMETERS
 max_depth=3
@@ -83,6 +84,10 @@ max_features = 15
 keep_important_features = 25
 vectorbt_slippage = 0.0015
 vectorbt_fees = 0.0015
+
+### USE STATIONARY CLOSE TO CALCULATE LABELS
+if stationary_close_lables:
+    data['close_orig'] = data['close']  # with original close reslts are pretty bad!
 
 
 ### REMOVE INDICATORS WITH HIGH PERIOD
