@@ -57,7 +57,7 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 
 
 ### NON-MODEL HYPERPARAMETERS
-labeling_technique = 'triple_barrier'
+labeling_technique = 'trend_scanning'
 std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
@@ -196,32 +196,32 @@ else:
     ### CLF METRICS
     tml.modeling.metrics_summary.clf_metrics(
     clf, X_train, X_test, y_train, y_test, avg='binary')  # HAVE TO FIX
-    tml.modeling.metrics_summary.plot_roc_curve(
-    clf, X_train, X_test, y_train, y_test, name='rf_')
+    # tml.modeling.metrics_summary.plot_roc_curve(
+    # clf, X_train, X_test, y_train, y_test, name='rf_')
 
 
     # ### FEATURE SELECTION
-    # fival = tml.modeling.feature_importance.feature_importance_values(
-    # clf, X_train, y_train)
-    # fivec = tml.modeling.feature_importance.feature_importnace_vec(
-    # fival, X_train)
+    fival = tml.modeling.feature_importance.feature_importance_values(
+        clf, X_train, y_train)
+    fivec = tml.modeling.feature_importance.feature_importnace_vec(
+        fival, X_train)
     # tml.modeling.feature_importance.plot_feature_importance(fival, X_train, name='rf_')
 
 
     # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
-    # X_train_important = X_train[
-    # fivec['col_name'].
-    # head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
-    # X_test_important = X_test[
-    # fivec['col_name'].
-    # head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
-    # clf_important = clf.fit(X_train_important, y_train)
-    # tml.modeling.metrics_summary.clf_metrics(
-    #     clf_important, X_train_important,
-    #     X_test_important, y_train, y_test, avg='binary', prefix='fi_')
-    # tml.modeling.metrics_summary.plot_roc_curve(
-    #     clf_important, X_train_important, X_test_important,
-    #     y_train, y_test, suffix=' with importnat features', name='rf_fi_')
+    X_train_important = X_train[
+    fivec['col_name'].
+    head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
+    X_test_important = X_test[
+    fivec['col_name'].
+    head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
+    clf_important = clf.fit(X_train_important, y_train)
+    tml.modeling.metrics_summary.clf_metrics(
+        clf_important, X_train_important,
+        X_test_important, y_train, y_test, avg='binary', prefix='fi_')
+    tml.modeling.metrics_summary.plot_roc_curve(
+        clf_important, X_train_important, X_test_important,
+        y_train, y_test, suffix=' with importnat features', name='rf_fi_')
 
 
     # ### BACKTESTING (RADI)
