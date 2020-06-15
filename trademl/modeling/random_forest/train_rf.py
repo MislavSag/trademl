@@ -211,10 +211,10 @@ else:
     # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
     X_train_important = X_train[
     fivec['col_name'].
-    head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
+    head(keep_important_features)]  #.drop(columns=['STOCHRSI_96000_fastk'])
     X_test_important = X_test[
     fivec['col_name'].
-    head(keep_important_features)].drop(columns=['STOCHRSI_96000_fastk'])
+    head(keep_important_features)]  #.drop(columns=['STOCHRSI_96000_fastk'])
     clf_important = clf.fit(X_train_important, y_train)
     tml.modeling.metrics_summary.clf_metrics(
         clf_important, X_train_important,
@@ -224,29 +224,29 @@ else:
         y_train, y_test, suffix=' with importnat features', name='rf_fi_')
 
 
-    # ### BACKTESTING (RADI)
+    ### BACKTESTING (RADI)
 
-    # # BUY-SELL BACKTESTING STRATEGY
-    # # true close 
-    # time_range = pd.date_range(X_test.index[0], X_test.index[-1], freq='1Min')
-    # close = data.close_orig.reindex(time_range).to_frame().dropna()
-    # # predictions on test set
-    # predictions = pd.Series(clf.predict(X_test_important), index=X_test_important.index)
-    # # plot cumulative returns
+    # BUY-SELL BACKTESTING STRATEGY
+    # true close 
+    time_range = pd.date_range(X_test.index[0], X_test.index[-1], freq='1Min')
+    close = data.close_orig.reindex(time_range).to_frame().dropna()
+    # predictions on test set
+    predictions = pd.Series(clf.predict(X_test_important), index=X_test_important.index)
+    # plot cumulative returns
     # hold_cash = tml.modeling.backtest.hold_cash_backtest(close, predictions)
     # fig = hold_cash[['close_orig', 'cum_return']].plot().get_figure()
     # fig.savefig(f'backtest_hold_cash.png')
 
     # # VECTORBT
-    # positions = pd.concat([close, predictions.rename('position')], axis=1)
-    # positions = tml.modeling.backtest.enter_positions(positions.values)
-    # positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
-    # entries = (positions[['position']] == 1).vbt.signals.first()  # buy at first 1
-    # exits = (positions[['position']] == -1).vbt.signals.first()  # sell at first 0
-    # portfolio = vbt.Portfolio.from_signals(close, entries, exits,
-    #                                     slippage=vectorbt_slippage,
-    #                                     fees=vectorbt_fees)
-    # print(f'vectorbt_total_return: {portfolio.total_return}')
+    positions = pd.concat([close, predictions.rename('position')], axis=1)
+    positions = tml.modeling.backtest.enter_positions(positions.values)
+    positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
+    entries = (positions[['position']] == 1).vbt.signals.first()  # buy at first 1
+    exits = (positions[['position']] == -1).vbt.signals.first()  # sell at first 0
+    portfolio = vbt.Portfolio.from_signals(close, entries, exits,
+                                        slippage=vectorbt_slippage,
+                                        fees=vectorbt_fees)
+    print(f'vectorbt_total_return: {portfolio.total_return}')
 
     # #TRIPLE-BARRIER BACKTEST
     # tbpred = labeling_info.loc[predictions.index]
