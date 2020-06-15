@@ -219,9 +219,9 @@ else:
     tml.modeling.metrics_summary.clf_metrics(
         clf_important, X_train_important,
         X_test_important, y_train, y_test, avg='binary', prefix='fi_')
-    tml.modeling.metrics_summary.plot_roc_curve(
-        clf_important, X_train_important, X_test_important,
-        y_train, y_test, suffix=' with importnat features', name='rf_fi_')
+    # tml.modeling.metrics_summary.plot_roc_curve(
+    #     clf_important, X_train_important, X_test_important,
+    #     y_train, y_test, suffix=' with importnat features', name='rf_fi_')
 
 
     ### BACKTESTING (RADI)
