@@ -195,7 +195,7 @@ else:
 
     ### CLF METRICS
     tml.modeling.metrics_summary.clf_metrics(
-    clf, X_train, X_test, y_train, y_test, avg='binary')  # HAVE TO FIX
+        clf, X_train, X_test, y_train, y_test, avg='binary')  # HAVE TO FIX
     # tml.modeling.metrics_summary.plot_roc_curve(
     # clf, X_train, X_test, y_train, y_test, name='rf_')
 
