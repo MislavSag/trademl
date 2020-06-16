@@ -236,4 +236,14 @@ score, acc = model.evaluate(X_val_lstm, y_val_lstm,
                             batch_size=128)
 
 historydf = pd.DataFrame(history.history)
-display(historydf.head(10))
+historydf.head(10)
+
+
+
+####### STACKOVERFLOW
+X_TEST.to_csv('X_TEST.csv', sep=',')
+labeling_info_TEST.to_csv('labeling_info_TEST.csv', sep=',')
+
+url = 'https://raw.githubusercontent.com/MislavSag/trademl/master/trademl/modeling/random_forest/nn_sample.csv'
+X_TEST = pd.read_csv(url, sep=',')
+
