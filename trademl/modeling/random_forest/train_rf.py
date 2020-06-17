@@ -38,7 +38,7 @@ matplotlib.use("Agg")
 
 ### GLOBALS
 DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
-# NUMEXPR_MAX_THREADS = 10
+
 
 ### IMPORT DATA
 contract = ['SPY']
@@ -53,7 +53,6 @@ remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
               'vixVolume', 'open_orig', 'high_orig', 'low_orig']
 remove_ohl = [col for col in remove_ohl if col in data.columns]
 data.drop(columns=remove_ohl, inplace=True)  #correlated with close
-
 
 
 ### NON-MODEL HYPERPARAMETERS
