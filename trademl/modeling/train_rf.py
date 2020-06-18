@@ -7,6 +7,8 @@ import matplotlib
 import joblib
 import json
 import sys
+import guild.ipy as guild
+import os
 # preprocessing
 import sklearn
 from sklearn.model_selection import train_test_split
