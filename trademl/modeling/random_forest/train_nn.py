@@ -54,7 +54,7 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 
 
 ### NON-MODEL HYPERPARAMETERS
-labeling_technique = 'trend_scanning'
+labeling_technique = 'triple_barrier'
 std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
@@ -159,8 +159,9 @@ elif labeling_technique is 'trend_scanning':
 # X_train_lstm = .drop(columns=['close_orig']).values
 x = X_train['close'].values.reshape(-1, 1)
 y = y_train.values.reshape(-1, 1)
+# y = y.astype(str)
 x_test = X_test['close'].values.reshape(-1, 1)
-y_test = y_test.values.reshape(-1, 1)
+y_test_ = y_test.values.reshape(-1, 1)
 
 train_val_index_split = 0.75
 train_generator = keras.preprocessing.sequence.TimeseriesGenerator(
@@ -227,6 +228,7 @@ model = keras.models.Sequential([
         keras.layers.LSTM(124, return_sequences=True, input_shape=[None, 1]),
         keras.layers.LSTM(258),
         keras.layers.Dense(1, activation='sigmoid')
+        
 ])
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 history = model.fit(X_train_lstm, y_train_lstm, epochs=10, batch_size=128,

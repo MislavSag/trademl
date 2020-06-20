@@ -31,3 +31,26 @@
         sample_weights_type:
           description: Sample weights to use.
           arg_name: sample_weights_type          
+        tb_volatility_lookback:
+          description: Number of days in the past for calculating daily volatility
+          arg_name: tb_volatility_lookback
+          min: 1
+          max: 1000000
+        tb_triplebar_num_days:
+          description: Number of days for defining vertical bars
+          arg_name: tb_triplebar_num_days
+          min: 1
+          max: 1000
+        tb_triplebar_min_ret:
+          description: minimal return for barrier to be used in the sample
+          arg_name: tb_triplebar_min_ret
+          min: 0.001
+          max: 0.1
+        sample_weights_type:
+          description: Sample weights to use in training
+          arg_name: sample_weights_type
+          type: string
+          default: 'returns'
+          choices: ['returns','time_decay']
+
+

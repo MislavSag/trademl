@@ -58,7 +58,7 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 
 
 ### NON-MODEL HYPERPARAMETERS
-labeling_technique = 'trend_scanning'
+labeling_technique = 'triple_barrier'
 std_outlier = 10
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
