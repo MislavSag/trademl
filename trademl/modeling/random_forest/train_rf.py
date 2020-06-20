@@ -60,11 +60,11 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 ### NON-MODEL HYPERPARAMETERS
 labeling_technique = 'triple_barrier'
 std_outlier = 10
-tb_volatility_lookback = 50
-tb_volatility_scaler = 1
-tb_triplebar_num_days = 30
+tb_volatility_lookback = 70
+tb_volatility_scaler = 1.5
+tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
-tb_triplebar_min_ret = 0.005
+tb_triplebar_min_ret = 0.004
 ts_look_forward_window = 4800  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
 ts_step = 5
