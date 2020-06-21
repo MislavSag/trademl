@@ -48,6 +48,8 @@ with pd.HDFStore(DATA_PATH + contract[0] + '.h5') as store:
     data = store.get(contract[0])
 data.sort_index(inplace=True)
 
+# write_to_db(data, 'odvjet12_ml_data_usa', 'SPY', primary_key=True)
+
 
 ### CHOOSE/REMOVE VARIABLES
 remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
