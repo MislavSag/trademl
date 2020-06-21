@@ -134,7 +134,7 @@ data.dropna(subset=data.columns[cols_remove_na], inplace=True)
 ohlc = data[['open', 'high', 'low', 'close']]  # save for later
 ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig']
 # get dmin for every column
-stationaryCols, min_d = min_ffd_all_cols(data)
+stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(data)
 
 # save to github for later 
 min_dmin_d_save_for_backtesting = pd.Series(0, index=data.columns)
@@ -143,7 +143,7 @@ min_dmin_d_save_for_backtesting.dropna(inplace=True)
 min_dmin_d_save_for_backtesting.to_csv('min_d.csv', sep=';')
 
 # convert unstationary to stationary
-data = unstat_cols_to_stat(data, min_d, stationaryCols)  # tml.modeling.stationarity.unstat_cols_to_stat
+data = tml.modeling.stationarity.unstat_cols_to_stat(data, min_d, stationaryCols)  # tml.modeling.stationarity.unstat_cols_to_stat
 data.dropna(inplace=True)
 
 # merge orig ohlc to spyStat
