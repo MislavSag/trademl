@@ -3,6 +3,7 @@ import json
 import h2o
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree._tree import Tree
 from sklearn.ensemble import RandomForestClassifier
 import time
 from functools import wraps
