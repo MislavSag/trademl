@@ -86,7 +86,7 @@ class OutlierStdRemove(BaseEstimator, TransformerMixin):
 
     @time_method
     def transform(self, X, y=None):
-        X = X[X.apply(lambda x: np.abs(x - x.mean()) / x.std() < self.std_threshold).
+        X = X[X.apply(lambda x: (np.abs(x - x.mean()) / x.std()) < self.std_threshold).
               all(axis=1)]
         return X
 

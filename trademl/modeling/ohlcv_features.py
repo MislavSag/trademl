@@ -27,37 +27,36 @@ pd.set_option('display.width', 1000)
 
 ### IMPORT DATA
 
-# SPY
-spy_store = Path('C:/Users/Mislav/algoAItrader/data/' + 'spy.h5')
-with pd.HDFStore(spy_store) as store:
-    data = store.get('spy')
+# import data from mysql database and 
+q = 'SELECT date, open, high, low, close, volume FROM SPY'
+data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
+data.set_index(data.date, inplace=True)
+data.drop(columns=['date'], inplace=True)
 data.sort_index(inplace=True)
-data.drop(columns=['average', 'barCount', 'vixAverage', 'vixBarCount'],
-          inplace=True)  # from IB, remove for now
 
+# remove big outliers
+outlier_remove = tml.modeling.pipelines.OutlierStdRemove(50)
+data_test = outlier_remove.fit_transform(data)
 
-# NON SPY
+# NON SPY OLD WAY
 # paths = glob.glob(DATA_PATH + 'ohlcv/*')
 # contracts = [os.path.basename(p).replace('.h5', '') for p in paths]
 # with pd.HDFStore(paths[0]) as store:
 #     data = store.get(contracts[0])
 
-# # clean initial tabl;e
-# data.set_index(data.date, inplace=True)
-# data.drop(columns=['date', 'ticker'], inplace=True)
-# data['volume'] = data['volume'].astype(float)
-
     
 # ADD FEATURES
 
 # add technical indicators
-periods = [5, 30, 60, 300, 480, 2400, 12000, 96000]
+periods = [5, 30, 60, 150, 300, 480, 2400, 12000]
 data = tml.modeling.features.add_technical_indicators(data, periods=periods)
 data.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in data.columns]
 
 # add ohlc transformations
 data['high_low'] = data['high'] - data['low']
 data['close_open'] = data['close'] - data['open']
+data['close'].cummax()
+
 
 # simple momentum
 data['mom1'] = data['close'].pct_change(periods=1)
@@ -78,24 +77,24 @@ data['volatility_10'] = np.log(data['close']).diff().rolling(
 data['volatility_5'] =np.log(data['close']).diff().rolling(
     window=5, min_periods=5, center=False).std()
 
-# Serial Correlation (Takes time)
-window_autocorr = 50
+# Serial Correlation (Takes time) TO SLOW
+# window_autocorr = 50
 
-data['autocorr_1'] = np.log(data['close']).diff().rolling(
-    window=window_autocorr, min_periods=window_autocorr,
-    center=False).apply(lambda x: x.autocorr(lag=1), raw=False)
-data['autocorr_2'] = np.log(data['close']).diff().rolling(
-    window=window_autocorr, min_periods=window_autocorr,
-    center=False).apply(lambda x: x.autocorr(lag=2), raw=False)
-data['autocorr_3'] = np.log(data['close']).diff().rolling(
-    window=window_autocorr, min_periods=window_autocorr,
-    center=False).apply(lambda x: x.autocorr(lag=3), raw=False)
-data['autocorr_4'] = np.log(data['close']).diff().rolling(
-    window=window_autocorr, min_periods=window_autocorr,
-    center=False).apply(lambda x: x.autocorr(lag=4), raw=False)
-data['autocorr_5'] = np.log(data['close']).diff().rolling(
-    window=window_autocorr, min_periods=window_autocorr,
-    center=False).apply(lambda x: x.autocorr(lag=5), raw=False)
+# data['autocorr_1'] = np.log(data['close']).diff().rolling(
+#     window=window_autocorr, min_periods=window_autocorr,
+#     center=False).apply(lambda x: x.autocorr(lag=1), raw=False)
+# data['autocorr_2'] = np.log(data['close']).diff().rolling(
+#     window=window_autocorr, min_periods=window_autocorr,
+#     center=False).apply(lambda x: x.autocorr(lag=2), raw=False)
+# data['autocorr_3'] = np.log(data['close']).diff().rolling(
+#     window=window_autocorr, min_periods=window_autocorr,
+#     center=False).apply(lambda x: x.autocorr(lag=3), raw=False)
+# data['autocorr_4'] = np.log(data['close']).diff().rolling(
+#     window=window_autocorr, min_periods=window_autocorr,
+#     center=False).apply(lambda x: x.autocorr(lag=4), raw=False)
+# data['autocorr_5'] = np.log(data['close']).diff().rolling(
+#     window=window_autocorr, min_periods=window_autocorr,
+#     center=False).apply(lambda x: x.autocorr(lag=5), raw=False)
 
 # Skewness
 data['skew_60'] = np.log(data['close']).diff().rolling(
