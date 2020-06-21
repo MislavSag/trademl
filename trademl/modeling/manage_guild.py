@@ -3,7 +3,7 @@ import os
 
 # set home
 GUILD_HOME = 'C:/ProgramData/Anaconda3/.guild'
-guild.set_guild_home()
+guild.set_guild_home(GUILD_HOME)
 
 # df runs
 runs = guild.runs() 

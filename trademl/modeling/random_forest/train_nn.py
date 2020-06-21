@@ -222,6 +222,18 @@ print('X and y shape train: ', X_train_lstm.shape, y_train_lstm.shape)
 print('X and y shape validate: ', X_val_lstm.shape, y_val_lstm.shape)
 print('X and y shape test: ', X_test_lstm.shape, y_test_lstm.shape)
 
+# change -1 to 1
+for i, y in enumerate(y_train_lstm):
+    if y == -1.:
+        y_train_lstm[i,:] = 0. 
+for i, y in enumerate(y_val_lstm):
+    if y == -1.:
+        y_val_lstm[i,:] = 0. 
+
+for i, y in enumerate(y_test_lstm):
+    if y == -1.:
+        y_test_lstm[i,:] = 0. 
+
 
 ### MODEL
 model = keras.models.Sequential([
