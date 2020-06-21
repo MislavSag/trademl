@@ -157,7 +157,7 @@ def add_technical_indicators(data, periods):
     data[['fastk_20', 'fastd_20']]= STOCHF(data, fastk_period=20, fastd_period=9, fastd_matype=0)
     data[['fastk_200', 'fastd_200']]= STOCHF(data, fastk_period=200, fastd_period=80, fastd_matype=0)
     data[['fastk_3600', 'fastd_3600']]= STOCHF(data, fastk_period=3600, fastd_period=400, fastd_matype=0)
-    data[['slowk', 'slowd ']]= STOCH(data)
+    data[['slowk', 'slowd']]= STOCH(data)
     data[['slowk_30', 'slowd_30']]= STOCH(data, fastk_period=30, slowk_period=15,
                                           slowk_matype=0, slowd_period=9, slowd_matype=0)
         
