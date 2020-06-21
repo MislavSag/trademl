@@ -60,8 +60,8 @@ data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 ### NON-MODEL HYPERPARAMETERS
 labeling_technique = 'triple_barrier'
 std_outlier = 10
-tb_volatility_lookback = 70
-tb_volatility_scaler = 1.5
+tb_volatility_lookback = 60
+tb_volatility_scaler = 10
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.004
@@ -77,7 +77,7 @@ remove_ind_with_high_period = True
 stationary_close_lables = False
 
 ### MODEL HYPERPARAMETERS
-max_depth=3
+max_depth = 3
 max_features = 15
 n_estimators = 1000
 

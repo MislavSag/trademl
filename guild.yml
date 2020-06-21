@@ -52,5 +52,22 @@
           type: string
           default: 'returns'
           choices: ['returns','time_decay']
+        max_features:
+          description: maximum number of featurs in random forest
+          arg_name: max_features
+          min: 1
+          max: 250
+        n_estimators:
+          description: Number of estimators (decision trees) in random forest
+          arg_name: n_estimators
+          min: 1
+          max: 10000
+        ts_look_forward_window:
+          description: How much time units into the future to look when looking for trend
+          arg_name: ts_look_forward_window
+          min: 1
+          max: 1000000
+
+
 
 

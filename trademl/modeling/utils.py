@@ -7,6 +7,7 @@ from sklearn.tree._tree import Tree
 from sklearn.ensemble import RandomForestClassifier
 import time
 from functools import wraps
+from sqlalchemy import create_engine
 
 
 def cbind_pandas_h2o(X_train, y_train):
@@ -162,3 +163,23 @@ def time_method(func):
         return result
 
     return timed
+
+
+def write_to_db(df, database_name, table_name, primary_key=True):
+    """
+    Creates a sqlalchemy engine and write the dataframe to database
+    Source: https://stackoverflow.com/questions/55750229/how-to-save-a-data-frame-as-a-table-in-sql
+    """
+    # replacing infinity by nan
+    df = df.replace([np.inf, -np.inf], np.nan)
+
+    # create sqlalchemy engine
+    engine = create_engine("mysql+pymysql://{user}:{pw}@91.234.46.219/{db}"
+                           .format(user="odvjet12_mislav",
+                                   pw="Theanswer0207",
+                                   db=database_name))
+
+    # Write to DB
+    df.to_sql(table_name, engine, if_exists='replace', index=False, chunksize=100)
+    with engine.connect() as con:
+        con.execute('ALTER table ' + table_name + ' add id int primary key auto_increment;')
