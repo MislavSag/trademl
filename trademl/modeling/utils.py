@@ -3,7 +3,6 @@ import json
 import h2o
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.tree._tree import Tree
 from sklearn.ensemble import RandomForestClassifier
 import time
 from functools import wraps
@@ -183,3 +182,17 @@ def write_to_db(df, database_name, table_name, primary_key=True):
     df.to_sql(table_name, engine, if_exists='replace', index=False, chunksize=100)
     with engine.connect() as con:
         con.execute('ALTER table ' + table_name + ' add id int primary key auto_increment;')
+        
+        
+def query_to_db(query, database_name):
+    """
+    Get dat from database.
+    """
+    # create sqlalchemy engine
+    engine = create_engine("mysql+pymysql://{user}:{pw}@91.234.46.219/{db}"
+                           .format(user="odvjet12_mislav",
+                                   pw="Theanswer0207",
+                                   db=database_name))
+
+    # Write to DB
+    return pd.read_sql(query, engine)
