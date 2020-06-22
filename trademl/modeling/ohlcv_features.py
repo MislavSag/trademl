@@ -31,19 +31,9 @@ data.sort_index(inplace=True)
 
 
 # remove really big outliers (above 20 standard deviations)
-# data = remove_ohlc_ouliers(
-#     data, threshold_up=0.50, threshold_down=-0.30)
-# outlier_remove = tml.modeling.pipelines.OutlierStdRemove(10)
-# data = outlier_remove.fit_transform(data)
-
-
-
-
-data_ = remove_ourlier_diff_median(data, 25)
-print(data_.shape)
 print(data.shape)
-data_.head()
-
+data = tml.modeling.outliers.remove_ourlier_diff_median(data, 25)
+print(data.shape)
 data_['close'].plot()
 data_['low'].plot()
 data_['high'].plot()
@@ -51,65 +41,20 @@ data_['open'].plot()
 
     
 
-daily_diff = (data.resample('D').last().dropna().diff() + 0.005) * 25
-daily_diff['diff_date'] = daily_diff.index.strftime('%Y-%m-%d')
-data_test = data.diff()
-data_test['diff_date'] = data_test.index.strftime('%Y-%m-%d')
-data_test_diff = pd.merge(data_test, daily_diff, on='diff_date')
-indexer = ((np.abs(data_test_diff['close_x']) < np.abs(data_test_diff['close_y'])) & 
-           (np.abs(data_test_diff['open_x']) < np.abs(data_test_diff['open_y'])) & 
-           (np.abs(data_test_diff['high_x']) < np.abs(data_test_diff['high_y'])) & 
-           (np.abs(data_test_diff['low_x']) < np.abs(data_test_diff['low_y'])))
-data_final = data.loc[indexer.values, :]
-data_final['close'].plot()
-data_final['high'].plot()
-data_final['open'].plot()
-data_final['low'].plot()
-
-
-
-
-
-import pandas as pd
-# Import data
-import yfinance as yf
-data = yf.download(tickers="MSFT", period="7d", interval="1m")
-
-data_minute = data.copy()
-data_minute['Date'] = data_minute.index.astype('datetime64[ns]')
-data_minute['Date'] = data_minute['Date'].dt.normalize()
-data_minute['Minute Difference'] = data_minute['Close'] - data_minute['Open']
-
-
-data_daily = data_minute.resample('D').agg({'Open':'first',
-                                         'High':'max',
-                                         'Low':'min',
-                                         'Close':'last',
-                                         'Adj Close':'last',
-                                        'Volume':'sum'
-                                       })
-data_daily['Daily Difference'] = data_daily['Close'] - data_daily['Open']
-data_daily['Date'] = data_daily.index.astype('datetime64[ns]')
-data_daily['Date'] = data_daily['Date'].dt.normalize()
-data_daily = data_daily.set_index('Date')
-
-data_minute = pd.merge(data_minute,data_daily['Daily Difference'],how = 'left', left_on = 'Date', right_index = True)
-data_minute = data_minute[data_minute['Minute Difference'] >= data_minute['Daily Difference']]
-data_minute
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# daily_diff = (data.resample('D').last().dropna().diff() + 0.005) * 25
+# daily_diff['diff_date'] = daily_diff.index.strftime('%Y-%m-%d')
+# data_test = data.diff()
+# data_test['diff_date'] = data_test.index.strftime('%Y-%m-%d')
+# data_test_diff = pd.merge(data_test, daily_diff, on='diff_date')
+# indexer = ((np.abs(data_test_diff['close_x']) < np.abs(data_test_diff['close_y'])) & 
+#            (np.abs(data_test_diff['open_x']) < np.abs(data_test_diff['open_y'])) & 
+#            (np.abs(data_test_diff['high_x']) < np.abs(data_test_diff['high_y'])) & 
+#            (np.abs(data_test_diff['low_x']) < np.abs(data_test_diff['low_y'])))
+# data_final = data.loc[indexer.values, :]
+# data_final['close'].plot()
+# data_final['high'].plot()
+# data_final['open'].plot()
+# data_final['low'].plot()
 
 
 # NON SPY OLD WAY
