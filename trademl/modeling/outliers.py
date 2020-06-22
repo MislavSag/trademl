@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 
 def remove_ohlc_ouliers(data, threshold_up=1, threshold_down=-0.3):
