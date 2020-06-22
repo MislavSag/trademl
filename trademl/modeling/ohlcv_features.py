@@ -30,32 +30,11 @@ data.drop(columns=['date'], inplace=True)
 data.sort_index(inplace=True)
 
 
-# remove really big outliers (above 20 standard deviations)
+### REMOVE OUTLIERS
 print(data.shape)
 data = tml.modeling.outliers.remove_ourlier_diff_median(data, 25)
 print(data.shape)
-data_['close'].plot()
-data_['low'].plot()
-data_['high'].plot()
-data_['open'].plot()
-
     
-
-# daily_diff = (data.resample('D').last().dropna().diff() + 0.005) * 25
-# daily_diff['diff_date'] = daily_diff.index.strftime('%Y-%m-%d')
-# data_test = data.diff()
-# data_test['diff_date'] = data_test.index.strftime('%Y-%m-%d')
-# data_test_diff = pd.merge(data_test, daily_diff, on='diff_date')
-# indexer = ((np.abs(data_test_diff['close_x']) < np.abs(data_test_diff['close_y'])) & 
-#            (np.abs(data_test_diff['open_x']) < np.abs(data_test_diff['open_y'])) & 
-#            (np.abs(data_test_diff['high_x']) < np.abs(data_test_diff['high_y'])) & 
-#            (np.abs(data_test_diff['low_x']) < np.abs(data_test_diff['low_y'])))
-# data_final = data.loc[indexer.values, :]
-# data_final['close'].plot()
-# data_final['high'].plot()
-# data_final['open'].plot()
-# data_final['low'].plot()
-
 
 # NON SPY OLD WAY
 # paths = glob.glob(DATA_PATH + 'ohlcv/*')
@@ -64,8 +43,7 @@ data_['open'].plot()
 #     data = store.get(contracts[0])
 
     
-# ADD FEATURES
-
+### ADD FEATURES
 # add technical indicators
 periods = [5, 30, 60, 150, 300, 480, 2400, 12000]
 data = tml.modeling.features.add_technical_indicators(data, periods=periods)
@@ -164,9 +142,22 @@ cols_remove_na = range((np.where(data.columns == 'volume')[0].item() + 1), data.
 data.dropna(subset=data.columns[cols_remove_na], inplace=True)
 
 
+### ADD VIX TO DATABASE
+q = 'SELECT date, open AS open_vix, high AS high_vix, low AS low_vix, \
+    close AS close_vix, volume AS volume_vix FROM VIX'
+data_vix = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
+data_vix.set_index(data_vix.date, inplace=True)
+data_vix.drop(columns=['date'], inplace=True)
+data_vix.sort_index(inplace=True)
+# merge spy and vix with merge_asof which uses nearest back value for NA
+data_vix = data_vix.sort_index()
+data = pd.merge_asof(data, data_vix, left_index=True, right_index=True)
+
+
 ###  STATIONARITY
 ohlc = data[['open', 'high', 'low', 'close']]  # save for later
 ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig']
+
 # get dmin for every column
 stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(data)
 
