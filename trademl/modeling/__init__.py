@@ -7,7 +7,7 @@ from trademl.modeling.metrics_summary import (
 from trademl.modeling.features import (
     add_ind, add_ind_df, add_technical_indicators, add_fourier_transform)
 from trademl.modeling.outliers import (
-    remove_ohlc_ouliers)
+    remove_ohlc_ouliers, remove_ourlier_diff_median)
 from trademl.modeling.stationarity import (
     min_ffd_plot, min_ffd_all_cols, min_ffd_value)
 from trademl.modeling.utils import (

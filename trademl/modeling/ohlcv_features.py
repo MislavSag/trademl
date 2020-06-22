@@ -10,11 +10,9 @@ from mlfinlab.structural_breaks import (
     get_chu_stinchcombe_white_statistics,
     get_chow_type_stat, get_sadf)
 import mlfinlab as ml
+import mlfinlab.microstructural_features as micro
 import trademl as tml
 
-
-### GLOBAL
-DATA_PATH = 'D:/market_data/usa/'
 
 
 ### PANDAS OPTIONS
@@ -24,7 +22,6 @@ pd.set_option('display.width', 1000)
 
 
 ### IMPORT DATA
-
 # import data from mysql database and 
 q = 'SELECT date, open, high, low, close, volume FROM SPY'
 data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
@@ -32,9 +29,88 @@ data.set_index(data.date, inplace=True)
 data.drop(columns=['date'], inplace=True)
 data.sort_index(inplace=True)
 
-# remove big outliers
-outlier_remove = tml.modeling.pipelines.OutlierStdRemove(50)
-data_test = outlier_remove.fit_transform(data)
+
+# remove really big outliers (above 20 standard deviations)
+# data = remove_ohlc_ouliers(
+#     data, threshold_up=0.50, threshold_down=-0.30)
+# outlier_remove = tml.modeling.pipelines.OutlierStdRemove(10)
+# data = outlier_remove.fit_transform(data)
+
+
+
+
+data_ = remove_ourlier_diff_median(data, 25)
+print(data_.shape)
+print(data.shape)
+data_.head()
+
+data_['close'].plot()
+data_['low'].plot()
+data_['high'].plot()
+data_['open'].plot()
+
+    
+
+daily_diff = (data.resample('D').last().dropna().diff() + 0.005) * 25
+daily_diff['diff_date'] = daily_diff.index.strftime('%Y-%m-%d')
+data_test = data.diff()
+data_test['diff_date'] = data_test.index.strftime('%Y-%m-%d')
+data_test_diff = pd.merge(data_test, daily_diff, on='diff_date')
+indexer = ((np.abs(data_test_diff['close_x']) < np.abs(data_test_diff['close_y'])) & 
+           (np.abs(data_test_diff['open_x']) < np.abs(data_test_diff['open_y'])) & 
+           (np.abs(data_test_diff['high_x']) < np.abs(data_test_diff['high_y'])) & 
+           (np.abs(data_test_diff['low_x']) < np.abs(data_test_diff['low_y'])))
+data_final = data.loc[indexer.values, :]
+data_final['close'].plot()
+data_final['high'].plot()
+data_final['open'].plot()
+data_final['low'].plot()
+
+
+
+
+
+import pandas as pd
+# Import data
+import yfinance as yf
+data = yf.download(tickers="MSFT", period="7d", interval="1m")
+
+data_minute = data.copy()
+data_minute['Date'] = data_minute.index.astype('datetime64[ns]')
+data_minute['Date'] = data_minute['Date'].dt.normalize()
+data_minute['Minute Difference'] = data_minute['Close'] - data_minute['Open']
+
+
+data_daily = data_minute.resample('D').agg({'Open':'first',
+                                         'High':'max',
+                                         'Low':'min',
+                                         'Close':'last',
+                                         'Adj Close':'last',
+                                        'Volume':'sum'
+                                       })
+data_daily['Daily Difference'] = data_daily['Close'] - data_daily['Open']
+data_daily['Date'] = data_daily.index.astype('datetime64[ns]')
+data_daily['Date'] = data_daily['Date'].dt.normalize()
+data_daily = data_daily.set_index('Date')
+
+data_minute = pd.merge(data_minute,data_daily['Daily Difference'],how = 'left', left_on = 'Date', right_index = True)
+data_minute = data_minute[data_minute['Minute Difference'] >= data_minute['Daily Difference']]
+data_minute
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # NON SPY OLD WAY
 # paths = glob.glob(DATA_PATH + 'ohlcv/*')
@@ -53,8 +129,7 @@ data.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in data.columns]
 # add ohlc transformations
 data['high_low'] = data['high'] - data['low']
 data['close_open'] = data['close'] - data['open']
-data['close'].cummax()
-
+data['close_ath'] = data['close'].cummax()
 
 # simple momentum
 data['mom1'] = data['close'].pct_change(periods=1)
@@ -118,12 +193,28 @@ data['kurtosis_10'] = np.log(data['close']).diff().rolling(
 data['kurtosis_5'] =np.log(data['close']).diff().rolling(
     window=5, min_periods=5, center=False).kurt()
 
-# remove na
+# microstructural features
+data['roll_measure'] = micro.get_roll_measure(data['close'])
+data['corwin_schultz_est'] = micro.get_corwin_schultz_estimator(
+    data['high'], data['low'], 100)
+data['bekker_parkinson_vol'] = micro.get_bekker_parkinson_vol(
+    data['high'], data['low'], 100)
+data['kyle_lambda'] = micro.get_bekker_parkinson_vol(
+    data['close'], data['volume'])
+data['amihud_lambda'] = micro.get_bar_based_amihud_lambda(
+    data['close'], data['volume'])
+data['hasbrouck_lambda'] = micro.get_bar_based_hasbrouck_lambda(
+    data['close'], data['volume'])
+tick_diff = data['close'].diff()
+data['tick_rule'] = np.where(tick_diff != 0,
+                             np.sign(tick_diff),
+                             np.sign(tick_diff).shift(periods=-1))
+
+
+### REMOVE NAN FOR INDICATORS
 data.isna().sum().sort_values(ascending=False).head(20)
-data.drop(columns=['T396000'], inplace=True)  # T396000 575994, TRIX96000 TEMA96000 ADXR96000 287998, ADX96000 DEMA96000 191998
-# T312000 71994, ADXR12000 TRIX12000  35998, TEMA12000 35997, ADX12000 APO_5 23999, DEMA12000 23998, T32400 14394
-# data.drop(columns=['T312000', 'ADXR12000', 'TRIX12000', 'TEMA12000', 'ADX12000', 'APO_5', 
-#                    'DEMA12000', 'T32400'], inplace=True)
+columns_na_below = data.isna().sum() < 12010
+data = data.loc[:, columns_na_below]
 cols_remove_na = range((np.where(data.columns == 'volume')[0].item() + 1), data.shape[1])
 data.dropna(subset=data.columns[cols_remove_na], inplace=True)
 
@@ -195,7 +286,7 @@ def _get_dfc_for_t(molecule_range, series_lag_values_start, series_diff, series_
     return dfc_series
 
 
-def get_chow_type_stat(series: pd.Series, min_length: int = 20) -> pd.Series:
+def my_get_chow_type_stat(series: pd.Series, min_length: int = 20) -> pd.Series:
     """
     Multithread implementation of Chow-Type Dickey-Fuller Test, p.251-252
     :param series: (pd.Series) series to test
