@@ -21,3 +21,6 @@ from trademl.modeling.feature_importance import (
 from trademl.modeling.utils import (
     serialize_random_forest, write_to_db, query_to_db
 )
+from trademl.modeling.structural_breaks import (
+    get_chow_type_stat
+)

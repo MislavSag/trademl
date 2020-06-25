@@ -197,3 +197,22 @@ def query_to_db(query, database_name):
 
     # Write to DB
     return pd.read_sql(query, engine)
+
+
+
+def write_to_db_update(df, database_name, table_name):
+    """
+    Creates a sqlalchemy engine and write the dataframe to database
+    Source: https://stackoverflow.com/questions/55750229/how-to-save-a-data-frame-as-a-table-in-sql
+    """
+    # replacing infinity by nan
+    df = df.replace([np.inf, -np.inf], np.nan)
+
+    # create sqlalchemy engine
+    engine = create_engine("mysql+pymysql://{user}:{pw}@91.234.46.219/{db}"
+                           .format(user="odvjet12_mislav",
+                                   pw="Theanswer0207",
+                                   db=database_name))
+
+    # Write to DB
+    df.to_sql(table_name, engine, if_exists='append', index=False, chunksize=100)
