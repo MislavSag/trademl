@@ -1,0 +1,17 @@
+library(dplyr)
+library(RMySQL)
+library(DBI)
+library(ggplot2)
+library(anytime)
+library(tsibble)
+library(xts)
+library(zoo)
+library(tseries)
+library(tsbox)
+library(PerformanceAnalytics)
+library(strucchange)
+library(forecast)
+library(kableExtra)
+
+
+forecast::auto.arima()
