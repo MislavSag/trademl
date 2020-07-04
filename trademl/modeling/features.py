@@ -88,7 +88,7 @@ def add_technical_indicators(data, periods):
     inds = pd.concat(inds, axis=1)
     data = pd.concat([data, inds], axis=1)
 
-    # add tecnical indicators with no arguments
+    # add tecnical indicators with no function arguments
     indsList = [HT_TRENDLINE, AD, OBV, HT_DCPERIOD, HT_DCPHASE, HT_TRENDMODE,
                 TRANGE, AVGPRICE, MEDPRICE, TYPPRICE, WCLPRICE, 
                 ULTOSC]
@@ -123,10 +123,10 @@ def add_technical_indicators(data, periods):
     data['APO_5'] = APO(data, fastperiod=12000, slowperiod=24000, matype=0)
     data['ADOSC'] = ADOSC(data)
     data[['MACD', 'MACDSIGNAL', 'MACDHIST']] = MACD (data)
-    # data[['MACD_24', 'MACDSIGNAL_24', 'MACDHIST_24']] = MACD (data,
-    #                                                           fastperiod=24,
-    #                                                           slowperiod=52,
-    #                                                           signalperiod=18)
+    data[['MACD_24', 'MACDSIGNAL_24', 'MACDHIST_24']] = MACD (data,
+                                                              fastperiod=24,
+                                                              slowperiod=52,
+                                                              signalperiod=18)
     # data[['MACD_48', 'MACDSIGNAL_48', 'MACDHIST_48']] = MACD (data,
     #                                                         fastperiod=48,
     #                                                         slowperiod=104,
