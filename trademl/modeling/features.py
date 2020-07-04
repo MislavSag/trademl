@@ -7,7 +7,8 @@ from talib.abstract import (
     HT_TRENDLINE, AD, OBV, HT_DCPERIOD, HT_DCPHASE, HT_TRENDMODE,
     TRANGE, AVGPRICE, MEDPRICE, TYPPRICE, WCLPRICE, ULTOSC,
     MAMA, SAR, SAREXT, APO, MACD, ADOSC,
-    HT_PHASOR, HT_SINE, STOCHF, STOCH
+    HT_PHASOR, HT_SINE, STOCHF, STOCH,
+    BETA, CORREL, LINEARREG, LINEARREG_ANGLE, LINEARREG_INTERCEPT, LINEARREG_SLOPE, TSF
 )
 
 
@@ -74,7 +75,9 @@ def add_technical_indicators(data, periods):
                 TEMA, TRIMA, WMA,  # KAMA memory intensive!
                 ADX, ADXR, AROONOSC, BOP, CMO, DX, MFI, MINUS_DM, MOM, ROC, RSI,
                 TRIX , WILLR,  # CCI NE RADI (VALJDA)
-                ATR, NATR]
+                ATR, NATR,
+                BETA, CORREL, LINEARREG, LINEARREG_ANGLE, LINEARREG_INTERCEPT,
+                LINEARREG_SLOPE, TSF]  # OVDJE NASTAVITI S NIZOM!!!
     inds = [add_ind(data, f, f._Function__name.decode('ascii'), periods)
             for f in indsList]
     inds = pd.concat(inds, axis=1)
@@ -96,7 +99,7 @@ def add_technical_indicators(data, periods):
     inds = pd.concat(inds, axis=1)
     data = pd.concat([data, inds], axis=1)
 
-    # add other indicators
+    # add other indicators    
     data[['MAMA', 'FAMA']] = MAMA(data)  # MAVP ne radi
     data[['MAMA_25', 'FAMA_25']] = MAMA(data, fastlimit=0.25, slowlimit=0.02)  # MAVP ne radi
     data[['MAMA_5', 'FAMA_5']] = MAMA(data, fastlimit=0.5, slowlimit=0.05)  # MAVP ne radi
@@ -127,21 +130,14 @@ def add_technical_indicators(data, periods):
                                                               fastperiod=24,
                                                               slowperiod=52,
                                                               signalperiod=18)
-    # data[['MACD_48', 'MACDSIGNAL_48', 'MACDHIST_48']] = MACD (data,
-    #                                                         fastperiod=48,
-    #                                                         slowperiod=104,
-    #                                                         signalperiod=36)
-    # data[['MACD_200', 'MACDSIGNAL_200', 'MACDHIST_200']] = MACD (data,
-    #                                                     fastperiod=200,
-    #                                                     slowperiod=300,
-    #                                                     signalperiod=50)
-    # data[['MACDEXT', 'MACDEXTSIGNAL', 'MACDEXTHIST']] = MACD (data)
-    # data[['MACDEXT_', 'MACDEXTSIGNAL_', 'MACDEXTHIST_']] = MACD (data,
-    #                                                                fastperiod=200,                                                               fastmatype=0,
-    #                                                                slowperiod=100,
-    #                                                                slowmatype=0,
-    #                                                                signalperiod=50,
-    #                                                                signalmatype=0)
+    data[['MACD_48', 'MACDSIGNAL_48', 'MACDHIST_48']] = MACD (data,
+                                                            fastperiod=48,
+                                                            slowperiod=104,
+                                                            signalperiod=36)
+    data[['MACD_200', 'MACDSIGNAL_200', 'MACDHIST_200']] = MACD (data,
+                                                        fastperiod=200,
+                                                        slowperiod=300,
+                                                        signalperiod=50)
     # data[['MACDFIX', 'MACDFIX SIGNAL', 'MACDFIXHIST']] = MACDFIX(data)
     # data[['MACDFIX_18', 'MACDFIX SIGNAL_18',
     #       'MACDFIXHIST_18']] = MACDFIX(data, 18)
