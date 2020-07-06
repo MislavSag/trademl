@@ -15,7 +15,7 @@ from trademl.modeling.utils import (
 from trademl.modeling.backtest import (
     cumulative_returns, hold_cash_backtest, enter_positions)
 from trademl.modeling.pipelines import (
-    TripleBarierLabeling, OutlierStdRemove)
+    TripleBarierLabeling, OutlierStdRemove, trend_scanning_labels)
 from trademl.modeling.feature_importance import (
     feature_importance_values, feature_importnace_vec, plot_feature_importance)
 from trademl.modeling.utils import (

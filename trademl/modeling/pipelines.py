@@ -7,6 +7,7 @@ import mlfinlab as ml
 from trademl.modeling.utils import time_method
 
 
+
 class TripleBarierLabeling(BaseEstimator, TransformerMixin):
 
     def __init__(self, close_name='close', volatility_lookback=50,
@@ -254,10 +255,10 @@ class TrendScanning(BaseEstimator, TransformerMixin):
 
 
 # DATA_PATH = 'C:/Users/Mislav/algoAItrader/data/spy_with_vix.h5'
-# df = pd.read_hdf(DATA_PATH, start=0, stop=10000)
+# df = pd.read_hdf(DATA_PATH, start=0, stop=1000000)
 
 
-# ### HYPER PARAMETERS
+# # ### HYPER PARAMETERS
 # std_outlier = 10
 # tb_volatility_lookback = 50
 # tb_volatility_scaler = 1
@@ -266,39 +267,263 @@ class TrendScanning(BaseEstimator, TransformerMixin):
 # tb_triplebar_min_ret = 0.003
 
 
-# # triple barrier alone
-# triple_barrier_pipe= TripleBarierLabeling(
-#     close_name='close_orig',
-#     volatility_lookback=tb_volatility_lookback,
-#     volatility_scaler=tb_volatility_scaler,
-#     triplebar_num_days=tb_triplebar_num_days,
-#     triplebar_pt_sl=tb_triplebar_pt_sl,
-#     triplebar_min_ret=tb_triplebar_min_ret,
-#     num_threads=1
-# )
-# tb_fit = triple_barrier_pipe.fit(df)
-# tb_fit.triple_barrier_info
-# X = triple_barrier_pipe.transform(df)
+# # INSPECT
+# close = df['close_orig']
+# daily_vol = ml.util.get_daily_vol(close,lookback=50)
+# cusum_events = ml.filters.cusum_filter(close,threshold=daily_vol.mean())
+# vertical_barriers = ml.labeling.add_vertical_barrier(t_events=cusum_events,close=close,num_days=5) 
 
-# # 
-# pipeline = Pipeline([
-#     ('remove_outlier', OutlierStdRemove(10)),
-#     ('triple_barrier_labeling', TripleBarierLabeling(close_name='close_orig')),
-# ])
-
-# pipe_out = pipeline.fit_transform(df)
+# # main function args
+# t_events = cusum_events
+# pt_sl=[1,1]
+# target = daily_vol
+# min_ret = 0.003
+# vertical_barrier_times = vertical_barriers
+# side_prediction = None
 
 
-## TREND SCANNING
-# close_name='close_orig'
-# tb_volatility_lookback = 50
-# tb_volatility_scaler = 1
-# ts_look_forward_window=20
-# ts_min_sample_length=5
-# ts_step=1
-    # trend_scanning_pipe = TrendScanning(
-    #     close_name, ts_look_forward_window, ts_min_sample_length, ts_step
-    #     )
-    # ts_fit = trend_scanning_pipe.fit(df)
-    # X = trend_scanning_pipe.transform(df)
-#################### TESTS
+
+# # 1) Get target
+# target = target.reindex(t_events)
+# target = target[target > min_ret]  # min_ret
+
+# # 2) Get vertical barrier (max holding period)
+# if vertical_barrier_times is False:
+#     vertical_barrier_times = pd.Series(pd.NaT, index=t_events, dtype=t_events.dtype)
+
+# # 3) Form events object, apply stop loss on vertical barrier
+# if side_prediction is None:
+#     side_ = pd.Series(1.0, index=target.index)
+#     pt_sl_ = [pt_sl[0], pt_sl[0]]
+# else:
+#     side_ = side_prediction.reindex(target.index)  # Subset side_prediction on target index.
+#     pt_sl_ = pt_sl[:2]
+
+# # Create a new df with [v_barrier, target, side] and drop rows that are NA in target
+# events = pd.concat({'t1': vertical_barrier_times, 'trgt': target, 'side': side_}, axis=1)
+# events = events.dropna(subset=['trgt'])
+
+# # _dates = mp_pandas_obj(func=apply_pt_sl_on_t1,
+# #                                       pd_obj=('molecule', events.index),
+# #                                       num_threads=num_threads,
+# #                                       close=close,
+# #                                       events=events,
+# #                                       pt_sl=pt_sl_,
+# #                                       verbose=verbose)
+
+
+# # apply_pt_sl_on_t1_fast function
+# molecule = events.index
+# events=events
+# pt_sl=[1,1]
+
+
+# events_ = events.loc[molecule]
+# out = events_[['t1']].copy(deep=True)
+
+# profit_taking_multiple = pt_sl[0]
+# stop_loss_multiple = pt_sl[1]
+
+# # Profit taking active
+# if profit_taking_multiple > 0:
+#     profit_taking = profit_taking_multiple * events_['trgt']
+# else:
+#     profit_taking = pd.Series(index=events.index)  # NaNs
+
+# # Stop loss active
+# if stop_loss_multiple > 0:
+#     stop_loss = -stop_loss_multiple * events_['trgt']
+# else:
+#     stop_loss = pd.Series(index=events.index)  # NaNs
+
+# out['pt'] = pd.Series(dtype=events.index.dtype)
+# out['sl'] = pd.Series(dtype=events.index.dtype)
+
+
+# def df_to_numpy_with_index(df, column_name='datetime'):
+#     df = df.to_frame()
+#     df['column_name'] = df.index
+#     df = df.values
+#     return df
+
+
+# close_val = close.values
+# close_date = close.index.values
+# loop_vec = df_to_numpy_with_index(events_['t1'].fillna(close.index[-1]))
+# side_val = events_['side'].values
+# stop_loss_val = stop_loss.values
+# stop_loss_date = stop_loss.index.values
+# profit_taking_val = profit_taking.values
+# profit_taking_date = profit_taking.index.values
+
+# # events_help = events_['t1'].fillna(close.index[-1])
+# # close_indecies = np.where(events_help.index)
+
+
+# @njit
+# def apply_pt_sl_on_t1_fast(close_val, close_date, loop_vec, side_val, stop_loss_val, stop_loss_date, profit_taking_val, profit_taking_date):
+#     sl_list = []
+#     pt_list = []
+#     for a in range(loop_vec.shape[0]):
+#         t_1 = loop_vec[a, 1]
+#         t_2 = loop_vec[a, 0]
+#         closing_prices = close_val[np.where((close_date > t_1) & (close_date < t_2))]  # Path prices for a given trade
+#         cum_returns = (closing_prices / close_val[np.where(close_date == t_1)[0]] - 1) * side_val[np.where(close_date == t_1)[0]]  # Path returns
+#         sl_ = close_date[np.where(cum_returns[cum_returns < stop_loss_val[np.where(stop_loss_date == t_1)[0]]][0] == cum_returns)]
+#         sl_list.append(sl_)
+#         pt_ = close_date[np.where(cum_returns[cum_returns > profit_taking_val[np.where(profit_taking_date == t_1)[0]]][0] == cum_returns)]
+#         pt_list.append(pt_)
+#         # sl_list.append(t_1)
+#         # pt_list.append(t_2)
+#     return sl_list, pt_list
+
+# sl_dates, pt_dates = apply_pt_sl_on_t1_fast(close_val, close_date, loop_vec, side_val, stop_loss_val, stop_loss_date, profit_taking_val, profit_taking_date)
+
+
+
+
+# # out.loc[:, ['sl']] = np.array(sl_dates)
+# # out.loc[:, ['pt']] = np.array(pt_dates)
+
+# # # Get events
+# # for loc, vertical_barrier in events_['t1'].fillna(close.index[-1]).iteritems():
+# #     closing_prices = close[loc: vertical_barrier]  # Path prices for a given trade
+# #     cum_returns = (closing_prices / close[loc] - 1) * events_.at[loc, 'side']  # Path returns
+# #     out.at[loc, 'sl'] = cum_returns[cum_returns < stop_loss[loc]].index.min()  # Earliest stop loss date
+# #     out.at[loc, 'pt'] = cum_returns[cum_returns > profit_taking[loc]].index.min()  # Earliest profit taking date
+
+
+
+# # def apply_pt_sl_on_t1(close, events, pt_sl, molecule):  # pragma: no cover
+# #     # Apply stop loss/profit taking, if it takes place before t1 (end of event)
+# #     events_ = events.loc[molecule]
+# #     out = events_[['t1']].copy(deep=True)
+
+# #     profit_taking_multiple = pt_sl[0]
+# #     stop_loss_multiple = pt_sl[1]
+
+# #     # Profit taking active
+# #     if profit_taking_multiple > 0:
+# #         profit_taking = profit_taking_multiple * events_['trgt']
+# #     else:
+# #         profit_taking = pd.Series(index=events.index)  # NaNs
+
+# #     # Stop loss active
+# #     if stop_loss_multiple > 0:
+# #         stop_loss = -stop_loss_multiple * events_['trgt']
+# #     else:
+# #         stop_loss = pd.Series(index=events.index)  # NaNs
+
+# #     out['pt'] = pd.Series(dtype=events.index.dtype)
+# #     out['sl'] = pd.Series(dtype=events.index.dtype)
+
+# #     # Get events
+# #     for loc, vertical_barrier in events_['t1'].fillna(close.index[-1]).iteritems():
+# #         closing_prices = close[loc: vertical_barrier]  # Path prices for a given trade
+# #         cum_returns = (closing_prices / close[loc] - 1) * events_.at[loc, 'side']  # Path returns
+# #         out.at[loc, 'sl'] = cum_returns[cum_returns < stop_loss[loc]].index.min()  # Earliest stop loss date
+# #         out.at[loc, 'pt'] = cum_returns[cum_returns > profit_taking[loc]].index.min()  # Earliest profit taking date
+
+# #     return out
+
+
+
+# # import numpy as np
+# # from numba import njit
+
+
+# # @njit
+# # def datetime_operand(date1, date2):
+# #     x = date1 > date2
+# #     return x
+
+
+# # d1 = np.array(['2001-01-01T12:00', '2002-02-03T13:56:03.172'],
+# #               dtype='datetime64')
+# # d2 = np.datetime64('2005-02-25T03:40')
+# # print(datetime_operand(d1, d2))
+
+
+
+
+# # # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
+# # def get_events(close, t_events, pt_sl, target, min_ret, num_threads, vertical_barrier_times=False,
+# #                side_prediction=None, verbose=True):
+
+# #     # 1) Get target
+# #     target = target.reindex(t_events)
+# #     target = target[target > min_ret]  # min_ret
+
+# #     # 2) Get vertical barrier (max holding period)
+# #     if vertical_barrier_times is False:
+# #         vertical_barrier_times = pd.Series(pd.NaT, index=t_events, dtype=t_events.dtype)
+
+# #     # 3) Form events object, apply stop loss on vertical barrier
+# #     if side_prediction is None:
+# #         side_ = pd.Series(1.0, index=target.index)
+# #         pt_sl_ = [pt_sl[0], pt_sl[0]]
+# #     else:
+# #         side_ = side_prediction.reindex(target.index)  # Subset side_prediction on target index.
+# #         pt_sl_ = pt_sl[:2]
+
+# #     # Create a new df with [v_barrier, target, side] and drop rows that are NA in target
+# #     events = pd.concat({'t1': vertical_barrier_times, 'trgt': target, 'side': side_}, axis=1)
+# #     events = events.dropna(subset=['trgt'])
+
+# #     # Apply Triple Barrier
+# #     first_touch_dates = mp_pandas_obj(func=apply_pt_sl_on_t1,
+# #                                       pd_obj=('molecule', events.index),
+# #                                       num_threads=num_threads,
+# #                                       close=close,
+# #                                       events=events,
+# #                                       pt_sl=pt_sl_,
+# #                                       verbose=verbose)
+
+# #     for ind in events.index:
+# #         events.at[ind, 't1'] = first_touch_dates.loc[ind, :].dropna().min()
+
+# #     if side_prediction is None:
+# #         events = events.drop('side', axis=1)
+
+# #     # Add profit taking and stop loss multiples for vertical barrier calculations
+# #     events['pt'] = pt_sl[0]
+# #     events['sl'] = pt_sl[1]
+
+# #     return events
+
+# # # triple barrier alone
+# # triple_barrier_pipe= TripleBarierLabeling(
+# #     close_name='close_orig',
+# #     volatility_lookback=tb_volatility_lookback,
+# #     volatility_scaler=tb_volatility_scaler,
+# #     triplebar_num_days=tb_triplebar_num_days,
+# #     triplebar_pt_sl=tb_triplebar_pt_sl,
+# #     triplebar_min_ret=tb_triplebar_min_ret,
+# #     num_threads=1
+# # )
+# # tb_fit = triple_barrier_pipe.fit(df)
+# # tb_fit.triple_barrier_info
+# # X = triple_barrier_pipe.transform(df)
+
+# # # 
+# # pipeline = Pipeline([
+# #     ('remove_outlier', OutlierStdRemove(10)),
+# #     ('triple_barrier_labeling', TripleBarierLabeling(close_name='close_orig')),
+# # ])
+
+# # pipe_out = pipeline.fit_transform(df)
+
+
+# ## TREND SCANNING
+# # close_name='close_orig'
+# # tb_volatility_lookback = 50
+# # tb_volatility_scaler = 1
+# # ts_look_forward_window=20
+# # ts_min_sample_length=5
+# # ts_step=1
+#     # trend_scanning_pipe = TrendScanning(
+#     #     close_name, ts_look_forward_window, ts_min_sample_length, ts_step
+#     #     )
+#     # ts_fit = trend_scanning_pipe.fit(df)
+#     # X = trend_scanning_pipe.transform(df)
+# #################### TESTS
