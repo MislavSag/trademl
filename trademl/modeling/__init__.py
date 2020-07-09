@@ -3,7 +3,7 @@ Modeling
 """
 
 from trademl.modeling.metrics_summary import (
-    display_mental_model_metrics, clf_metrics, plot_roc_curve)
+    display_mental_model_metrics, clf_metrics, plot_roc_curve, lstm_metrics)
 from trademl.modeling.features import (
     add_ind, add_ind_df, add_technical_indicators, add_fourier_transform)
 from trademl.modeling.outliers import (
