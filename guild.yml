@@ -90,7 +90,7 @@
   operations:
     train:
       description: Trainer a LSTM nerual network
-      main: trademl.modeling.random_forest.train_nn  # Python module when running the operation
+      main: trademl.modeling.train_nn  # Python module when running the operation
       # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
       flags‑import: all
       flags:

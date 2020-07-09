@@ -7,6 +7,7 @@ import matplotlib
 import joblib
 import json
 import sys
+import os
 # preprocessing
 import sklearn
 from sklearn.model_selection import train_test_split
@@ -20,6 +21,7 @@ from boruta import BorutaPy
 import mlfinlab as ml
 import trademl as tml
 # import vectorbt as vbt
+
 
 
 ### DON'T SHOW GRAPH OPTION
@@ -282,8 +284,8 @@ lstm_metrics(y_test_lstm, predict_classes)
 
 
 # # save the model
-model.save('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_2.h5')
-# model = keras.models.load_model('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_2.h5')
+model.save('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_izbristi.h5')
+model = keras.models.load_model('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_2.h5')
 print("Saved model to disk")
 
 model_version = "0001"
