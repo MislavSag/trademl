@@ -37,6 +37,21 @@ def clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='binary', pr
     # print(f'Predictions: ', predictions_train[:10])
 
 
+def lstm_metrics(y_test, predictions, avg='binary', prefix=''):
+    """
+    Show main matrics from LSTM classification: accuracy, precision, recall, 
+    confusion matrix for test set.
+    
+    :param y_test: (np.array) of test dependent variable
+    :param predictions: (np.array) of predictions from keras model
+    """
+    print(f'Confusion matrix test: \n{confusion_matrix(y_test, predictions)}')
+    print(f'{prefix}accuracy_test: {accuracy_score(y_test, predictions)}')
+    print(f"{prefix}recall_test: {recall_score(y_test, predictions, average=avg)}")
+    print(f"{prefix}precisoin_test: {precision_score(y_test, predictions, average=avg)}")
+    print(f"{prefix}f1_test: {f1_score(y_test, predictions, average=avg)}")
+
+
 def plot_roc_curve(fitted_model, X_train, X_test, y_train, y_test, name, suffix=''):
     """
     Show main matrics from classification: accuracy, precision, recall, 

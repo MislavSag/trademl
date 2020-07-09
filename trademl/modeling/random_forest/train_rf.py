@@ -7,7 +7,6 @@ import matplotlib
 import joblib
 import json
 import sys
-import guild.ipy as guild
 import os
 # preprocessing
 import sklearn
@@ -27,10 +26,9 @@ from sklearn.metrics import (
     log_loss,
     )
 from boruta import BorutaPy
-# finance packagesb
-import mlfinlab as ml
+# finance packages
 import trademl as tml
-import vectorbt as vbt
+# import vectorbt as vbt
 
 
 
@@ -48,22 +46,22 @@ with pd.HDFStore(DATA_PATH + contract[0] + '.h5') as store:
     data = store.get(contract[0])
 data.sort_index(inplace=True)
 
-# write_to_db(data, 'odvjet12_ml_data_usa', 'SPY', primary_key=True)
-
 
 ### CHOOSE/REMOVE VARIABLES
 remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-              'vixFirst', 'vixHigh', 'vixLow', 'vixClose',
-              'vixVolume', 'open_orig', 'high_orig', 'low_orig']
+              # 'vixFirst', 'vixHigh', 'vixLow', 'vixClose', 'vixVolume',
+              'open_orig', 'high_orig', 'low_orig']
 remove_ohl = [col for col in remove_ohl if col in data.columns]
 data.drop(columns=remove_ohl, inplace=True)  #correlated with close
 
 
 ### NON-MODEL HYPERPARAMETERS
-labeling_technique = 'triple_barrier'
+num_threads = 1
+structural_break_regime = 'all'
+labeling_technique = 'trend_scanning'
 std_outlier = 10
-tb_volatility_lookback = 60
-tb_volatility_scaler = 10
+tb_volatility_lookback = 500
+tb_volatility_scaler = 1
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.004
@@ -75,36 +73,34 @@ sample_weights_type = 'returns'
 cv_type = 'purged_kfold'
 cv_number = 4
 rand_state = 3
-remove_ind_with_high_period = True
 stationary_close_lables = False
 
 ### MODEL HYPERPARAMETERS
 max_depth = 3
-max_features = 15
-n_estimators = 1000
+max_features = 20
+n_estimators = 500
 
 ### POSTMODEL PARAMETERS
 keep_important_features = 25
 vectorbt_slippage = 0.0015
 vectorbt_fees = 0.0015
 
+
+### REGIME DEPENDENT ANALYSIS
+if structural_break_regime == 'chow':
+    if (data.loc[data['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
+        data = data.iloc[-(60*8*365):]
+    else:
+        data = data.loc[data['chow_segment'] == 1]
+
 ### USE STATIONARY CLOSE TO CALCULATE LABELS
 if stationary_close_lables:
     data['close_orig'] = data['close']  # with original close reslts are pretty bad!
 
 
-### REMOVE INDICATORS WITH HIGH PERIOD
-if remove_ind_with_high_period:
-    data.drop(columns=['DEMA96000', 'ADX96000', 'TEMA96000',
-                       'ADXR96000', 'TRIX96000'], inplace=True)
-    data.drop(columns=['autocorr_1', 'autocorr_2', 'autocorr_3',
-                       'autocorr_4', 'autocorr_5'], inplace=True)
-    print('pass')
-    
-
 ### REMOVE OUTLIERS
-outlier_remove = tml.modeling.pipelines.OutlierStdRemove(std_outlier)
-data = outlier_remove.fit_transform(data)
+# outlier_remove = tml.modeling.pipelines.OutlierStdRemove(std_outlier)
+# data = outlier_remove.fit_transform(data)
 
 
 ### LABELING
@@ -117,7 +113,7 @@ if labeling_technique == 'triple_barrier':
         triplebar_num_days=tb_triplebar_num_days,
         triplebar_pt_sl=tb_triplebar_pt_sl,
         triplebar_min_ret=tb_triplebar_min_ret,
-        num_threads=1,
+        num_threads=num_threads,
         tb_min_pct=tb_min_pct
     )
     tb_fit = triple_barrier_pipe.fit(data)
@@ -134,13 +130,36 @@ elif labeling_technique == 'trend_scanning':
         )
     labeling_info = trend_scanning_pipe.fit(data)
     X = trend_scanning_pipe.transform(data)
+elif labeling_technique == 'fixed_horizon':
+    X = data.copy()
+    labeling_info = ml.labeling.fixed_time_horizon(data['close_orig'], threshold=0.005, resample_by='B').dropna().to_frame()
+    labeling_info = labeling_info.rename(columns={'close_orig': 'bin'})
+    print(labeling_info.iloc[:, 0].value_counts())
+    X = X.iloc[:-1, :]
+
+
+### CLUSTERED FEATURES
+# feat_subs = ml.clustering.feature_clusters.get_feature_clusters(
+#     X, dependence_metric='information_variation',
+#     distance_metric='angular', linkage_method='singular',
+#     n_clusters=1)
+
+
+### CALENDARS
+# import pandas_market_calendars as mcal
+# # Create a calendar
+# nyse = mcal.get_calendar('NYSE')
+# schedule = nyse.schedule(start_date='2016-12-30', end_date='2017-01-10')
+# schedule  
+# # Show available calendars
+# print(mcal.get_calendar_names())
 
 
 # TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
     X.drop(columns=['close_orig']), labeling_info['bin'],
     test_size=0.10, shuffle=False, stratify=None)
-    
+
 
 ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
 if sample_weights_type == 'returns':
@@ -153,7 +172,7 @@ elif sample_weights_type == 'time_decay':
         labeling_info.reindex(X_train.index),
         data.loc[X_train.index, 'close_orig'],
         decay=0.5, num_threads=1)
-elif labeling_technique is 'trend_scanning':
+elif ample_weights_type == 'trend_scanning':
     sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
 
 
@@ -209,8 +228,7 @@ else:
     fivec = tml.modeling.feature_importance.feature_importnace_vec(
         fival, X_train)
     # tml.modeling.feature_importance.plot_feature_importance(fival, X_train, name='rf_')
-
-
+    
     # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
     X_train_important = X_train[
     fivec['col_name'].
@@ -236,31 +254,26 @@ else:
     # predictions on test set
     predictions = pd.Series(clf.predict(X_test_important), index=X_test_important.index)
     # plot cumulative returns
-    # hold_cash = tml.modeling.backtest.hold_cash_backtest(close, predictions)
+    hold_cash = tml.modeling.backtest.hold_cash_backtest(close, predictions)
     # fig = hold_cash[['close_orig', 'cum_return']].plot().get_figure()
     # fig.savefig(f'backtest_hold_cash.png')
 
     # # VECTORBT
-    positions = pd.concat([close, predictions.rename('position')], axis=1)
-    positions = tml.modeling.backtest.enter_positions(positions.values)
-    positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
-    entries = (positions[['position']] == 1).vbt.signals.first()  # buy at first 1
-    exits = (positions[['position']] == -1).vbt.signals.first()  # sell at first 0
-    portfolio = vbt.Portfolio.from_signals(close, entries, exits,
-                                        slippage=vectorbt_slippage,
-                                        fees=vectorbt_fees)
-    print(f'vectorbt_total_return: {portfolio.total_return}')
+    # positions = pd.concat([close, predictions.rename('position')], axis=1)
+    # positions = tml.modeling.backtest.enter_positions(positions.values)
+    # positions = pd.DataFrame(positions, index=close.index, columns=['close', 'position'])
+    # entries = (positions[['position']] == 1).vbt.signals.first()  # buy at first 1
+    # exits = (positions[['position']] == -1).vbt.signals.first()  # sell at first 0
+    # portfolio = vbt.Portfolio.from_signals(close, entries, exits,
+    #                                     slippage=vectorbt_slippage,
+    #                                     fees=vectorbt_fees)
+    # print(f'vectorbt_total_return: {portfolio.total_return}')
 
     # #TRIPLE-BARRIER BACKTEST
     # tbpred = labeling_info.loc[predictions.index]
     # tbpred['ret_adj'] = np.where(tbpred['bin']==predictions, np.abs(tbpred['ret']), -np.abs(tbpred['ret']))
     # total_return = (1 + tbpred['ret_adj']).cumprod().iloc[-1]
     # print(f'tb_return_nofees_noslippage: {total_return}')
-
-
-
-
-
 
 
 
