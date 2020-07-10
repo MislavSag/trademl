@@ -3,7 +3,7 @@
   operations:
     train:
       description: Trainer for random forest  
-      main: trademl.modeling.random_forest.train_rf  # Python module when running the operation
+      main: trademl.modeling.train_rf  # Python module when running the operation
       # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
       flags‑import: all
       flags:
