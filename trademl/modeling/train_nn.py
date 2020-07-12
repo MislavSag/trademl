@@ -250,7 +250,7 @@ model.compile(loss='binary_crossentropy', optimizer='adam',
                        keras.metrics.Precision(),
                        keras.metrics.Recall()])
 # fit the model
-history = model.fit(X_train_lstm, y_train_lstm, epochs=50, batch_size=128,
+history = model.fit(X_train_lstm, y_train_lstm, epochs=5, batch_size=128,
                     validation_data=(X_val_lstm, y_val_lstm))
 # get accuracy and score
 score, acc, auc, precision, recall = model.evaluate(
@@ -284,11 +284,242 @@ lstm_metrics(y_test_lstm, predict_classes)
 
 
 # # save the model
-model.save('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_izbristi.h5')
-model = keras.models.load_model('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_2.h5')
+model.save('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_cloud.h5')
+# model = keras.models.load_model('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_cloud.h5')
+# predictions = model.predict(X_TEST)
 print("Saved model to disk")
 
+### SAVE THE MODEL FOR REMOTE PREDICTIONS
 model_version = "0001"
-model_name = "lstm_spy"
+model_name = "lstm_cloud"
 model_path = os.path.join(model_name, model_version)
 tf.saved_model.save(model, model_path)
+model_path_full_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/' + model_path
+
+# test dataset
+X_TEST = X_test_lstm[[0], :, :]
+X_TEST
+
+# 1) load saved model and predict
+saved_model = tf.saved_model.load(model_path_full_path)
+y_pred = saved_model(X_TEST, training=False)
+
+
+# input_data_json = json.dumps({
+#     "signature_name": "lstm_spy",
+#     "instances": X_test_lstm.tolist(),
+# })
+
+# send post requests
+# import requests
+# SERVER_URL = 'http://localhost:8501/v1/models/my_mnist_model:predict'
+# response = requests.post(SERVER_URL, data=input_data_json)
+# response.raise_for_status() # raise an exception in case of error
+# response = response.json()
+
+
+# y_proba = np.array(response["predictions"])
+
+# # GRPC set up
+# 
+
+# from tensorflow_serving.apis.predict_pb2 import PredictRequest
+# request = PredictRequest()
+# request.model_spec.name = model_name
+# request.model_spec.signature_name = "serving_default"
+# input_name = model.input_names[0]
+# request.inputs[input_name].CopyFrom(tf.make_tensor_proto(X_TEST))  # X_test_lstm
+
+# # GRPC query
+# import grpc
+# from tensorflow_serving.apis import prediction_service_pb2_grpc
+
+# channel = grpc.insecure_channel('localhost:8500')
+# predict_service = prediction_service_pb2_grpc.PredictionServiceStub(channel)
+# response = predict_service.Predict(request, timeout=20.0)
+
+# output_name = model.output_names[0]
+# outputs_proto = response.outputs[output_name]
+# y_proba = tf.make_ndarray(outputs_proto)
+
+# type(X_test_lstm)
+# X_test_lstm.shape
+# model.predict(X_test_lstm[[0], :, :])
+
+
+
+# GOOGLE API CLIENT LIBRARY
+
+key_path = 'C:/Users/Mislav/Downloads/mltrading-282913-c15767742784.json'
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
+
+import googleapiclient.discovery
+project_id = "mltrading-282913" # change this to your project ID
+model_id = "lstm_trade_model"
+model_path = "projects/{}/models/{}".format(project_id, model_id)
+model_path = model_path + '/versions/0001'
+ml_resource = googleapiclient.discovery.build("ml", "v1", cache_discovery=False).projects()
+
+
+def predict(X):
+    input_data_json = {"signature_name": "serving_default",
+                       "instances": X.tolist()}
+    request = ml_resource.predict(name=model_path, body=input_data_json)
+    response = request.execute()
+    if "error" in response:
+        raise RuntimeError(response["error"])
+    return np.array([pred[output_name] for pred in response["predictions"]])
+
+Y_probas = predict(X_TEST)
+np.round(Y_probas, 2)
+
+
+input_data_json = {"signature_name": "serving_default",
+                    "instances": X_TEST.tolist()}
+request = ml_resource.predict(name=model_path, body=input_data_json)
+response = request.execute()
+
+
+
+#### github question
+
+# import
+import numpy as np
+import json
+
+# download model
+file_url = 'https://github.com/MislavSag/trademl/blob/master/trademl/modeling/lstm_clf_cloud.h5?raw=true'
+file_save_path = 'C:/Users/Mislav/Downloads/my_model.h5'  # CHANGE THIS PATH
+tf.keras.utils.get_file(file_save_path, file_url)
+
+# data
+
+# 
+model = keras.models.load_model(file_save_path)
+predictions = model.predict(X_TEST)
+
+
+##### IMPORT ANDR PREPARE DATA #######
+
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
+from tensorflow import keras
+import numpy as np
+
+url = 'https://raw.githubusercontent.com/MislavSag/trademl/master/trademl/modeling/random_forest/X_TEST.csv'
+X_TEST = pd.read_csv(url, sep=',')
+url = 'https://raw.githubusercontent.com/MislavSag/trademl/master/trademl/modeling/random_forest/labeling_info_TEST.csv'
+labeling_info_TEST = pd.read_csv(url, sep=',')
+
+
+# TRAIN TEST SPLIT
+X_train, X_test, y_train, y_test = train_test_split(
+    X_TEST.drop(columns=['close_orig']), labeling_info_TEST['bin'],
+    test_size=0.10, shuffle=False, stratify=None)
+
+
+### PREPARE LSTM
+x = X_train['close'].values.reshape(-1, 1)
+y = y_train.values.reshape(-1, 1)
+x_test = X_test['close'].values.reshape(-1, 1)
+y_test = y_test.values.reshape(-1, 1)
+train_val_index_split = 0.75
+train_generator = keras.preprocessing.sequence.TimeseriesGenerator(
+    data=x,
+    targets=y,
+    length=30,
+    sampling_rate=1,
+    stride=1,
+    start_index=0,
+    end_index=int(train_val_index_split*X_TEST.shape[0]),
+    shuffle=False,
+    reverse=False,
+    batch_size=128
+)
+validation_generator = keras.preprocessing.sequence.TimeseriesGenerator(
+    data=x,
+    targets=y,
+    length=30,
+    sampling_rate=1,
+    stride=1,
+    start_index=int((train_val_index_split*X_TEST.shape[0] + 1)),
+    end_index=None,  #int(train_test_index_split*X.shape[0])
+    shuffle=False,
+    reverse=False,
+    batch_size=128
+)
+test_generator = keras.preprocessing.sequence.TimeseriesGenerator(
+    data=x_test,
+    targets=y_test,
+    length=30,
+    sampling_rate=1,
+    stride=1,
+    start_index=0,
+    end_index=None,
+    shuffle=False,
+    reverse=False,
+    batch_size=128
+)
+
+# convert generator to inmemory 3D series (if enough RAM)
+def generator_to_obj(generator):
+    xlist = []
+    ylist = []
+    for i in range(len(generator)):
+        x, y = train_generator[i]
+        xlist.append(x)
+        ylist.append(y)
+    X_train = np.concatenate(xlist, axis=0)
+    y_train = np.concatenate(ylist, axis=0)
+    return X_train, y_train
+
+X_train_lstm, y_train_lstm = generator_to_obj(train_generator)
+X_val_lstm, y_val_lstm = generator_to_obj(validation_generator)
+X_test_lstm, y_test_lstm = generator_to_obj(test_generator)
+
+# test for shapes
+print('X and y shape train: ', X_train_lstm.shape, y_train_lstm.shape)
+print('X and y shape validate: ', X_val_lstm.shape, y_val_lstm.shape)
+print('X and y shape test: ', X_test_lstm.shape, y_test_lstm.shape)
+
+
+##### TRAIN  MODEL #######
+
+
+model = keras.models.Sequential([
+        keras.layers.LSTM(258, return_sequences=True, input_shape=[None, x.shape[1]]),
+        
+        keras.layers.LSTM(124, return_sequences=True, dropout=0.2, recurrent_dropout=0.2),
+        keras.layers.LSTM(32, dropout=0.2, recurrent_dropout=0.2),
+        keras.layers.Dense(1, activation='sigmoid')
+        
+])
+model.compile(loss='binary_crossentropy', optimizer='adam',
+              metrics=['accuracy', 
+                       keras.metrics.AUC(),
+                       keras.metrics.Precision(),
+                       keras.metrics.Recall()])
+# fit the model
+history = model.fit(X_train_lstm, y_train_lstm, epochs=5, batch_size=128,
+                    validation_data=(X_val_lstm, y_val_lstm))
+
+
+
+##### SAVE AND LOAD MODEL (WORKS) #######
+
+model.save('my_model_lstm.h5')
+model = keras.models.load_model('my_model_lstm.h5')
+model.predict(X_test_lstm)
+
+##### SAVE AND LOAD MODEL (DOESNT WORK) #######
+
+
+model_version = "0001"
+model_name = "lstm_cloud"
+model_path = os.path.join(model_name, model_version)
+tf.saved_model.save(model, model_path)
+
+saved_model = tf.saved_model.load(model_path)
+y_pred = saved_model(X_test_lstm, training=False)

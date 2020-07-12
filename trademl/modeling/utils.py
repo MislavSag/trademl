@@ -216,3 +216,18 @@ def write_to_db_update(df, database_name, table_name):
 
     # Write to DB
     df.to_sql(table_name, engine, if_exists='append', index=False, chunksize=100)
+
+
+def balance_multiclass(series, grid=np.arange(1, 10, 0.1)):
+    ideal_ratio = [0.33, 0.33, 0.33]
+    devergence = []
+    for i in range(len(grid)):
+        grid_bin = np.where((series > grid[i]).values, 1, 0)
+        grid_bin = np.where((series < -grid[i]).values, -1, grid_bin)
+        tbl_freq = pd.Series(grid_bin).value_counts() / grid_bin.shape[0]
+        devergence.append((tbl_freq - ideal_ratio).max())
+    optimal_threshold = grid[np.array(devergence).argmin()]
+    balanced_bins = np.where((series > optimal_threshold).values, 1, 0)
+    balanced_bins = np.where((series < -optimal_threshold).values, -1, balanced_bins)
+    
+    return balanced_bins
