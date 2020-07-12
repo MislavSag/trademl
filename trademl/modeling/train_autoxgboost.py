@@ -133,11 +133,12 @@ elif labeling_technique == 'trend_scanning':
         )
     labeling_info = trend_scanning_pipe.fit(data)
     X = trend_scanning_pipe.transform(data)
-    # if multiclass:
-    #     labeling_info['bin'] = balance_multiclass(labeling_info['t_value'])
+    if multiclass:
+        labeling_info['bin'] = tml.modeling.utils.balance_multiclass(labeling_info['t_value'])
 elif labeling_technique == 'fixed_horizon':
     X = data.copy()
-    labeling_info = ml.labeling.fixed_time_horizon(data['close_orig'], threshold=0.005, resample_by='B').dropna().to_frame()
+    labeling_info = ml.labeling.fixed_time_horizon(data['close_orig'], 
+                                                   threshold=0.005, resample_by='B').dropna().to_frame()
     labeling_info = labeling_info.rename(columns={'close_orig': 'bin'})
     print(labeling_info.iloc[:, 0].value_counts())
     X = X.iloc[:-1, :]
@@ -227,7 +228,3 @@ contributions = m.predict_contributions(test)
 contributions_matrix = contributions.as_data_frame()
 shap_values_h2o = contributions_matrix.iloc[:,:-1]
 shap.summary_plot(shap_values_h2o, train.as_data_frame().drop(columns=['bin']), plot_type='bar', max_display=25)
-
-
-
-import autogluon as ag

@@ -189,8 +189,9 @@ if __name__ == '__main__':
 
     # parameters for GridSearch
     parameters = {'max_depth': [2, 3, 4, 5],
-                'n_estimators': [200, 500, 1000],
-                'max_features': [5, 10, 15, 20]
+                'n_estimators': [500, 1000],
+                'max_features': [5, 10, 15],
+                'max_leaf_nodes': [4, 8, 16, 32]
                 }
 
     # clf = joblib.load("rf_model.pkl")
