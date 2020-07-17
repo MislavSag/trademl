@@ -251,10 +251,5 @@
 249,amihud_lambda
 250,hasbrouck_lambda
 251,tick_rule
-252,open_vix
-253,high_vix
-254,low_vix
-255,close_vix
-256,volume_vix
-257,close_orig
-258,chow_segment
+252,close_orig
+253,chow_segment
