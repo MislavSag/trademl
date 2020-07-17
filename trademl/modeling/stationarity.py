@@ -208,8 +208,11 @@ def min_ffd_all_cols(data):
     :return: (pd.DataFrame) Pandas DF with stationary columns.
     """
     # stationarity tests
-    adfTest = data.apply(lambda x: adfuller(x, maxlag=1, regression='c',
-                                        autolag=None), axis=0)
+    adfTest = data.apply(lambda x: adfuller(x, 
+                                            maxlag=1,
+                                            regression='c',
+                                            autolag=None),
+                         axis=0)
     adfTestPval = [adf[1] for adf in adfTest]
     adfTestPval = pd.Series(adfTestPval)
     stationaryCols = data.loc[:, (adfTestPval > 0.1).to_list()].columns

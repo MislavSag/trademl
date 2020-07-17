@@ -22,6 +22,7 @@ import mlfinlab as ml
 import trademl as tml
 # import vectorbt as vbt
 
+# tf.keras.backend.set_floatx('float64')  # see https://github.com/tensorflow/tensorflow/issues/41288
 
 
 ### DON'T SHOW GRAPH OPTION
@@ -36,12 +37,15 @@ DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
 contract = ['SPY']
 with pd.HDFStore(DATA_PATH + contract[0] + '.h5') as store:
     data = store.get(contract[0])
+    
+data.head()
+
 data.sort_index(inplace=True)
 
 
 ### CHOOSE/REMOVE VARIABLES
 remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-              # 'vixFirst', 'vixHigh', 'vixLow', 'vixClose', 'vixVolume',
+              'open_vix', 'high_vix', 'low_vix', 'close_vix', 'volume_vix',
               'open_orig', 'high_orig', 'low_orig']
 remove_ohl = [col for col in remove_ohl if col in data.columns]
 data.drop(columns=remove_ohl, inplace=True)  #correlated with close
@@ -250,8 +254,9 @@ model.compile(loss='binary_crossentropy', optimizer='adam',
                        keras.metrics.Precision(),
                        keras.metrics.Recall()])
 # fit the model
-history = model.fit(X_train_lstm, y_train_lstm, epochs=5, batch_size=128,
+history = model.fit(X_train_lstm, y_train_lstm, epochs=50, batch_size=128,
                     validation_data=(X_val_lstm, y_val_lstm))
+
 # get accuracy and score
 score, acc, auc, precision, recall = model.evaluate(
     X_test_lstm, y_test_lstm, batch_size=128)
@@ -267,7 +272,49 @@ predictions = model.predict(X_test_lstm)
 predict_classes = model.predict_classes(X_test_lstm)
 
 # test metrics
-lstm_metrics(y_test_lstm, predict_classes)
+tml.modeling.metrics_summary.lstm_metrics(y_test_lstm, predict_classes)
+
+
+
+### SAVE MODELS AND FEATURES
+# save features names
+pd.Series(data.columns).to_csv('lstm_features.csv', sep=',')
+# save model
+with open('Output_Model.json', 'w') as json_file:
+    json_file.write(model.to_json())
+# save weigths to json
+weights = model.get_weights()
+import json
+class EncodeNumpyArray(json.JSONEncoder):
+    """
+    Encodes Numpy Array as JSON.
+    """
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+serialized_weights = json.dumps(weights, cls=EncodeNumpyArray)
+with open('Output_Weights.txt', 'w') as fh:
+    fh.write(serialized_weights)
+
+## In QC
+# weigths
+with open('Output_Weights.txt') as text_file:
+    serialized_weights = json.load(text_file)
+weights = [np.array(w) for w in serialized_weights]
+# model
+with open('Output_Model.json') as json_file:
+    model_loaded = json_file.read()
+model_loaded = keras.models.model_from_json(model_loaded)
+model_loaded = model_loaded.set_weights(weights)
+# test
+predictions = model.predict(X_test_lstm)
+predict_classes = model.predict_classes(X_test_lstm)
+
+
+
+
+
 
 
 ### FEATURE IMPORTANCE
@@ -289,7 +336,11 @@ model.save('C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/lstm_clf_c
 # predictions = model.predict(X_TEST)
 print("Saved model to disk")
 
-### SAVE THE MODEL FOR REMOTE PREDICTIONS
+
+
+
+
+### SAVE THE MODEL FOR REMOTE PREDICTIONS ###
 model_version = "0001"
 model_name = "lstm_cloud"
 model_path = os.path.join(model_name, model_version)
@@ -303,6 +354,10 @@ X_TEST
 # 1) load saved model and predict
 saved_model = tf.saved_model.load(model_path_full_path)
 y_pred = saved_model(X_TEST, training=False)
+### SAVE THE MODEL FOR REMOTE PREDICTIONS ###
+
+
+
 
 
 # input_data_json = json.dumps({
@@ -397,129 +452,3 @@ tf.keras.utils.get_file(file_save_path, file_url)
 # 
 model = keras.models.load_model(file_save_path)
 predictions = model.predict(X_TEST)
-
-
-##### IMPORT ANDR PREPARE DATA #######
-
-
-import pandas as pd
-from sklearn.model_selection import train_test_split
-import tensorflow as tf
-from tensorflow import keras
-import numpy as np
-
-url = 'https://raw.githubusercontent.com/MislavSag/trademl/master/trademl/modeling/random_forest/X_TEST.csv'
-X_TEST = pd.read_csv(url, sep=',')
-url = 'https://raw.githubusercontent.com/MislavSag/trademl/master/trademl/modeling/random_forest/labeling_info_TEST.csv'
-labeling_info_TEST = pd.read_csv(url, sep=',')
-
-
-# TRAIN TEST SPLIT
-X_train, X_test, y_train, y_test = train_test_split(
-    X_TEST.drop(columns=['close_orig']), labeling_info_TEST['bin'],
-    test_size=0.10, shuffle=False, stratify=None)
-
-
-### PREPARE LSTM
-x = X_train['close'].values.reshape(-1, 1)
-y = y_train.values.reshape(-1, 1)
-x_test = X_test['close'].values.reshape(-1, 1)
-y_test = y_test.values.reshape(-1, 1)
-train_val_index_split = 0.75
-train_generator = keras.preprocessing.sequence.TimeseriesGenerator(
-    data=x,
-    targets=y,
-    length=30,
-    sampling_rate=1,
-    stride=1,
-    start_index=0,
-    end_index=int(train_val_index_split*X_TEST.shape[0]),
-    shuffle=False,
-    reverse=False,
-    batch_size=128
-)
-validation_generator = keras.preprocessing.sequence.TimeseriesGenerator(
-    data=x,
-    targets=y,
-    length=30,
-    sampling_rate=1,
-    stride=1,
-    start_index=int((train_val_index_split*X_TEST.shape[0] + 1)),
-    end_index=None,  #int(train_test_index_split*X.shape[0])
-    shuffle=False,
-    reverse=False,
-    batch_size=128
-)
-test_generator = keras.preprocessing.sequence.TimeseriesGenerator(
-    data=x_test,
-    targets=y_test,
-    length=30,
-    sampling_rate=1,
-    stride=1,
-    start_index=0,
-    end_index=None,
-    shuffle=False,
-    reverse=False,
-    batch_size=128
-)
-
-# convert generator to inmemory 3D series (if enough RAM)
-def generator_to_obj(generator):
-    xlist = []
-    ylist = []
-    for i in range(len(generator)):
-        x, y = train_generator[i]
-        xlist.append(x)
-        ylist.append(y)
-    X_train = np.concatenate(xlist, axis=0)
-    y_train = np.concatenate(ylist, axis=0)
-    return X_train, y_train
-
-X_train_lstm, y_train_lstm = generator_to_obj(train_generator)
-X_val_lstm, y_val_lstm = generator_to_obj(validation_generator)
-X_test_lstm, y_test_lstm = generator_to_obj(test_generator)
-
-# test for shapes
-print('X and y shape train: ', X_train_lstm.shape, y_train_lstm.shape)
-print('X and y shape validate: ', X_val_lstm.shape, y_val_lstm.shape)
-print('X and y shape test: ', X_test_lstm.shape, y_test_lstm.shape)
-
-
-##### TRAIN  MODEL #######
-
-
-model = keras.models.Sequential([
-        keras.layers.LSTM(258, return_sequences=True, input_shape=[None, x.shape[1]]),
-        
-        keras.layers.LSTM(124, return_sequences=True, dropout=0.2, recurrent_dropout=0.2),
-        keras.layers.LSTM(32, dropout=0.2, recurrent_dropout=0.2),
-        keras.layers.Dense(1, activation='sigmoid')
-        
-])
-model.compile(loss='binary_crossentropy', optimizer='adam',
-              metrics=['accuracy', 
-                       keras.metrics.AUC(),
-                       keras.metrics.Precision(),
-                       keras.metrics.Recall()])
-# fit the model
-history = model.fit(X_train_lstm, y_train_lstm, epochs=5, batch_size=128,
-                    validation_data=(X_val_lstm, y_val_lstm))
-
-
-
-##### SAVE AND LOAD MODEL (WORKS) #######
-
-model.save('my_model_lstm.h5')
-model = keras.models.load_model('my_model_lstm.h5')
-model.predict(X_test_lstm)
-
-##### SAVE AND LOAD MODEL (DOESNT WORK) #######
-
-
-model_version = "0001"
-model_name = "lstm_cloud"
-model_path = os.path.join(model_name, model_version)
-tf.saved_model.save(model, model_path)
-
-saved_model = tf.saved_model.load(model_path)
-y_pred = saved_model(X_test_lstm, training=False)
