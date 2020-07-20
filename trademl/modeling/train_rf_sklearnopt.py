@@ -8,6 +8,7 @@ import joblib
 import json
 import sys
 import os
+from pathlib import Path
 # preprocessing
 import sklearn
 from sklearn.model_selection import train_test_split
@@ -31,61 +32,65 @@ from boruta import BorutaPy
 import trademl as tml
 # import vectorbt as vbt
 
+### DON'T SHOW GRAPH OPTION
+matplotlib.use("Agg")
+
+
+### GLOBALS
+DATA_PATH = 'D:/market_data/usa/ohlcv_features'
+
+### NON-MODEL HYPERPARAMETERS
+num_threads = 1
+structural_break_regime = 'all'
+labeling_technique = 'trend_scanning'
+std_outlier = 10
+tb_volatility_lookback = 500
+tb_volatility_scaler = 1
+tb_triplebar_num_days = 10
+tb_triplebar_pt_sl = [1, 1]
+tb_triplebar_min_ret = 0.004
+ts_look_forward_window = 1200  # 60 * 8 * 10 (10 days)
+ts_min_sample_length = 30
+ts_step = 5
+tb_min_pct = 0.10
+sample_weights_type = 'returns'
+cv_type = 'purged_kfold'
+cv_number = 4
+rand_state = 3
+stationary_close_lables = False
+
+### MODEL HYPERPARAMETERS
+# max_depth = 3
+# max_features = 20
+# n_estimators = 500
+
+### POSTMODEL PARAMETERS
+keep_important_features = 25
+# vectorbt_slippage = 0.0015
+# vectorbt_fees = 0.0015
+    
+    
+
+def import_data(data_path, remove_cols, contract='SPY'):
+    # import data
+    with pd.HDFStore(data_path + '/' + contract + '.h5') as store:
+        data = store.get(contract)
+    data.sort_index(inplace=True)
+    
+    # remove variables
+    remove_cols = [col for col in remove_cols if col in data.columns]
+    data.drop(columns=remove_cols, inplace=True)
+    
+    return data
+
 
 if __name__ == '__main__':
-
-    ### DON'T SHOW GRAPH OPTION
-    matplotlib.use("Agg")
-
-
-    ### GLOBALS
-    DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
-
-
+    
     ### IMPORT DATA
-    contract = ['SPY']
-    with pd.HDFStore(DATA_PATH + contract[0] + '.h5') as store:
-        data = store.get(contract[0])
-    data.sort_index(inplace=True)
-
-
-    ### CHOOSE/REMOVE VARIABLES
     remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-                # 'vixFirst', 'vixHigh', 'vixLow', 'vixClose', 'vixVolume',
-                'open_orig', 'high_orig', 'low_orig']
-    remove_ohl = [col for col in remove_ohl if col in data.columns]
-    data.drop(columns=remove_ohl, inplace=True)  #correlated with close
-
-
-    ### NON-MODEL HYPERPARAMETERS
-    num_threads = 1
-    structural_break_regime = 'all'
-    labeling_technique = 'trend_scanning'
-    std_outlier = 10
-    tb_volatility_lookback = 500
-    tb_volatility_scaler = 1
-    tb_triplebar_num_days = 10
-    tb_triplebar_pt_sl = [1, 1]
-    tb_triplebar_min_ret = 0.004
-    ts_look_forward_window = 1200  # 60 * 8 * 10 (10 days)
-    ts_min_sample_length = 30
-    ts_step = 5
-    tb_min_pct = 0.10
-    sample_weights_type = 'returns'
-    cv_type = 'purged_kfold'
-    cv_number = 4
-    rand_state = 3
-    stationary_close_lables = False
-
-    ### MODEL HYPERPARAMETERS
-    # max_depth = 3
-    # max_features = 20
-    # n_estimators = 500
-
-    ### POSTMODEL PARAMETERS
-    keep_important_features = 25
-    # vectorbt_slippage = 0.0015
-    # vectorbt_fees = 0.0015
+                  'open_vix', 'high_vix', 'low_vix', 'close_vix', 'volume_vix',
+                  'open_orig', 'high_orig', 'low_orig']
+    data = import_data(DATA_PATH, remove_ohl, contract='SPY')
 
 
     ### REGIME DEPENDENT ANALYSIS
@@ -188,11 +193,17 @@ if __name__ == '__main__':
     # MODEL
 
     # parameters for GridSearch
-    parameters = {'max_depth': [2, 3, 4, 5],
-                'n_estimators': [500, 1000],
-                'max_features': [5, 10, 15],
-                'max_leaf_nodes': [4, 8, 16, 32]
-                }
+    # parameters = {'max_depth': [2, 3, 4, 5],
+    #             'n_estimators': [500, 1000],
+    #             'max_features': [5, 10, 15],
+    #             'max_leaf_nodes': [4, 8, 16, 32]
+    #             }
+    
+    parameters = {'max_depth': [2],
+            'n_estimators': [500],
+            'max_features': [5],
+            'max_leaf_nodes': [4]
+            }
 
     # clf = joblib.load("rf_model.pkl")
     rf = RandomForestClassifier(criterion='entropy',
@@ -205,27 +216,31 @@ if __name__ == '__main__':
                     n_jobs=16,
                     cv=cv)
     clf.fit(X_train, y_train, sample_weight=sample_weigths)
-    depth, n_features, n_estimators = clf.best_params_.values()
+    max_depth, n_features, max_leaf_nodes, n_estimators = clf.best_params_.values()
 
     # model scores
     clf_predictions = clf.predict(X_test)
     clf_f1_score = sklearn.metrics.f1_score(y_test, clf_predictions)
     print(f'f1_score: {clf_f1_score}')
-    print(f'optimal_model_depth: {depth}')
-    print(f'n_estimators: {n_estimators}')
-    print(f'max_features {n_features}')
+    print(f'optimal_max_depth: {max_depth}')
+    print(f'optimal_n_features: {n_features}')
+    print(f'optimal_max_leaf_nodes {max_leaf_nodes}')
+    print(f'optimal_n_estimators {n_estimators}')
+    save_id = f'{max_depth}{n_features}{max_leaf_nodes}{n_estimators}{str(clf_f1_score)[2:6]}'
 
 
     # retrain the model if mean score is high enough (higher than 0.5)
     if clf_f1_score < 0.55:
-        print('Bad performance')
+        print('good_performance: False')
     else:
+        print('good_performance: True')
         # refit best model and show results
         rf_best = RandomForestClassifier(criterion='entropy',
                                         max_features=n_features,
                                         min_weight_fraction_leaf=0.05,
-                                        max_depth=depth,
+                                        max_depth=max_depth,
                                         n_estimators=n_estimators,
+                                        max_leaf_nodes=max_leaf_nodes,
                                         class_weight='balanced',
                                         n_jobs=16)
         rf_best.fit(X_train, y_train, sample_weight=sample_weigths)
@@ -237,27 +252,105 @@ if __name__ == '__main__':
         # clf, X_train, X_test, y_train, y_test, name='rf_')
 
 
-        # ### FEATURE SELECTION
-        fival = tml.modeling.feature_importance.feature_importance_values(
-            rf_best, X_train, y_train)
-        fivec = tml.modeling.feature_importance.feature_importnace_vec(
-            fival, X_train)
+        # ### FEATURE SELECTION        
+        def feature_importance_values(clf, X_train, y_train, plot_name):
+
+            # clone clf to not change it
+            clf_ = sklearn.clone(clf)
+            clf_.fit(X_train, y_train)
+
+            # SHAP values
+            explainer = shap.TreeExplainer(model=clf_, model_output='raw')
+            shap_values = explainer.shap_values(X_train)
+            vals= np.abs(shap_values).mean(0)
+            feature_importance = pd.DataFrame(
+                list(zip(X_train.columns, sum(vals))),
+                columns=['col_name','feature_importance_vals'])
+            feature_importance.sort_values(
+                by=['feature_importance_vals'], ascending=False, inplace=True)
+            
+            # save plots
+            # create directory if it does not exists
+            if not os.path.exists('plots'):
+                os.makedirs('plots')
+            saving_path = Path(f'plots/shap_{plot_name}.png')
+                    
+            # shap plot
+            shap.summary_plot(shap_values, X_train,
+                            plot_type='bar', max_display=15,
+                            show=False)
+            plt.savefig(saving_path)
+            
+            # random forest default feature importance
+            importances = pd.Series(clf_.feature_importances_, index=X_train.columns)
+            importances = importances.sort_values(ascending=False)
+            
+            # mean decreasing impurity
+            mdi_feature_imp = ml.feature_importance.mean_decrease_impurity(
+                clf_, X_train.columns)
+            
+            # mean decreasing accuracy (COMMENT DUE TO EFFICIENCY PROBLEM)
+            # mda_feature_imp = ml.feature_importance.mean_decrease_accuracy(
+            #     clf_, X_train, y_train, cv, scoring=log_loss,
+            #     sample_weight_train=sample_weigths.values)
+
+            # base estimator for mlfinlab features importance (COMMENT DUE TO EFFICIENCY PROBLEM)
+            # rf_best_one_features = RandomForestClassifier(
+            #     criterion='entropy',
+            #     max_features=1,
+            #     min_weight_fraction_leaf=0.05,
+            #     max_depth=max_depth,
+            #     n_estimators=n_estimators,
+            #     max_leaf_nodes=max_leaf_nodes,
+            #     class_weight='balanced',
+            #     n_jobs=16)
+            
+            # # doesn't work?
+            # sfi_feature_imp = ml.feature_importance.single_feature_importance(
+            #     rf_best_one_features, X_train, y_train, cv,
+            #     scoring=sklearn.metrics.accuracy_score,
+            #     sample_weight_train=sample_weigths.values)
+            
+            return feature_importance, importances, mdi_feature_imp
+
+
+        def save_files(objects, file_names, directory='important_features'):            
+            # create directory if it does not exists
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            
+            # save files to directory
+            for df, file_name in zip(objects, file_names):
+                saving_path = Path(f'{directory}/{file_name}')
+                if ".csv" not in file_names: 
+                    df.to_csv(saving_path)
+
+
+        # save feature importance tables and plots
+        shap_values, importances, mdi_feature_imp = feature_importance_values(
+            rf_best, X_train, y_train, plot_name=save_id)
+        save_files([shap_values, importances, mdi_feature_imp],
+                   file_names=[f'shap_{save_id}.csv',
+                               f'rf_importance_{save_id}.csv',
+                               f'mpi_{save_id}.csv'],
+                   directory='important_features')
+        
+        
+        # fival = tml.modeling.feature_importance.feature_importance_values(
+        #     rf_best, X_train, y_train)
+        # fivec = tml.modeling.feature_importance.feature_importnace_vec(
+        #     fival, X_train)
         # tml.modeling.feature_importance.plot_feature_importance(fival, X_train, name='rf_')
+
         
         # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
-        X_train_important = X_train[
-        fivec['col_name'].
-        head(keep_important_features)]  #.drop(columns=['STOCHRSI_96000_fastk'])
-        X_test_important = X_test[
-        fivec['col_name'].
-        head(keep_important_features)]  #.drop(columns=['STOCHRSI_96000_fastk'])
+        fi_cols = shap_values['col_name'].head(keep_important_features)
+        X_train_important = X_train[fi_cols]
+        X_test_important = X_test[fi_cols]
         clf_important = rf_best.fit(X_train_important, y_train)
         tml.modeling.metrics_summary.clf_metrics(
             clf_important, X_train_important,
             X_test_important, y_train, y_test, avg='binary', prefix='fi_')
-        # tml.modeling.metrics_summary.plot_roc_curve(
-        #     clf_important, X_train_important, X_test_important,
-        #     y_train, y_test, suffix=' with importnat features', name='rf_fi_')
 
 
         ### BACKTESTING (RADI)
