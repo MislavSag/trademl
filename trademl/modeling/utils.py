@@ -1,9 +1,12 @@
 import pandas as pd
+import os
+from pathlib import Path
 import json
 import h2o
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.tree._tree import Tree
+import skelarn
+# from sklearn.tree._tree import Tree
 from sklearn.ensemble import RandomForestClassifier
 import time
 from functools import wraps
@@ -34,15 +37,15 @@ def serialize_tree(tree):
 
     return serialized_tree, dtypes
 
-def deserialize_tree(tree_dict, n_features, n_classes, n_outputs):
-    tree_dict['nodes'] = [tuple(lst) for lst in tree_dict['nodes']]
+# def deserialize_tree(tree_dict, n_features, n_classes, n_outputs):
+#     tree_dict['nodes'] = [tuple(lst) for lst in tree_dict['nodes']]
 
-    names = ['left_child', 'right_child', 'feature', 'threshold', 'impurity', 'n_node_samples', 'weighted_n_node_samples']
-    tree_dict['nodes'] = np.array(tree_dict['nodes'], dtype=np.dtype({'names': names, 'formats': tree_dict['nodes_dtype']}))
-    tree_dict['values'] = np.array(tree_dict['values'])
+#     names = ['left_child', 'right_child', 'feature', 'threshold', 'impurity', 'n_node_samples', 'weighted_n_node_samples']
+#     tree_dict['nodes'] = np.array(tree_dict['nodes'], dtype=np.dtype({'names': names, 'formats': tree_dict['nodes_dtype']}))
+#     tree_dict['values'] = np.array(tree_dict['values'])
 
-    tree = Tree(n_features, np.array([n_classes], dtype=np.intp), n_outputs)
-    tree.__setstate__(tree_dict)
+#     tree = sklearn.tree._tree.Tree(n_features, np.array([n_classes], dtype=np.intp), n_outputs)
+#     tree.__setstate__(tree_dict)
 
     return tree
 
@@ -231,3 +234,19 @@ def balance_multiclass(series, grid=np.arange(1, 10, 0.1)):
     balanced_bins = np.where((series < -optimal_threshold).values, -1, balanced_bins)
     
     return balanced_bins
+
+
+def save_files(objects, file_names, directory='important_features'):            
+    """
+    Save file to specific deirectory.    
+    params
+    """
+    # create directory if it does not exists
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # save files to directory
+    for df, file_name in zip(objects, file_names):
+        saving_path = Path(f'{directory}/{file_name}')
+        if ".csv" not in file_names: 
+            df.to_csv(saving_path)

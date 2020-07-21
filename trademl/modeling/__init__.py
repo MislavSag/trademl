@@ -20,7 +20,7 @@ from trademl.modeling.feature_importance import (
     feature_importance_values, feature_importnace_vec, plot_feature_importance,
     important_fatures)
 from trademl.modeling.utils import (
-    serialize_random_forest, write_to_db, query_to_db, balance_multiclass
+    serialize_random_forest, write_to_db, query_to_db, balance_multiclass, save_files
 )
 from trademl.modeling.structural_breaks import (
     get_chow_type_stat
