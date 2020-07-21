@@ -1,12 +1,24 @@
 - model: random_forest
   description: Random forest model
   operations:
+    # prepare-data:
+    #   description: Prepare data for ML model
+    #   main: trademl.modeling.prepare_data  
+    #   flags‑import: all
+    #   flags:
+    #     description: Location of data file
+    #     required: yes 
     train:
       description: Trainer for random forest  
       main: trademl.modeling.train_rf  # Python module when running the operation
       # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
       flags‑import: all
       flags:
+        DATA_PATH:
+          arg_name: DATA_PATH
+          description: Path to data
+          type: string
+          requires: yes    
         num_threads:
           arg_name: num_threads
           description: Number of threads to use in mlfinlab multhithread function
@@ -39,9 +51,6 @@
           type: string
           default: 'triple_barrier'
           choices: ['triple_barrier','trend_scanning']
-        sample_weights_type:
-          description: Sample weights to use.
-          arg_name: sample_weights_type          
         tb_volatility_lookback:
           description: Number of days in the past for calculating daily volatility
           arg_name: tb_volatility_lookback
@@ -61,8 +70,8 @@
           description: Sample weights to use in training
           arg_name: sample_weights_type
           type: string
-          default: 'returns'
-          choices: ['returns','time_decay']
+          default: 'none'
+          choices: ['returns','time_decay','trend_scanning','none']
         max_features:
           description: maximum number of featurs in random forest
           arg_name: max_features
@@ -83,6 +92,17 @@
           arg_name: cv_number
           min: 1
           max: 20
+        min_weight_fraction_leaf:
+          description: TODO
+          arg_name: min_weight_fraction_leaf
+          min: 0
+          max: 1
+        class_weight:
+          description: sklearn class_weight argument
+          arg_name: class_weight
+          type: string
+          default: 'balanced_subsample'
+          choices: ['balanced','balanced_subsample']
 
 
 - model: lstm
@@ -126,6 +146,11 @@
       # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
       flags‑import: all
       flags:
+        # DATA_PATH:
+        #   arg_name: DATA_PATH
+        #   description: Path to data
+        #   type: string
+        #   requires: yes
         num_threads:
           arg_name: num_threads
           description: Number of threads to use in mlfinlab multhithread function
@@ -158,9 +183,6 @@
           type: string
           default: 'triple_barrier'
           choices: ['triple_barrier','trend_scanning']
-        sample_weights_type:
-          description: Sample weights to use.
-          arg_name: sample_weights_type          
         tb_volatility_lookback:
           description: Number of days in the past for calculating daily volatility
           arg_name: tb_volatility_lookback
