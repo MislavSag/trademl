@@ -5,7 +5,6 @@ import json
 import h2o
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
-import skelarn
 # from sklearn.tree._tree import Tree
 from sklearn.ensemble import RandomForestClassifier
 import time
