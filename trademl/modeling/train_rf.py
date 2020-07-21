@@ -29,8 +29,7 @@ DATA_PATH = 'D:/market_data/usa/ohlcv_features'
 num_threads = 1
 structural_break_regime = 'all'
 labeling_technique = 'trend_scanning'
-std_outlier = 10
-tb_volatility_lookback = 500
+tb_volatility_lookback = 50
 tb_volatility_scaler = 1
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
@@ -69,14 +68,38 @@ def import_data(data_path, remove_cols, contract='SPY'):
     return data
 
 
-if __name__ == '__main__':
-    
+if __name__ == 'main':
+
     ### IMPORT DATA
     remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-                  'open_vix', 'high_vix', 'low_vix', 'close_vix', 'volume_vix',
-                  'open_orig', 'high_orig', 'low_orig']
+                    'open_vix', 'high_vix', 'low_vix', 'close_vix', 'volume_vix',
+                    'open_orig', 'high_orig', 'low_orig']
     data = import_data(DATA_PATH, remove_ohl, contract='SPY')
 
+
+    def remove_correlated_columns(data, columns_ignore, threshold=0.99):
+        # calculate correlation matrix
+        corrs = pd.DataFrame(np.corrcoef(
+            data.drop(columns=[columns_ignore]).values, rowvar=False),
+                             columns=data[columns_ignore].columns)
+        corrs.index = corrs.columns  # add row index
+        # remove sequentally highly correlated features
+        cols_remove = []
+        for i, col in enumerate(corrs.columns):
+            corrs_sample = corrs.iloc[i:, i:]  # remove ith column and row
+            corrs_vec = corrs_sample[col].iloc[(i+1):]
+            index_multicorr = corrs_vec.iloc[np.where(np.abs(corrs_vec) >= threshold)]
+            cols_remove.append(index_multicorr)
+        extreme_correlateed_assets = pd.DataFrame(cols_remove).columns
+        data = data.drop(columns=extreme_correlateed_assets)
+        
+        return data
+    
+    ### REMOVE CORRELATED FEARURES
+    data = remove_correlated_columns(data,
+                                     columns_ignore=['close_orig'],
+                                     threshold=0.90)
+    data.head()
 
     ### REGIME DEPENDENT ANALYSIS
     if structural_break_regime == 'chow':
@@ -142,10 +165,10 @@ if __name__ == '__main__':
             labeling_info.reindex(X_train.index),
             data.loc[X_train.index, 'close_orig'],
             decay=0.5, num_threads=1)
-    elif labeling_technique is 'trend_scanning':
+    elif labeling_technique == 'trend_scanning':
         sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
-    elif labeling_technique is 'none':
-        sample_weigths = None
+    # elif labeling_technique == 'none':
+    #     sample_weigths = None
 
 
     ### CROS VALIDATION STEPS
@@ -158,19 +181,19 @@ if __name__ == '__main__':
     ### MODEL
     # MLDP str 98/99
     clf = RandomForestClassifier(criterion='entropy',
-                                 max_features=max_features,
-                                 min_weight_fraction_leaf=min_weight_fraction_leaf,
-                                 max_depth=max_depth,
-                                 n_estimators=n_estimators,
-                                 class_weight=class_weight,
-                                 random_state=rand_state,
-                                 n_jobs=16)
+                                    max_features=max_features,
+                                    min_weight_fraction_leaf=min_weight_fraction_leaf,
+                                    max_depth=max_depth,
+                                    n_estimators=n_estimators,
+                                    class_weight=class_weight,
+                                    random_state=rand_state,
+                                    n_jobs=16)
     scores = ml.cross_validation.ml_cross_val_score(
         clf, X_train, y_train, cv_gen=cv, 
         sample_weight_train=sample_weigths,
         scoring=sklearn.metrics.accuracy_score)  #sklearn.metrics.f1_score(average='weighted')
     mean_score = scores.mean()
-    std_score = scores.std()
+    std_score = scores.std()    
     print(f'mean_score: {mean_score}')
     print(f'std_score: {std_score}')
     save_id = f'{max_depth}{max_features}{n_estimators}{str(mean_score)[2:6]}'
@@ -198,10 +221,10 @@ if __name__ == '__main__':
         shap_values, importances, mdi_feature_imp = tml.modeling.feature_importance.important_fatures(
             clf, X_train, y_train, plot_name=save_id)
         tml.modeling.utils.save_files([shap_values, importances, mdi_feature_imp],
-                   file_names=[f'shap_{save_id}.csv',
-                               f'rf_importance_{save_id}.csv',
-                               f'mpi_{save_id}.csv'],
-                   directory='important_features')
+                    file_names=[f'shap_{save_id}.csv',
+                                f'rf_importance_{save_id}.csv',
+                                f'mpi_{save_id}.csv'],
+                    directory='important_features')
         
         
         # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES

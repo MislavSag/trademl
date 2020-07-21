@@ -25,3 +25,6 @@ from trademl.modeling.utils import (
 from trademl.modeling.structural_breaks import (
     get_chow_type_stat
 )
+from trademl.modeling.preprocessing import (
+    remove_correlated_columns
+)

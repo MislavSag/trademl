@@ -14,11 +14,11 @@
       # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
       flags‑import: all
       flags:
-        DATA_PATH:
-          arg_name: DATA_PATH
-          description: Path to data
-          type: string
-          requires: yes    
+        # DATA_PATH:
+        #   arg_name: DATA_PATH
+        #   description: Path to data
+        #   type: string
+        #   requires: yes    
         num_threads:
           arg_name: num_threads
           description: Number of threads to use in mlfinlab multhithread function
@@ -71,7 +71,7 @@
           arg_name: sample_weights_type
           type: string
           default: 'none'
-          choices: ['returns','time_decay','trend_scanning','none']
+          choices: [returns,time_decay,trend_scanning,none]
         max_features:
           description: maximum number of featurs in random forest
           arg_name: max_features

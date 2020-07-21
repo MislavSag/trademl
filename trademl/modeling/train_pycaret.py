@@ -103,10 +103,17 @@ elif labeling_technique == 'fixed_horizon':
 
 # merge x and y
 data = pd.concat([X.drop(columns=['close_orig']), labeling_info['bin']], axis=1)
-
+data['bin'] = np.where(data['bin'] == -1, 0, data['bin'])
+data['bin'] = data['bin'].astype(np.int)
 
 # PYCARET SETUP
 
 #intialize the setup
-exp_clf = setup(data,
-                target = 'bin')
+# numeric_features = [col for col in data.columns if col != ['tick_rule']]
+exp_clf = setup(data.iloc[:1000],
+                target='bin',
+                train_size=0.9,
+                categorical_features=['tick_rule', 'HT_TRENDMODE', 'chow_segment'],
+                html=False)
+compare_models()
+
