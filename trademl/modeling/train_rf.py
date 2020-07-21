@@ -47,7 +47,7 @@ stationary_close_lables = False
 
 ### MODEL HYPERPARAMETERS
 max_depth = 3
-max_features = 10
+max_features = 15
 n_estimators = 500
 min_weight_fraction_leaf = 0.05
 class_weight = 'balanced_subsample'
@@ -171,6 +171,8 @@ if __name__ == '__main__':
         scoring=sklearn.metrics.accuracy_score)  #sklearn.metrics.f1_score(average='weighted')
     mean_score = scores.mean()
     std_score = scores.std()
+    print(f'mean_score: {mean_score}')
+    print(f'std_score: {std_score}')
     save_id = f'{max_depth}{max_features}{n_estimators}{str(mean_score)[2:6]}'
 
     # retrain the model if mean score is high enough (higher than 0.5)
@@ -192,23 +194,10 @@ if __name__ == '__main__':
         tml.modeling.metrics_summary.clf_metrics(
             clf, X_train, X_test, y_train, y_test, avg='binary')
 
-        # MAKNUTI POSLJE I KORITITI 
-        def save_files(objects, file_names, directory='important_features'):            
-            # create directory if it does not exists
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            
-            # save files to directory
-            for df, file_name in zip(objects, file_names):
-                saving_path = Path(f'{directory}/{file_name}')
-                if ".csv" not in file_names: 
-                    df.to_csv(saving_path)
-
-
         # save feature importance tables and plots
         shap_values, importances, mdi_feature_imp = tml.modeling.feature_importance.important_fatures(
             clf, X_train, y_train, plot_name=save_id)
-        save_files([shap_values, importances, mdi_feature_imp],
+        tml.modeling.utils.save_files([shap_values, importances, mdi_feature_imp],
                    file_names=[f'shap_{save_id}.csv',
                                f'rf_importance_{save_id}.csv',
                                f'mpi_{save_id}.csv'],

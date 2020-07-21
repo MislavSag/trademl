@@ -47,7 +47,7 @@ def important_fatures(clf, X_train, y_train, plot_name):
     clf_.fit(X_train, y_train)
 
     # SHAP values
-    explainer = shap.TreeExplainer(model=clf_, model_output='raw')
+    explainer = shap.TreeExplainer(model=clf_)
     shap_values = explainer.shap_values(X_train)
     vals= np.abs(shap_values).mean(0)
     feature_importance = pd.DataFrame(
