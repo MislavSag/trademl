@@ -40,7 +40,7 @@ def plot_feature_importance(shap_val, X_train, name):
     plt.savefig(f'{name}feature_importance.png')
 
 
-def feature_importance(clf, X_train, y_train, plot_name):
+def important_fatures(clf, X_train, y_train, plot_name):
 
     # clone clf to not change it
     clf_ = sklearn.clone(clf)

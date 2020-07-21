@@ -45,6 +45,15 @@ print(data.shape)
 # with pd.HDFStore(paths[0]) as store:
 #     data = store.get(contracts[0])
 
+########### TEST ##############
+# data_sample = data.iloc[:20000]
+# periods = [5, 30, 60, 480, 960, 2400, 4800, 9600]
+# data_sample = tml.modeling.features.add_technical_indicators(data_sample, periods=periods)
+# data_sample.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in data_sample.columns]
+# data_sample.isna().sum().sort_values()
+########### TEST ##############
+
+
 
 ### ADD FEATURES
 # add technical indicators
@@ -139,8 +148,8 @@ data['tick_rule'] = np.where(tick_diff != 0,
 
 
 ### REMOVE NAN FOR INDICATORS
-data.isna().sum().sort_values(ascending=False).head(20)
-columns_na_below = data.isna().sum() < 12010
+data.isna().sum().sort_values(ascending=False).head(60)
+columns_na_below = data.isna().sum() < (max(periods) + 100)
 data = data.loc[:, columns_na_below]
 cols_remove_na = range((np.where(data.columns == 'volume')[0].item() + 1), data.shape[1])
 data.dropna(subset=data.columns[cols_remove_na], inplace=True)

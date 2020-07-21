@@ -11,27 +11,14 @@ import os
 # preprocessing
 import sklearn
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier, BaggingClassifier
-from sklearn.model_selection import GridSearchCV
-from mlfinlab.ensemble import SequentiallyBootstrappedBaggingClassifier
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.base import clone
-import xgboost
-import h2o
-from h2o.automl import H2OAutoML
+import xgboost as xgb
 import shap
 # metrics 
 import mlfinlab as ml
-from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
-    accuracy_score,
-    roc_curve,
-    log_loss,
-    )
-from boruta import BorutaPy
 # finance packages
 import trademl as tml
-# import vectorbt as vbt
 
 
 ### DON'T SHOW GRAPH OPTION
@@ -67,16 +54,15 @@ tb_volatility_scaler = 1
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.004
-ts_look_forward_window = 4800  # 60 * 8 * 10 (10 days)
+ts_look_forward_window = 1200  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
-sample_weights_type = 'time_decay'
+sample_weights_type = 'returns'
 cv_type = 'purged_kfold'
 cv_number = 4
 rand_state = 3
 stationary_close_lables = False
-multiclass = True
 
 ### MODEL HYPERPARAMETERS
 # max_depth = 3
@@ -133,15 +119,13 @@ elif labeling_technique == 'trend_scanning':
         )
     labeling_info = trend_scanning_pipe.fit(data)
     X = trend_scanning_pipe.transform(data)
-    if multiclass:
-        labeling_info['bin'] = tml.modeling.utils.balance_multiclass(labeling_info['t_value'])
 elif labeling_technique == 'fixed_horizon':
     X = data.copy()
-    labeling_info = ml.labeling.fixed_time_horizon(data['close_orig'], 
-                                                   threshold=0.005, resample_by='B').dropna().to_frame()
+    labeling_info = ml.labeling.fixed_time_horizon(data['close_orig'], threshold=0.005, resample_by='B').dropna().to_frame()
     labeling_info = labeling_info.rename(columns={'close_orig': 'bin'})
     print(labeling_info.iloc[:, 0].value_counts())
     X = X.iloc[:-1, :]
+
 
 ### CLUSTERED FEATURES
 # feat_subs = ml.clustering.feature_clusters.get_feature_clusters(
@@ -164,6 +148,8 @@ elif labeling_technique == 'fixed_horizon':
 X_train, X_test, y_train, y_test = train_test_split(
     X.drop(columns=['close_orig']), labeling_info['bin'],
     test_size=0.10, shuffle=False, stratify=None)
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train, y_train, test_size=0.15, shuffle=False, stratify=None)
 
 
 ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
@@ -181,74 +167,51 @@ elif labeling_technique is 'trend_scanning':
     sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
 
 
-### H2O AUTO ML
-
-# import and init
-h2o.init(nthreads=16, max_mem_size=10)
-
-# convert X and y to h2o df
-train = pd.concat([X_train, sample_weigths.rename('sample_weigts')], axis=1)
-train = tml.modeling.utils.cbind_pandas_h2o(train, y_train)  # X_train default
-train['bin'] = train['bin'].asfactor()
-test = tml.modeling.utils.cbind_pandas_h2o(X_test, y_test)
-test['bin'] = test['bin'].asfactor()
-
-# Identify response and predictor variables
-y = 'bin'
-x = list(train.columns)
-x.remove(y)  #remove the response
-
-# Automl train
-aml = H2OAutoML(max_models=15,
-                seed=3,
-                # balance_classes=True,
-                sort_metric='mean_per_class_error',
-                stopping_metric='mean_per_class_error')  #
-aml.train(x=x, y=y, training_frame=train, weights_column='sample_weigts')  # weights_column='sample_weigts'
-lb = aml.leaderboard
-lb.head(rows=lb.nrows)  # Print all rows instead of default (10 rows)
-
-# predictins for the best model
-m = h2o.get_model(lb[0,"model_id"])
-predictions_h2o = m.predict(test)
-predictions_h2o['predict'].table()
-
-# metrics for the binary classification
-print(m.model_performance(train))  # train set
-print(m.model_performance(test))  # test set
+### CROS VALIDATION STEPS
+if cv_type == 'purged_kfold':
+    cv = ml.cross_validation.PurgedKFold(
+        n_splits=cv_number,
+        samples_info_sets=labeling_info['t1'].reindex(X_train.index))
 
 
-# metrics for the multinomial classification
-def clf_metrics_general(true, predictions, avg='binary', prefix=''):
-    """
-    Show main matrics from classification: accuracy, precision, recall, 
-    confusion matrix.
-    
-    Arguments:
-        fitted_model {[type]} -- [description]
-    """
-    print(f'Confusion matrix test: \n{confusion_matrix(true, predictions)}')
-    print(f'{prefix}accuracy_test: {accuracy_score(true, predictions)}')
-    print(f"{prefix}recall_test: {recall_score(true, predictions, average=avg)}")
-    print(f"{prefix}precisoin_test: {precision_score(true, predictions, average=avg)}")
-    print(f"{prefix}f1_test: {f1_score(true, predictions, average=avg)}")
+# MODEL
+# convert pandas df to xgboost matrix
+dmatrix_train = xgb.DMatrix(data=X_train, label=y_train.replace(-1, 0))
+dmatrix_test = xgb.DMatrix(data=X_test, label=y_test.replace(-1, 0))
 
+# parameters for GridSearch
+parameters = {'max_depth': range(2, 6, 1),
+              'n_estimators': range(50, 200, 50),
+              'learning_rate': [0.10, 1, 0.05]
+            }
 
-clf_metrics_general(test['bin'].as_data_frame().squeeze(),
-                    predictions_h2o['predict'].as_data_frame().squeeze(),
-                    avg='micro')
+# define estimator
+estimator = xgb.XGBClassifier(
+    objective= 'binary:logistic',
+    nthread=4,
+    seed=3
+)
 
+# define grid search
+clf = GridSearchCV(
+    estimator=estimator,
+    param_grid=parameters,
+    scoring='roc_auc',
+    refit=True,
+    cv=cv
+)
 
+# fit random search
+clf.fit(
+    X_train, y_train, verbose=True
+    # early_stopping_rounds=20, eval_set=[X_val, y_val], eval_metric='auc'
+        )
+learning_rate, max_depth, n_estimators = clf.best_params_.values()
 
-# feature importance
-m = h2o.get_model(lb[2,"model_id"])
-feature_importance = m.varimp(use_pandas=True)
-try:
-    m.varimp_plot()
-except TypeError as te:
-    print(te)
-shap.initjs()
-contributions = m.predict_contributions(test)
-contributions_matrix = contributions.as_data_frame()
-shap_values_h2o = contributions_matrix.iloc[:,:-1]
-shap.summary_plot(shap_values_h2o, train.as_data_frame().drop(columns=['bin']), plot_type='bar', max_display=25)
+# model scores
+clf_predictions = clf.predict(X_test)
+clf_f1_score = sklearn.metrics.f1_score(y_test, clf_predictions)
+print(f'f1_score: {clf_f1_score}')
+print(f'optimal_model_depth: {depth}')
+print(f'n_estimators: {n_estimators}')
+print(f'max_features {n_features}')

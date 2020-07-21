@@ -18,6 +18,8 @@ from mlfinlab.ensemble import SequentiallyBootstrappedBaggingClassifier
 from sklearn.base import clone
 import xgboost
 import shap
+from tune_sklearn import TuneSearchCV, TuneGridSearchCV
+from scipy.stats import randint
 # metrics 
 import mlfinlab as ml
 from sklearn.metrics import (
@@ -68,8 +70,7 @@ stationary_close_lables = False
 keep_important_features = 25
 # vectorbt_slippage = 0.0015
 # vectorbt_fees = 0.0015
-    
-    
+
 
 def import_data(data_path, remove_cols, contract='SPY'):
     # import data
@@ -152,16 +153,6 @@ if __name__ == '__main__':
     #     n_clusters=1)
 
 
-    ### CALENDARS
-    # import pandas_market_calendars as mcal
-    # # Create a calendar
-    # nyse = mcal.get_calendar('NYSE')
-    # schedule = nyse.schedule(start_date='2016-12-30', end_date='2017-01-10')
-    # schedule  
-    # # Show available calendars
-    # print(mcal.get_calendar_names())
-
-
     # TRAIN TEST SPLIT
     X_train, X_test, y_train, y_test = train_test_split(
         X.drop(columns=['close_orig']), labeling_info['bin'],
@@ -190,37 +181,96 @@ if __name__ == '__main__':
             samples_info_sets=labeling_info['t1'].reindex(X_train.index))
 
 
-    # MODEL
-
-    # parameters for GridSearch
-    # parameters = {'max_depth': [2, 3, 4, 5],
-    #             'n_estimators': [500, 1000],
-    #             'max_features': [5, 10, 15],
-    #             'max_leaf_nodes': [4, 8, 16, 32]
-    #             }
+    ### MODEL WITH SKLEARN
     
-    parameters = {'max_depth': [2],
-            'n_estimators': [500],
-            'max_features': [5],
-            'max_leaf_nodes': [4]
-            }
-
-    # clf = joblib.load("rf_model.pkl")
+    # estimator
     rf = RandomForestClassifier(criterion='entropy',
-                                min_weight_fraction_leaf=0.05,
-                                class_weight='balanced_subsample',
-                                random_state=rand_state)
-    clf = GridSearchCV(rf,
-                    param_grid=parameters,
-                    scoring='f1',
-                    n_jobs=16,
-                    cv=cv)
-    clf.fit(X_train, y_train, sample_weight=sample_weigths)
-    max_depth, n_features, max_leaf_nodes, n_estimators = clf.best_params_.values()
+                                class_weight='balanced_subsample')
+    
+    # grid search
+    param_grid = {
+        'max_depth': [2, 3, 4, 5],
+        'n_estimators': [500, 1000],
+        'max_features': [5, 10, 15, 20],
+        'max_leaf_nodes': [4, 8, 16, 32]
+        }
+    tune_search = TuneGridSearchCV(
+        estimator=rf,
+        param_grid=param_grid,
+        early_stopping=False,
+        scoring='f1',
+        n_jobs=16,
+        cv=cv,
+        verbose=1
+    )
+    tune_search.fit(X_train, y_train, sample_weight=sample_weigths)
+    clf_predictions = tune_search.predict(X_test)
+    tune_search.cv_results_
+    tune_search.best_params_  #max_depth 3, n_estimators 1000, max_features 10, max_leaf_nodes 4
+    
+    
+    # random search
+    param_random = {
+        "n_estimators": randint(50, 1000),
+        "max_depth": randint(2, 3),
+        'max_features': randint(5, 25),
+        'min_weight_fraction_leaf': randint(0.03, 0.1)
+    }
+    tune_search = TuneGridSearchCV(
+        estimator=rf,
+        param_grid=param_random,
+        early_stopping=False,
+        n_iter=5,
+        scoring='f1',
+        n_jobs=16,
+        cv=cv,
+        verbose=1
+    )
+    tune_search.fit(X_train, y_train, sample_weight=sample_weigths)
+    clf_predictions = tune_search.predict(X_test)
+    tune_search.cv_results_
+    tune_search.best_index_
+    tune_search.best_params_
 
+    
+    ####### TRY TUNE-SKELARN WHEN THEY ANSWER ON MY ISSUES QUESTION #######
+    param_bayes = {
+        "n_estimators": (50, 1000),
+        "max_depth": (2, 7),
+        'max_features': (1, 30)
+        # 'min_weight_fraction_leaf': (0.03, 0.1, 'uniform')
+    }
+    tune_search = TuneSearchCV(
+        rf,
+        param_bayes,
+        search_optimization='bayesian',
+        max_iters=10,
+        scoring='f1',
+        n_jobs=16,
+        cv=cv,
+        verbose=1
+    )
+    tune_search.fit(X_train, y_train, sample_weight=sample_weigths)
+    clf_predictions = tune_search.predict(X_test)
+    tune_search.cv_results_
+    tune_search.best_index_
+    tune_search.best_params_
+    ####### TRY TUNE-SKELARN WHEN THEY ANSWER ON MY ISSUES QUESTION #######
+
+    
+    # clf = GridSearchCV(rf,
+    #                 param_grid=parameters,
+    #                 scoring='f1',
+    #                 n_jobs=16,
+    #                 cv=cv)
+    # clf.fit(X_train, y_train, sample_weight=sample_weigths)
+    # max_depth, n_features, max_leaf_nodes, n_estimators = clf.best_params_.values()
+    
     # model scores
-    clf_predictions = clf.predict(X_test)
+    # clf_predictions = clf.predict(X_test)
     clf_f1_score = sklearn.metrics.f1_score(y_test, clf_predictions)
+    clf_accuracy_score = sklearn.metrics.accuracy_score(y_test, clf_predictions)
+    print(f'f1_score: {clf_f1_score}')
     print(f'f1_score: {clf_f1_score}')
     print(f'optimal_max_depth: {max_depth}')
     print(f'optimal_n_features: {n_features}')
@@ -447,58 +497,3 @@ if __name__ == '__main__':
         # returns = hold_cash['return'].dropna()
         # price_series = hold_cash['adjusted_close'].dropna()
         # backtest_stat(returns)
-
-
-        ############## TEST
-        # model_features = pd.Series(X_train.columns)
-        # min_d = pd.read_csv('min_d.csv', sep=';', names=['feature', 'value'])
-        # min_d = min_d[1:]
-        # min_d_close = min_d.loc[(min_d['feature'] == 'close') | (min_d['feature'] == 'open'), ['feature', 'value']]
-        # min_d_close.set_index(min_d_close['feature'], inplace=True)
-        # min_d_close = min_d_close['value']
-        # min_d.set_index(min_d['feature'], inplace=True)
-
-        # tripple barrier vector vs backtest
-        # tb_fit.triple_barrier_info
-        # tb_fit.triple_barrier_info.loc['2019-01-01 00:00:00':]
-        # tb_fit.triple_barrier_info.loc['2016-07-07']
-        # tb_fit.triple_barrier_info.loc['2016-07-07 00:00:00':].shape
-        # 1000000 / 200
-        # costs_per_transaction = (1000000 / 200) * 0.05
-        # costs_per_transaction * tb_fit.triple_barrier_info.loc['2016-07-07 00:00:00':].shape[0]
-
-        # # test multiplie orders
-        # data.close_orig
-        # test = ml.util.get_daily_vol(data.close_orig, lookback=50)
-        # test[tb_fit.triple_barrier_info.index]
-
-        # # extract close series
-        # close_test = data.close_orig
-
-        # # Compute volatility
-        # daily_vol_test = ml.util.get_daily_vol(close_test, lookback=50)
-
-        # # Apply Symmetric CUSUM Filter and get timestamps for events
-        # cusum_events_test = ml.filters.cusum_filter(close_test,
-        #     threshold=daily_vol_test.mean()*1)
-
-        # # Compute vertical barrier
-        # vertical_barriers_test = ml.labeling.add_vertical_barrier(
-        #     t_events=cusum_events_test,
-        #     close=close_test,
-        #     num_days=2) 
-
-        # # tripple barier events
-        # triple_barrier_events_test = ml.labeling.get_events(
-        #     close=close_test,
-        #     t_events=cusum_events_test,
-        #     pt_sl=[1, 1],
-        #     target=daily_vol_test,
-        #     min_ret=0.01,
-        #     num_threads=1,
-        #     vertical_barrier_times=vertical_barriers)
-
-        # # labels
-        # labels = ml.labeling.get_bins(triple_barrier_events, close)
-        # labels = ml.labeling.drop_labels(labels)
-        ############## TEST

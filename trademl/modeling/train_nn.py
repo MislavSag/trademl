@@ -13,6 +13,8 @@ import sklearn
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras import layers
+import kerastuner as kt
 # import tensorflow_addons as tfa
 # feature importance
 import shap
@@ -20,6 +22,7 @@ from boruta import BorutaPy
 # finance packagesb
 import mlfinlab as ml
 import trademl as tml
+import IPython
 # import vectorbt as vbt
 
 # tf.keras.backend.set_floatx('float64')  # see https://github.com/tensorflow/tensorflow/issues/41288
@@ -37,9 +40,6 @@ DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
 contract = ['SPY']
 with pd.HDFStore(DATA_PATH + contract[0] + '.h5') as store:
     data = store.get(contract[0])
-    
-data.head()
-
 data.sort_index(inplace=True)
 
 
@@ -193,7 +193,7 @@ validation_generator = keras.preprocessing.sequence.TimeseriesGenerator(
 )
 test_generator = keras.preprocessing.sequence.TimeseriesGenerator(
     data=x_test,
-    targets=y_test,
+    targets=y_test_,
     length=100,
     sampling_rate=1,
     stride=1,
@@ -210,13 +210,14 @@ def generator_to_obj(generator):
     xlist = []
     ylist = []
     for i in range(len(generator)):
-        x, y = train_generator[i]
+        x, y = generator[i]
         xlist.append(x)
         ylist.append(y)
     X_train = np.concatenate(xlist, axis=0)
     y_train = np.concatenate(ylist, axis=0)
     return X_train, y_train
-    
+
+
 X_train_lstm, y_train_lstm = generator_to_obj(train_generator)
 X_val_lstm, y_val_lstm = generator_to_obj(validation_generator)
 X_test_lstm, y_test_lstm = generator_to_obj(test_generator)
@@ -237,36 +238,110 @@ for i, y in enumerate(y_test_lstm):
     if y == -1.:
         y_test_lstm[i,:] = 0. 
 
+# change labels type to integer64
+y_train_lstm = y_train_lstm.astype(np.int64)
+y_val_lstm = y_val_lstm.astype(np.int64)
+y_test_lstm = y_test_lstm.astype(np.int64)
+ 
 
 ### MODEL
-# init
-model = keras.models.Sequential([
-        keras.layers.LSTM(258, return_sequences=True, input_shape=[None, x.shape[1]]),
+
+
+def lstm_model(hp):
+    # define the modelwith hyperparameters
+    # GPU doesn't support recurrent droput: https://github.com/tensorflow/tensorflow/issues/40944
+    model = keras.Sequential()
+    hp_units = hp.Int('units', min_value = 32, max_value = 256, step = 32)
+    model.add(layers.LSTM(hp_units,
+                          return_sequences=True,
+                          input_shape=[None, x.shape[1]]))
+    model.add(layers.LSTM(hp_units))
+    model.add(layers.Dense(1, activation='sigmoid'))
+    
+    # compile the model
+    hp_learning_rate = hp.Choice('learning_rate', values = [1e-2, 1e-3, 1e-4]) 
+    model.compile(loss='binary_crossentropy',
+                  optimizer=keras.optimizers.Adam(learning_rate=hp_learning_rate),
+                  metrics=['accuracy']
+                  )
+                        #    keras.metrics.AUC(),
+                        #    keras.metrics.Precision(),
+                        #    keras.metrics.Recall()])
+    return model
+
+
+# model = keras.models.Sequential([
+#         keras.layers.LSTM(258, return_sequences=True, input_shape=[None, x.shape[1]]),
+#         keras.layers.LSTM(124, return_sequences=True, dropout=0.15),  # recurrent_dropout=0
+#         keras.layers.LSTM(32),  # recurrent_dropout=0
+#         keras.layers.Dense(1, activation='sigmoid',
+#                         kernel_initializer=keras.initializers.he_normal(seed=1))
         
-        keras.layers.LSTM(124, return_sequences=True, dropout=0.2, recurrent_dropout=0.2),
-        keras.layers.LSTM(32, dropout=0.2, recurrent_dropout=0.2),
-        keras.layers.Dense(1, activation='sigmoid')
-        
-])
-model.compile(loss='binary_crossentropy', optimizer='adam',
-              metrics=['accuracy', 
-                       keras.metrics.AUC(),
-                       keras.metrics.Precision(),
-                       keras.metrics.Recall()])
-# fit the model
-history = model.fit(X_train_lstm, y_train_lstm, epochs=50, batch_size=128,
-                    validation_data=(X_val_lstm, y_val_lstm))
+# ])
+
+# define tuner
+# tuner = kt.tuners.RandomSearch(lstm_model,
+#                                objective='val_accuracy',
+#                                max_trials=2,
+#                                executions_per_trial=2,
+#                                directory='lstm_tuner',
+#                                project_name='stock_prediction_lstm')
+tuner = kt.Hyperband(lstm_model,
+                     objective = 'val_accuracy', 
+                     max_epochs = 20,
+                     factor = 3,
+                     directory = 'my_dir',
+                     project_name = 'intro_to_kt')   
+tuner.search_space_summary()
+
+
+# callbacks
+early_stopping_cb = keras.callbacks.EarlyStopping(
+    patience=15, restore_best_weights=True)
+# newly defined callbacks
+class ClearTrainingOutput(tf.keras.callbacks.Callback):
+    def on_train_end(*args, **kwargs):
+        IPython.display.clear_output(wait = True)
+
+
+
+# fit tuner
+tuner.search(X_train_lstm,
+             y_train_lstm,
+             epochs=50,
+             batch_size=128,
+             shuffle=False,
+             validation_data=(X_val_lstm, y_val_lstm),
+             callbacks=[ClearTrainingOutput()]
+)
+
+# tuner results
+models = tuner.get_best_models(num_models=2)
+tuner.results_summary()
+
+
+# log message
+print(f"""
+The hyperparameter search is complete. The optimal number of units in the first densely-connected
+layer is {best_hps.get('units')} and the optimal learning rate for the optimizer
+is {best_hps.get('learning_rate')}.
+""")
+
+
 
 # get accuracy and score
 score, acc, auc, precision, recall = model.evaluate(
     X_test_lstm, y_test_lstm, batch_size=128)
-print('score:', score)
+print('score_train:', score)
 print('accuracy_train:', acc)
+print('auc_train:', auc)
+print('precision_train:', precision)
+print('recall_train:', recall)
 
 # get loss values and metrics
 historydf = pd.DataFrame(history.history)
 historydf.head(50)
-
+ 
 # predictions
 predictions = model.predict(X_test_lstm)
 predict_classes = model.predict_classes(X_test_lstm)
@@ -278,7 +353,7 @@ tml.modeling.metrics_summary.lstm_metrics(y_test_lstm, predict_classes)
 
 ### SAVE MODELS AND FEATURES
 # save features names
-pd.Series(data.columns).to_csv('lstm_features.csv', sep=',')
+pd.Series(X_train.columns).to_csv('lstm_features.csv', sep=',')
 # save model
 with open('Output_Model.json', 'w') as json_file:
     json_file.write(model.to_json())
@@ -452,3 +527,10 @@ tf.keras.utils.get_file(file_save_path, file_url)
 # 
 model = keras.models.load_model(file_save_path)
 predictions = model.predict(X_TEST)
+
+
+from tensorflow.keras.datasets import imdb
+(X_train, y_train), (X_test, y_test) = imdb.load_data(num_words=1000)
+
+type(y_train)
+y_train.dtype
