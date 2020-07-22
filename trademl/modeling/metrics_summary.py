@@ -37,6 +37,37 @@ def clf_metrics(fitted_model, X_train, X_test, y_train, y_test, avg='binary', pr
     # print(f'Predictions: ', predictions_train[:10])
 
 
+def clf_metrics_tensorboard(writer, fitted_model, X_train, X_test, y_train, y_test, avg='binary', prefix=''):
+    """
+    Show main matrics from classification: accuracy, precision, recall, 
+    confusion matrix.
+    
+    Arguments:
+        fitted_model {[type]} -- [description]
+    """
+    # predictions
+    predictions_train = fitted_model.predict(X_train)
+    predictions_test = fitted_model.predict(X_test)
+    
+    # save scalars
+    writer.add_scalar(tag=f'{prefix}accuracy_train',
+                      scalar_value=accuracy_score(y_train, predictions_train))
+    writer.add_scalar(tag=f'{prefix}accuracy_test',
+                      scalar_value=accuracy_score(y_test, predictions_test))
+    writer.add_scalar(tag=f'{prefix}recall_train',
+                      scalar_value=recall_score(y_train, predictions_train, average=avg))
+    writer.add_scalar(tag=f'{prefix}recall_test',
+                      scalar_value=recall_score(y_test, predictions_test, average=avg))
+    writer.add_scalar(tag=f'{prefix}precision_train',
+                      scalar_value=precision_score(y_train, predictions_train, average=avg))
+    writer.add_scalar(tag=f'{prefix}precisoin_test',
+                      scalar_value=precision_score(y_test, predictions_test, average=avg))
+    writer.add_scalar(tag=f'{prefix}f1_train',
+                      scalar_value=f1_score(y_train, predictions_train, average=avg))
+    writer.add_scalar(tag=f'{prefix}f1_test',
+                      scalar_value=f1_score(y_test, predictions_test, average=avg))
+
+
 def lstm_metrics(y_test, predictions, avg='binary', prefix=''):
     """
     Show main matrics from LSTM classification: accuracy, precision, recall, 

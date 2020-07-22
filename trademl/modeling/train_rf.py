@@ -1,6 +1,7 @@
 # fundamental modules
 import numpy as np
 import pandas as pd
+from datetime import datetime
 from numba import njit
 import matplotlib.pyplot as plt
 import matplotlib
@@ -17,13 +18,19 @@ import xgboost
 import shap
 import mlfinlab as ml
 import trademl as tml
+from tensorboardX import SummaryWriter
+matplotlib.use("Agg")  # don't show graphs
 
-### DON'T SHOW GRAPH OPTION
-matplotlib.use("Agg")
 
+### TENSORBORADX WRITER
+log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
+    "%Y%m%d-%H%M%S"
+)
+writer = SummaryWriter(log_dir)
 
 ### GLOBALS
 DATA_PATH = 'D:/market_data/usa/ohlcv_features'
+
 
 ### NON-MODEL HYPERPARAMETERS
 num_threads = 1
@@ -43,6 +50,9 @@ cv_type = 'purged_kfold'
 cv_number = 4
 rand_state = 3
 stationary_close_lables = False
+
+### PREPROCESSING PARAMETERS
+correlation_threshold = 0.90
 
 ### MODEL HYPERPARAMETERS
 max_depth = 3
@@ -68,15 +78,6 @@ def import_data(data_path, remove_cols, contract='SPY'):
     return data
 
 
-def main_results(scores):
-    mean_score = scores.mean()
-    std_score = scores.std()    
-    print(f'mean_score: {mean_score}')
-    print(f'std_score: {std_score}')
-    
-    return mean_score
-
-
 # if __name__ == 'main':
 
 ### IMPORT DATA
@@ -86,29 +87,32 @@ remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
 data = import_data(DATA_PATH, remove_ohl, contract='SPY')
 
 
-# def remove_correlated_columns(data, columns_ignore, threshold=0.99):
-#     # calculate correlation matrix
-#     corrs = pd.DataFrame(np.corrcoef(
-#         data.drop(columns=[columns_ignore]).values, rowvar=False),
-#                          columns=data[columns_ignore].columns)
-#     corrs.index = corrs.columns  # add row index
-#     # remove sequentally highly correlated features
-#     cols_remove = []
-#     for i, col in enumerate(corrs.columns):
-#         corrs_sample = corrs.iloc[i:, i:]  # remove ith column and row
-#         corrs_vec = corrs_sample[col].iloc[(i+1):]
-#         index_multicorr = corrs_vec.iloc[np.where(np.abs(corrs_vec) >= threshold)]
-#         cols_remove.append(index_multicorr)
-#     extreme_correlateed_assets = pd.DataFrame(cols_remove).columns
-#     data = data.drop(columns=extreme_correlateed_assets)
+def remove_correlated_columns(data, columns_ignore, threshold=0.99):
+    # calculate correlation matrix
+    corrs = pd.DataFrame(np.corrcoef(
+        data.drop(columns=columns_ignore).values, rowvar=False),
+                         columns=data.drop(columns=columns_ignore).columns)
+    corrs.index = corrs.columns  # add row index
+    # remove sequentally highly correlated features
+    cols_remove = []
+    for i, col in enumerate(corrs.columns):
+        corrs_sample = corrs.iloc[i:, i:]  # remove ith column and row
+        corrs_vec = corrs_sample[col].iloc[(i+1):]
+        index_multicorr = corrs_vec.iloc[np.where(np.abs(corrs_vec) >= threshold)]
+        cols_remove.append(index_multicorr)
+    extreme_correlateed_assets = pd.DataFrame(cols_remove).columns
+    data = data.drop(columns=extreme_correlateed_assets)
     
-#     return data
+    return data
 
-# ### REMOVE CORRELATED FEARURES
-# data = remove_correlated_columns(data,
-#                                  columns_ignore=['close_orig'],
-#                                  threshold=0.90)
-# data.head()
+
+### REMOVE CORRELATED FEARURES
+if correlation_threshold < 0.99:
+    data = remove_correlated_columns(data=data,
+                                     columns_ignore=['close_orig'],
+                                     threshold=correlation_threshold)
+
+
 
 ### REGIME DEPENDENT ANALYSIS
 if structural_break_regime == 'chow':
@@ -164,7 +168,9 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 
 ### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
-if sample_weights_type == 'returns':
+if labeling_technique == 'trend_scanning':
+    sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
+elif sample_weights_type == 'returns':
     sample_weigths = ml.sample_weights.get_weights_by_return(
         labeling_info.reindex(X_train.index),
         data.loc[X_train.index, 'close_orig'],
@@ -174,10 +180,8 @@ elif sample_weights_type == 'time_decay':
         labeling_info.reindex(X_train.index),
         data.loc[X_train.index, 'close_orig'],
         decay=0.5, num_threads=1)
-elif labeling_technique == 'trend_scanning':
-    sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
-# elif labeling_technique == 'none':
-#     sample_weigths = None
+elif sample_weights_type == 'none':
+    sample_weigths = None
 
 
 ### CROS VALIDATION STEPS
@@ -201,12 +205,11 @@ scores = ml.cross_validation.ml_cross_val_score(
     clf, X_train, y_train, cv_gen=cv, 
     sample_weight_train=sample_weigths,
     scoring=sklearn.metrics.accuracy_score)  #sklearn.metrics.f1_score(average='weighted')
-# mean_score = scores.mean()
-# std_score = scores.std()    
-# print(f'mean_score: {mean_score}')
-# print(f'std_score: {std_score}')
+mean_score = scores.mean()
+std_score = scores.std()
+writer.add_scalar(tag='mean_score', scalar_value=mean_score, global_step=None)
+writer.add_scalar(tag='std_score', scalar_value=std_score, global_step=None)
 save_id = f'{max_depth}{max_features}{n_estimators}{str(mean_score)[2:6]}'
-mean_score = main_results(scores)
 
 # retrain the model if mean score is high enough (higher than 0.5)
 if mean_score < 0.55:
@@ -224,8 +227,10 @@ else:
                                 random_state=rand_state,
                                 n_jobs=16)
     clf.fit(X_train, y_train, sample_weight=sample_weigths)
-    tml.modeling.metrics_summary.clf_metrics(
-        clf, X_train, X_test, y_train, y_test, avg='binary')
+    # tml.modeling.metrics_summary.clf_metrics(
+    #     clf, X_train, X_test, y_train, y_test, avg='binary')
+    # tml.modeling.metrics_summary.clf_metrics_tensorboard(
+    #     clf, X_train, X_test, y_train, y_test, avg='binary')
 
     # save feature importance tables and plots
     shap_values, importances, mdi_feature_imp = tml.modeling.feature_importance.important_fatures(
@@ -242,6 +247,18 @@ else:
     X_train_important = X_train[fi_cols]
     X_test_important = X_test[fi_cols]
     clf_important = clf.fit(X_train_important, y_train)
-    tml.modeling.metrics_summary.clf_metrics(
-        clf_important, X_train_important,
-        X_test_important, y_train, y_test, avg='binary', prefix='fi_')
+    # tml.modeling.metrics_summary.clf_metrics(
+    #     clf_important, X_train_important,
+    #     X_test_important, y_train, y_test, avg='binary', prefix='fi_')
+    # tml.modeling.metrics_summary.clf_metrics(
+    #     clf_important, X_train_important,
+    #     X_test_important, y_train, y_test, avg='binary', prefix='fi_')
+
+
+# cose writer
+writer.close()
+
+# mean_ = data['close'].expanding(30).mean()
+# std_ = data['close'].expanding(30).std()
+# data['expanded_close'] = (data['close'] - mean_) / std_
+

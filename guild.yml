@@ -71,7 +71,12 @@
           arg_name: sample_weights_type
           type: string
           default: 'none'
-          choices: [returns,time_decay,trend_scanning,none]
+          choices: [returns,time_decay,none]
+        correlation_threshold:
+          description: Threshold for removing highly correlated columns
+          arg_name: correlation_threshold
+          min: 0.5
+          max: 0.99
         max_features:
           description: maximum number of featurs in random forest
           arg_name: max_features

@@ -9,8 +9,8 @@ def remove_correlated_columns(data, columns_ignore, threshold=0.99):
     """
     # calculate correlation matrix
     corrs = pd.DataFrame(np.corrcoef(
-        data.drop(columns=[columns_ignore]).values, rowvar=False),
-                            columns=data[columns_ignore].columns)
+        data.drop(columns=columns_ignore).values, rowvar=False),
+                         columns=data.drop(columns=columns_ignore).columns)
     corrs.index = corrs.columns  # add row index
     # remove sequentally highly correlated features
     cols_remove = []
