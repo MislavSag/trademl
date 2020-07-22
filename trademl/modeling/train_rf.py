@@ -36,7 +36,7 @@ DATA_PATH = 'D:/market_data/usa/ohlcv_features'
 num_threads = 1
 structural_break_regime = 'all'
 labeling_technique = 'trend_scanning'
-tb_volatility_lookback = 50
+tb_volatility_lookback = 500
 tb_volatility_scaler = 1
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
@@ -77,8 +77,6 @@ def import_data(data_path, remove_cols, contract='SPY'):
     
     return data
 
-
-# if __name__ == 'main':
 
 ### IMPORT DATA
 remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
@@ -161,6 +159,22 @@ elif labeling_technique == 'fixed_horizon':
     X = X.iloc[:-1, :]
 
 
+# # compare my and mlfinlab function
+# daily_vol = ml.util.get_daily_vol(data['close_orig'], lookback=tb_volatility_lookback)
+# cusum_events = ml.filters.cusum_filter(data['close_orig'], threshold=daily_vol.mean()*tb_volatility_scaler)
+# test_test_lableing = ml.labeling.trend_scanning_labels(data['close_orig'], cusum_events,
+#                                                 ts_look_forward_window, ts_min_sample_length, ts_step)
+
+# my_test = trend_scanning_labels(data['close_orig'], cusum_events,
+#                                                 ts_look_forward_window, ts_min_sample_length, ts_step)
+
+# test_test_lableing.head(10)
+# labeling_info.head(10)
+# my_test.head(10)
+# test_test_lableing.iloc[390:395]
+# labeling_info.iloc[390:395]
+
+
 # TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
     X.drop(columns=['close_orig']), labeling_info['bin'],
@@ -205,6 +219,14 @@ scores = ml.cross_validation.ml_cross_val_score(
     clf, X_train, y_train, cv_gen=cv, 
     sample_weight_train=sample_weigths,
     scoring=sklearn.metrics.accuracy_score)  #sklearn.metrics.f1_score(average='weighted')
+
+X_train.isna().any().any()
+y_train.isna().any()
+sample_weigths.isna().any()
+np.isinf(y_train).any()
+np.isinf(sample_weigths).any()
+np.where(np.isinf(sample_weigths))
+
 mean_score = scores.mean()
 std_score = scores.std()
 writer.add_scalar(tag='mean_score', scalar_value=mean_score, global_step=None)

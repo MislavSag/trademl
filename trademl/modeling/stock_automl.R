@@ -121,7 +121,7 @@ model_fit_ets <- exp_smoothing() %>%
   set_engine(engine = "ets") %>%
   fit(close ~ date, data = training(splits))
 
-# Model 4: prophet ---- ERROR HERE
+# Model 4: prophet ----
 model_fit_prophet <- prophet_reg() %>%
   set_engine(engine = "prophet") %>%
   fit(close ~ date, data = training(splits))
@@ -144,6 +144,33 @@ models_tbl <- modeltime_table(
 # Calibrate the model to a testing set
 calibration_tbl <- models_tbl %>%
   modeltime_calibrate(new_data = testing(splits))
+
+# Visualize results
+calibration_tbl %>%
+  modeltime_forecast(
+    new_data    = testing(splits),
+    actual_data = stock_df_daily
+  ) %>%
+  plot_modeltime_forecast(
+    .legend_max_width = 25, # For mobile screens
+    .interactive      = TRUE
+  )
+
+# performances
+calibration_tbl %>%
+  modeltime_accuracy() %>%
+  table_modeltime_accuracy(resizable = TRUE, bordered = TRUE)
+
+# refit
+refit_tbl <- calibration_tbl %>%
+  modeltime_refit(data = stock_df_daily)
+
+refit_tbl %>%
+  modeltime_forecast(h = "3 years", actual_data = stock_df_daily) %>%
+  plot_modeltime_forecast(
+    .legend_max_width = 25, # For mobile screens
+    .interactive      = TRUE
+  )
 
 
 # MODELLINF WITH REMIX AUTOML ---------------------------------------------
