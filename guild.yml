@@ -1,24 +1,14 @@
-- model: random_forest
-  description: Random forest model
-  operations:
-    # prepare-data:
-    #   description: Prepare data for ML model
-    #   main: trademl.modeling.prepare_data  
-    #   flags‑import: all
-    #   flags:
-    #     description: Location of data file
-    #     required: yes 
-    train:
-      description: Trainer for random forest  
-      main: trademl.modeling.train_rf  # Python module when running the operation
-      # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
+- config: data-support
+  resources:
+    prepare-data:
+      - operation: prepare-data
+
+- operations:
+    prepare-data:
+      description: Prepare data for ML model
+      main: trademl.modeling.prepare
       flags‑import: all
       flags:
-        # DATA_PATH:
-        #   arg_name: DATA_PATH
-        #   description: Path to data
-        #   type: string
-        #   requires: yes    
         num_threads:
           arg_name: num_threads
           description: Number of threads to use in mlfinlab multhithread function
@@ -40,16 +30,11 @@
           description: Scalar which multiplies daily_vol to make sampling more/less frequent
           min: 0.1
           max: 3.0
-        max_depth:
-          description: Maximum depth for the tree in random forest algorithm
-          arg_name: max_depth
-          min: 1
-          max: 10
         labeling_technique:
           description: Labeling technique to use for classification
           arg_name: labeling_technique
           type: string
-          default: 'triple_barrier'
+          default: 'trend_scanning'
           choices: ['triple_barrier','trend_scanning']
         tb_volatility_lookback:
           description: Number of days in the past for calculating daily volatility
@@ -77,6 +62,43 @@
           arg_name: correlation_threshold
           min: 0.5
           max: 0.99
+        pca:
+          description: Use pca dim rduction or not
+          arg_name: pca
+          default: 0
+          min: 0
+          max: 1
+        ts_look_forward_window:
+          description: How much time units into the future to look when looking for trend
+          arg_name: ts_look_forward_window
+          min: 1
+          max: 1000000
+    pipeline:
+      steps:
+        - prepare-data
+        - random-forest:train
+
+- model: random_forest
+  extends: data-support
+  description: Random forest model
+  operations:
+    prepare:
+    train_random_forest:
+      description: Trainer for random forest  
+      main: trademl.modeling.train_rf  # Python module when running the operation
+      requires: prepare-data
+      flags‑import: all
+      flags:
+        num_threads:
+          arg_name: num_threads
+          description: Number of threads to use in mlfinlab multhithread function
+          min: 1
+          max: 32
+        max_depth:
+          description: Maximum depth for the tree in random forest algorithm
+          arg_name: max_depth
+          min: 1
+          max: 10
         max_features:
           description: maximum number of featurs in random forest
           arg_name: max_features
@@ -87,11 +109,6 @@
           arg_name: n_estimators
           min: 1
           max: 10000
-        ts_look_forward_window:
-          description: How much time units into the future to look when looking for trend
-          arg_name: ts_look_forward_window
-          min: 1
-          max: 1000000
         cv_number:
           description: Number of CV folds to use in CV
           arg_name: cv_number
@@ -110,122 +127,122 @@
           choices: ['balanced','balanced_subsample']
 
 
-- model: lstm
-  description: LSTM neural network
-  operations:
-    train:
-      description: Trainer a LSTM nerual network
-      main: trademl.modeling.train_nn  # Python module when running the operation
-      # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
-      flags‑import: all
-      flags:
-        num_threads:
-          arg_name: num_threads
-          description: Number of threads to use in mlfinlab multhithread function
-          min: 1
-          max: 32
-        structural_break_regime:
-          description: Shoud we use structural breaks and if yes, which one
-          arg_name: structural_break_regime
-          type: string
-          default: 'all'
-          choices: ['all','chow']
-        std_outlier:
-          arg_name: std_outlier
-          description: Standard devaition threshold. Remove observations from X above/below std_oulier
-          min: 2
-          max: 20
-        tb_volatility_scaler:
-          arg_name: tb_volatility_scaler
-          description: Scalar which multiplies daily_vol to make sampling more/less frequent
-          min: 0.1
-          max: 3.0
+# - model: lstm
+#   description: LSTM neural network
+#   operations:
+#     train:
+#       description: Trainer a LSTM nerual network
+#       main: trademl.modeling.train_nn  # Python module when running the operation
+#       # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
+#       flags‑import: all
+#       flags:
+#         num_threads:
+#           arg_name: num_threads
+#           description: Number of threads to use in mlfinlab multhithread function
+#           min: 1
+#           max: 32
+#         structural_break_regime:
+#           description: Shoud we use structural breaks and if yes, which one
+#           arg_name: structural_break_regime
+#           type: string
+#           default: 'all'
+#           choices: ['all','chow']
+#         std_outlier:
+#           arg_name: std_outlier
+#           description: Standard devaition threshold. Remove observations from X above/below std_oulier
+#           min: 2
+#           max: 20
+#         tb_volatility_scaler:
+#           arg_name: tb_volatility_scaler
+#           description: Scalar which multiplies daily_vol to make sampling more/less frequent
+#           min: 0.1
+#           max: 3.0
 
 
-- model: random_forest_sklearnopt
-  description: Random forest model with skelarn optimization
-  operations:
-    train:
-      description: Trainer for random forest with GridSearchCV 
-      main: trademl.modeling.train_rf_sklearnopt  # Python module when running the operation
-      # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
-      flags‑import: all
-      flags:
-        # DATA_PATH:
-        #   arg_name: DATA_PATH
-        #   description: Path to data
-        #   type: string
-        #   requires: yes
-        num_threads:
-          arg_name: num_threads
-          description: Number of threads to use in mlfinlab multhithread function
-          min: 1
-          max: 32
-        structural_break_regime:
-          description: Shoud we use structural breaks and if yes, which one
-          arg_name: structural_break_regime
-          type: string
-          default: 'all'
-          choices: ['all','chow']
-        std_outlier:
-          arg_name: std_outlier
-          description: Standard devaition threshold. Remove observations from X above/below std_oulier
-          min: 2
-          max: 20
-        tb_volatility_scaler:
-          arg_name: tb_volatility_scaler
-          description: Scalar which multiplies daily_vol to make sampling more/less frequent
-          min: 0.1
-          max: 3.0
-        max_depth:
-          description: Maximum depth for the tree in random forest algorithm
-          arg_name: max_depth
-          min: 1
-          max: 10
-        labeling_technique:
-          description: Labeling technique to use for classification
-          arg_name: labeling_technique
-          type: string
-          default: 'triple_barrier'
-          choices: ['triple_barrier','trend_scanning']
-        tb_volatility_lookback:
-          description: Number of days in the past for calculating daily volatility
-          arg_name: tb_volatility_lookback
-          min: 1
-          max: 1000000
-        tb_triplebar_num_days:
-          description: Number of days for defining vertical bars
-          arg_name: tb_triplebar_num_days
-          min: 1
-          max: 1000
-        tb_triplebar_min_ret:
-          description: minimal return for barrier to be used in the sample
-          arg_name: tb_triplebar_min_ret
-          min: 0.001
-          max: 0.1
-        sample_weights_type:
-          description: Sample weights to use in training
-          arg_name: sample_weights_type
-          type: string
-          default: 'returns'
-          choices: ['returns','time_decay','trend_scanning']
-        max_features:
-          description: maximum number of featurs in random forest
-          arg_name: max_features
-          min: 1
-          max: 250
-        n_estimators:
-          description: Number of estimators (decision trees) in random forest
-          arg_name: n_estimators
-          min: 1
-          max: 10000
-        ts_look_forward_window:
-          description: How much time units into the future to look when looking for trend
-          arg_name: ts_look_forward_window
-          min: 1
-          max: 1000000
-        cv_number:
-          description: Number of CV folds to use in CV
-          arg_name: cv_number
-          min: 1
-          max: 20
+# - model: random_forest_sklearnopt
+#   description: Random forest model with skelarn optimization
+#   operations:
+#     train:
+#       description: Trainer for random forest with GridSearchCV 
+#       main: trademl.modeling.train_rf_sklearnopt  # Python module when running the operation
+#       # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
+#       flags‑import: all
+#       flags:
+#         # DATA_PATH:
+#         #   arg_name: DATA_PATH
+#         #   description: Path to data
+#         #   type: string
+#         #   requires: yes
+#         num_threads:
+#           arg_name: num_threads
+#           description: Number of threads to use in mlfinlab multhithread function
+#           min: 1
+#           max: 32
+#         structural_break_regime:
+#           description: Shoud we use structural breaks and if yes, which one
+#           arg_name: structural_break_regime
+#           type: string
+#           default: 'all'
+#           choices: ['all','chow']
+#         std_outlier:
+#           arg_name: std_outlier
+#           description: Standard devaition threshold. Remove observations from X above/below std_oulier
+#           min: 2
+#           max: 20
+#         tb_volatility_scaler:
+#           arg_name: tb_volatility_scaler
+#           description: Scalar which multiplies daily_vol to make sampling more/less frequent
+#           min: 0.1
+#           max: 3.0
+#         max_depth:
+#           description: Maximum depth for the tree in random forest algorithm
+#           arg_name: max_depth
+#           min: 1
+#           max: 10
+#         labeling_technique:
+#           description: Labeling technique to use for classification
+#           arg_name: labeling_technique
+#           type: string
+#           default: 'triple_barrier'
+#           choices: ['triple_barrier','trend_scanning']
+#         tb_volatility_lookback:
+#           description: Number of days in the past for calculating daily volatility
+#           arg_name: tb_volatility_lookback
+#           min: 1
+#           max: 1000000
+#         tb_triplebar_num_days:
+#           description: Number of days for defining vertical bars
+#           arg_name: tb_triplebar_num_days
+#           min: 1
+#           max: 1000
+#         tb_triplebar_min_ret:
+#           description: minimal return for barrier to be used in the sample
+#           arg_name: tb_triplebar_min_ret
+#           min: 0.001
+#           max: 0.1
+#         sample_weights_type:
+#           description: Sample weights to use in training
+#           arg_name: sample_weights_type
+#           type: string
+#           default: 'returns'
+#           choices: ['returns','time_decay','trend_scanning']
+#         max_features:
+#           description: maximum number of featurs in random forest
+#           arg_name: max_features
+#           min: 1
+#           max: 250
+#         n_estimators:
+#           description: Number of estimators (decision trees) in random forest
+#           arg_name: n_estimators
+#           min: 1
+#           max: 10000
+#         ts_look_forward_window:
+#           description: How much time units into the future to look when looking for trend
+#           arg_name: ts_look_forward_window
+#           min: 1
+#           max: 1000000
+#         cv_number:
+#           description: Number of CV folds to use in CV
+#           arg_name: cv_number
+#           min: 1
+#           max: 20
