@@ -166,12 +166,16 @@ data_vix.sort_index(inplace=True)
 data_vix = data_vix.sort_index()
 data = pd.merge_asof(data, data_vix, left_index=True, right_index=True)
 
+### VIX FEATURES
+data['high_low'] = data['high'] - data['low']
+data['close_open'] = data['close'] - data['open']
 
-### ADD DEPENDENT VARIABLES (COMPUTATIONALLY INTENSIVE: DURING NIGHT
-# ts_1_day = tml.modeling.pipelines.trend_scanning_labels(
-#     data['close'], t_events=data.index, look_forward_window=60*8,
-#     min_sample_length=10, step=2
-# )
+### LABELING (COMPUTATIONALLY INTENSIVE: DURING NIGHT)
+data_test = data.iloc[:10000, :]
+ts_1_day = tml.modeling.pipelines.trend_scanning_labels(
+    data_test['close'], t_events=data_test.index, look_forward_window=60*8,
+    min_sample_length=10, step=2
+)
 
 
 ### SAVE UNSTATIONARY SPY

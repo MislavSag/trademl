@@ -247,5 +247,8 @@ def save_files(objects, file_names, directory='important_features'):
     # save files to directory
     for df, file_name in zip(objects, file_names):
         saving_path = Path(f'{directory}/{file_name}')
-        if ".csv" not in file_names: 
+        if ".csv" in file_name: 
             df.to_csv(saving_path)
+        elif ".pkl" in file_name:
+            df.to_pickle(saving_path)
+            

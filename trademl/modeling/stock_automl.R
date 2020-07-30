@@ -10,7 +10,8 @@ library(parsnip)
 library(dplyr)
 library(RemixAutoML)
 library(data.table)
-
+library(reticulate)
+pd <- reticulate::import('pandas')
 
 
 # GLOBALS -----
@@ -56,7 +57,18 @@ invisible(dbDisconnect(db))
 stock$date <- anytime::anytime(stock$date)
 stock_xts <- xts::xts(stock[, -1], order.by=stock$date, unique=TRUE, tzone='America/Chicago')
 
+# import bigdataset
+stock <- pd$read_hdf('D:/market_data/usa/ohlcv_features/SPY.h5', 'SPY')
+stock_sample <- stock[1:1000, 1:100]
+stock_sample <- as.matrix(stock_sample)
+mod1<-constructModel(stock_sample,p=4,"Basic",gran=c(150,10),RVAR=FALSE,h=1,cv="Rolling",MN=FALSE,verbose=FALSE,IC=TRUE)
+results=cv.BigVAR(mod1)
+results
+str(results)
+plot(results)
 
+SparsityPlot.BigVAR.results(results)
+predict(results,n.ahead=1)
 
 # PREPARE DATA -----
 

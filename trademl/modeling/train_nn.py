@@ -1,207 +1,97 @@
-# fundamental modules
+from pathlib import Path
+from datetime import datetime
 import numpy as np
 import pandas as pd
 from numba import njit
 import matplotlib.pyplot as plt
 import matplotlib
-import joblib
 import json
 import sys
 import os
-# preprocessing
 import sklearn
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import kerastuner as kt
-# import tensorflow_addons as tfa
-# feature importance
-import shap
-from boruta import BorutaPy
-# finance packagesb
 import mlfinlab as ml
 import trademl as tml
-import IPython
-# import vectorbt as vbt
-
-# tf.keras.backend.set_floatx('float64')  # see https://github.com/tensorflow/tensorflow/issues/41288
-
-
-### DON'T SHOW GRAPH OPTION
+from tensorboardX import SummaryWriter
 matplotlib.use("Agg")
 
 
-### GLOBALS
-DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
+### TENSORFLOW ATTRIBUTES
+assert tf.config.list_physical_devices('GPU')
+assert tf.config.list_physical_devices('GPU')[0][1] == 'GPU'
+assert tf.test.is_built_with_cuda()
 
 
-### IMPORT DATA
-contract = ['SPY']
-with pd.HDFStore(DATA_PATH + contract[0] + '.h5') as store:
-    data = store.get(contract[0])
-data.sort_index(inplace=True)
-
-
-### CHOOSE/REMOVE VARIABLES
-remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-              'open_vix', 'high_vix', 'low_vix', 'close_vix', 'volume_vix',
-              'open_orig', 'high_orig', 'low_orig']
-remove_ohl = [col for col in remove_ohl if col in data.columns]
-data.drop(columns=remove_ohl, inplace=True)  #correlated with close
-
-
-### NON-MODEL HYPERPARAMETERS
-num_threads = 1
-structural_break_regime = 'all'
-labeling_technique = 'trend_scanning'
-std_outlier = 10
-tb_volatility_lookback = 500
-tb_volatility_scaler = 1
-tb_triplebar_num_days = 10
-tb_triplebar_pt_sl = [1, 1]
-tb_triplebar_min_ret = 0.004
-ts_look_forward_window = 4800  # 60 * 8 * 10 (10 days)
-ts_min_sample_length = 30
-ts_step = 5
-tb_min_pct = 0.10
-sample_weights_type = 'returns'
-cv_type = 'purged_kfold'
-cv_number = 4
-rand_state = 3
-stationary_close_lables = False
+### TENSORBORADX WRITER
+log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
+    "%Y%m%d-%H%M%S")
+writer = SummaryWriter(log_dir)
 
 
 ### MODEL HYPERPARAMETERS
+main_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+train_val_index_split = 0.75
+time_step_length = 120
+batch_size = 128
+n_lstm_layers = 3
+n_units = 64
+dropout = 0.2
+lr = 10e-2
+epochs = 5
 
 
-
-### USE STATIONARY CLOSE TO CALCULATE LABELS
-if stationary_close_lables:
-    data['close_orig'] = data['close']  # with original close reslts are pretty bad!
-
-
-### REMOVE INDICATORS WITH HIGH PERIOD
-# if remove_ind_with_high_period:
-#     data.drop(columns=['DEMA96000', 'ADX96000', 'TEMA96000',
-#                        'ADXR96000', 'TRIX96000'], inplace=True)
-#     data.drop(columns=['autocorr_1', 'autocorr_2', 'autocorr_3',
-#                        'autocorr_4', 'autocorr_5'], inplace=True)
-#     print('pass')
-    
-
-
-### REGIME DEPENDENT ANALYSIS
-if structural_break_regime == 'chow':
-    if (data.loc[data['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
-        data = data.iloc[-(60*8*365):]
-    else:
-        data = data.loc[data['chow_segment'] == 1]
-
-
-### USE STATIONARY CLOSE TO CALCULATE LABELS
-if stationary_close_lables:
-    data['close_orig'] = data['close']  # with original close reslts are pretty bad!
-
-
-### LABELING
-if labeling_technique == 'triple_barrier':
-    # TRIPLE BARRIER LABELING
-    triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-        close_name='close_orig',
-        volatility_lookback=tb_volatility_lookback,
-        volatility_scaler=tb_volatility_scaler,
-        triplebar_num_days=tb_triplebar_num_days,
-        triplebar_pt_sl=tb_triplebar_pt_sl,
-        triplebar_min_ret=tb_triplebar_min_ret,
-        num_threads=1,
-        tb_min_pct=tb_min_pct
-    )
-    tb_fit = triple_barrier_pipe.fit(data)
-    labeling_info = tb_fit.triple_barrier_info
-    X = tb_fit.transform(data)
-elif labeling_technique == 'trend_scanning':
-    trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-        close_name='close_orig',
-        volatility_lookback=tb_volatility_lookback,
-        volatility_scaler=tb_volatility_scaler,
-        ts_look_forward_window=ts_look_forward_window,
-        ts_min_sample_length=ts_min_sample_length,
-        ts_step=ts_step
-        )
-    labeling_info = trend_scanning_pipe.fit(data)
-    X = trend_scanning_pipe.transform(data)
-
-###### TEST
-# X_TEST = X.iloc[:5000]
-# labeling_info_TEST = labeling_info.iloc[:5000]
-###### TEST
-
-# TRAIN TEST SPLIT
-X_train, X_test, y_train, y_test = train_test_split(
-    X.drop(columns=['close_orig', 'chow_segment']), labeling_info['bin'],
-    test_size=0.10, shuffle=False, stratify=None)
-    
-
-### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
-if sample_weights_type == 'returns':
-    sample_weigths = ml.sample_weights.get_weights_by_return(
-        labeling_info.reindex(X_train.index),
-        data.loc[X_train.index, 'close_orig'],
-        num_threads=1)
-elif sample_weights_type == 'time_decay':
-    sample_weigths = ml.sample_weights.get_weights_by_time_decay(
-        labeling_info.reindex(X_train.index),
-        data.loc[X_train.index, 'close_orig'],
-        decay=0.5, num_threads=1)
-elif labeling_technique is 'trend_scanning':
-    sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
+### IMPORT PREPARED DATA
+X_train = pd.read_pickle(Path(main_path + '/data_prepare/X_train.pkl'))
+X_test = pd.read_pickle(Path(main_path + '/data_prepare/X_test.pkl'))
+y_train = pd.read_pickle(Path(main_path + '/data_prepare/y_train.pkl'))
+y_test = pd.read_pickle(Path(main_path + '/data_prepare/y_test.pkl'))
+sample_weights = pd.read_pickle(Path(main_path + './data_prepare/sample_weights.pkl'))
+labeling_info = pd.read_pickle(Path(main_path + '/data_prepare/labeling_info.pkl'))
 
 
 ### PREPARE LSTM
-# X_train_lstm = .drop(columns=['close_orig']).values
 x = X_train.values
 y = y_train.values.reshape(-1, 1)
-# y = y.astype(str)
 x_test = X_test.values
 y_test_ = y_test.values.reshape(-1, 1)
-
-train_val_index_split = 0.75
 train_generator = keras.preprocessing.sequence.TimeseriesGenerator(
     data=x,
     targets=y,
-    length=100,
+    length=time_step_length,
     sampling_rate=1,
     stride=1,
     start_index=0,
     end_index=int(train_val_index_split*x.shape[0]),
     shuffle=False,
     reverse=False,
-    batch_size=128
+    batch_size=batch_size
 )
 validation_generator = keras.preprocessing.sequence.TimeseriesGenerator(
     data=x,
     targets=y,
-    length=100,
+    length=time_step_length,
     sampling_rate=1,
     stride=1,
     start_index=int((train_val_index_split*x.shape[0] + 1)),
     end_index=None,  #int(train_test_index_split*X.shape[0])
     shuffle=False,
     reverse=False,
-    batch_size=128
+    batch_size=batch_size
 )
 test_generator = keras.preprocessing.sequence.TimeseriesGenerator(
     data=x_test,
     targets=y_test_,
-    length=100,
+    length=time_step_length,
     sampling_rate=1,
     stride=1,
     start_index=0,
     end_index=None,
     shuffle=False,
     reverse=False,
-    batch_size=128
+    batch_size=batch_size
 )
 
 
@@ -245,90 +135,60 @@ y_test_lstm = y_test_lstm.astype(np.int64)
  
 
 ### MODEL
+if n_lstm_layers == 4:
+    model = keras.models.Sequential([
+            keras.layers.LSTM(n_units, return_sequences=True, input_shape=[None, x.shape[1]]),
+            keras.layers.LSTM(n_units, return_sequences=True, dropout=dropout),  # recurrent_dropout=0
+            keras.layers.LSTM(n_units, return_sequences=True, dropout=dropout),  # recurrent_dropout=0
+            keras.layers.LSTM(n_units, dropout=dropout),  # recurrent_dropout=0
+            keras.layers.Dense(1, activation='sigmoid')
+    ])
+elif n_lstm_layers == 3:
+    model = keras.models.Sequential([
+            keras.layers.LSTM(n_units, return_sequences=True, input_shape=[None, x.shape[1]]),
+            keras.layers.LSTM(n_units, return_sequences=True, dropout=dropout),  # recurrent_dropout=0
+            keras.layers.LSTM(n_units, dropout=dropout),  # recurrent_dropout=0
+            keras.layers.Dense(1, activation='sigmoid')
+    ])
+elif n_lstm_layers == 2:
+    model = keras.models.Sequential([
+            keras.layers.LSTM(n_units, return_sequences=True, input_shape=[None, x.shape[1]]),
+            keras.layers.LSTM(n_units, dropout=dropout),  # recurrent_dropout=0
+            keras.layers.Dense(1, activation='sigmoid')
+    ])
+elif n_lstm_layers == 1:
+    model = keras.models.Sequential([
+            keras.layers.LSTM(n_units, input_shape=[None, x.shape[1]]),
+                        keras.layers.Dense(1, activation='sigmoid')
+    ])
 
 
-def lstm_model(hp):
-    # define the modelwith hyperparameters
-    # GPU doesn't support recurrent droput: https://github.com/tensorflow/tensorflow/issues/40944
-    model = keras.Sequential()
-    hp_units = hp.Int('units', min_value = 32, max_value = 256, step = 32)
-    model.add(layers.LSTM(hp_units,
-                          return_sequences=True,
-                          input_shape=[None, x.shape[1]]))
-    model.add(layers.LSTM(hp_units))
-    model.add(layers.Dense(1, activation='sigmoid'))
-    
-    # compile the model
-    hp_learning_rate = hp.Choice('learning_rate', values = [1e-2, 1e-3, 1e-4]) 
-    model.compile(loss='binary_crossentropy',
-                  optimizer=keras.optimizers.Adam(learning_rate=hp_learning_rate),
-                  metrics=['accuracy']
-                  )
-                        #    keras.metrics.AUC(),
-                        #    keras.metrics.Precision(),
-                        #    keras.metrics.Recall()])
-    return model
-
-
-# model = keras.models.Sequential([
-#         keras.layers.LSTM(258, return_sequences=True, input_shape=[None, x.shape[1]]),
-#         keras.layers.LSTM(124, return_sequences=True, dropout=0.15),  # recurrent_dropout=0
-#         keras.layers.LSTM(32),  # recurrent_dropout=0
-#         keras.layers.Dense(1, activation='sigmoid',
-#                         kernel_initializer=keras.initializers.he_normal(seed=1))
-        
-# ])
-
-# define tuner
-# tuner = kt.tuners.RandomSearch(lstm_model,
-#                                objective='val_accuracy',
-#                                max_trials=2,
-#                                executions_per_trial=2,
-#                                directory='lstm_tuner',
-#                                project_name='stock_prediction_lstm')
-tuner = kt.Hyperband(lstm_model,
-                     objective = 'val_accuracy', 
-                     max_epochs = 20,
-                     factor = 3,
-                     directory = 'my_dir',
-                     project_name = 'intro_to_kt')   
-tuner.search_space_summary()
-
-
+model.compile(loss='binary_crossentropy',
+              optimizer=keras.optimizers.Adam(learning_rate=lr),
+              metrics=['accuracy']) # keras.metrics.AUC(), keras.metrics.Precision(), keras.metrics.Recall()])
 # callbacks
+# def scheduler(epoch, lr=learning_rate):
+#   if epoch < 10:
+#     return lr
+#   else:
+#     return lr * tf.math.exp(-0.1)
+# lr_callback = tf.keras.callbacks.LearningRateScheduler(scheduler)
 early_stopping_cb = keras.callbacks.EarlyStopping(
-    patience=15, restore_best_weights=True)
-# newly defined callbacks
-class ClearTrainingOutput(tf.keras.callbacks.Callback):
-    def on_train_end(*args, **kwargs):
-        IPython.display.clear_output(wait = True)
+    patience=5, restore_best_weights=True)
+checkpoints = keras.callbacks.ModelCheckpoint(
+    filepath="weights.{epoch:02d}-{val_accuracy:.4f}.hdf5",
+    save_weights_only=True)
+# model fit
+model.fit(X_train_lstm,
+          y_train_lstm,
+          epochs=epochs,
+          batch_size=batch_size,
+          shuffle=False,
+          validation_data=(X_val_lstm, y_val_lstm),
+          callbacks=[early_stopping_cb, checkpoints])
 
 
-
-# fit tuner
-tuner.search(X_train_lstm,
-             y_train_lstm,
-             epochs=50,
-             batch_size=128,
-             shuffle=False,
-             validation_data=(X_val_lstm, y_val_lstm),
-             callbacks=[ClearTrainingOutput()]
-)
-
-# tuner results
-models = tuner.get_best_models(num_models=2)
-tuner.results_summary()
-
-
-# log message
-print(f"""
-The hyperparameter search is complete. The optimal number of units in the first densely-connected
-layer is {best_hps.get('units')} and the optimal learning rate for the optimizer
-is {best_hps.get('learning_rate')}.
-""")
-
-
-
+### EVALUATE
 # get accuracy and score
 score, acc, auc, precision, recall = model.evaluate(
     X_test_lstm, y_test_lstm, batch_size=128)
@@ -337,18 +197,14 @@ print('accuracy_train:', acc)
 print('auc_train:', auc)
 print('precision_train:', precision)
 print('recall_train:', recall)
-
 # get loss values and metrics
 historydf = pd.DataFrame(history.history)
 historydf.head(50)
- 
 # predictions
 predictions = model.predict(X_test_lstm)
 predict_classes = model.predict_classes(X_test_lstm)
-
 # test metrics
 tml.modeling.metrics_summary.lstm_metrics(y_test_lstm, predict_classes)
-
 
 
 ### SAVE MODELS AND FEATURES
@@ -480,57 +336,57 @@ y_pred = saved_model(X_TEST, training=False)
 
 # GOOGLE API CLIENT LIBRARY
 
-key_path = 'C:/Users/Mislav/Downloads/mltrading-282913-c15767742784.json'
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
+# key_path = 'C:/Users/Mislav/Downloads/mltrading-282913-c15767742784.json'
+# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
 
-import googleapiclient.discovery
-project_id = "mltrading-282913" # change this to your project ID
-model_id = "lstm_trade_model"
-model_path = "projects/{}/models/{}".format(project_id, model_id)
-model_path = model_path + '/versions/0001'
-ml_resource = googleapiclient.discovery.build("ml", "v1", cache_discovery=False).projects()
-
-
-def predict(X):
-    input_data_json = {"signature_name": "serving_default",
-                       "instances": X.tolist()}
-    request = ml_resource.predict(name=model_path, body=input_data_json)
-    response = request.execute()
-    if "error" in response:
-        raise RuntimeError(response["error"])
-    return np.array([pred[output_name] for pred in response["predictions"]])
-
-Y_probas = predict(X_TEST)
-np.round(Y_probas, 2)
+# import googleapiclient.discovery
+# project_id = "mltrading-282913" # change this to your project ID
+# model_id = "lstm_trade_model"
+# model_path = "projects/{}/models/{}".format(project_id, model_id)
+# model_path = model_path + '/versions/0001'
+# ml_resource = googleapiclient.discovery.build("ml", "v1", cache_discovery=False).projects()
 
 
-input_data_json = {"signature_name": "serving_default",
-                    "instances": X_TEST.tolist()}
-request = ml_resource.predict(name=model_path, body=input_data_json)
-response = request.execute()
+# def predict(X):
+#     input_data_json = {"signature_name": "serving_default",
+#                        "instances": X.tolist()}
+#     request = ml_resource.predict(name=model_path, body=input_data_json)
+#     response = request.execute()
+#     if "error" in response:
+#         raise RuntimeError(response["error"])
+#     return np.array([pred[output_name] for pred in response["predictions"]])
+
+# Y_probas = predict(X_TEST)
+# np.round(Y_probas, 2)
+
+
+# input_data_json = {"signature_name": "serving_default",
+#                     "instances": X_TEST.tolist()}
+# request = ml_resource.predict(name=model_path, body=input_data_json)
+# response = request.execute()
 
 
 
-#### github question
+# #### github question
 
-# import
-import numpy as np
-import json
+# # import
+# import numpy as np
+# import json
 
-# download model
-file_url = 'https://github.com/MislavSag/trademl/blob/master/trademl/modeling/lstm_clf_cloud.h5?raw=true'
-file_save_path = 'C:/Users/Mislav/Downloads/my_model.h5'  # CHANGE THIS PATH
-tf.keras.utils.get_file(file_save_path, file_url)
+# # download model
+# file_url = 'https://github.com/MislavSag/trademl/blob/master/trademl/modeling/lstm_clf_cloud.h5?raw=true'
+# file_save_path = 'C:/Users/Mislav/Downloads/my_model.h5'  # CHANGE THIS PATH
+# tf.keras.utils.get_file(file_save_path, file_url)
 
-# data
+# # data
 
-# 
-model = keras.models.load_model(file_save_path)
-predictions = model.predict(X_TEST)
+# # 
+# model = keras.models.load_model(file_save_path)
+# predictions = model.predict(X_TEST)
 
 
-from tensorflow.keras.datasets import imdb
-(X_train, y_train), (X_test, y_test) = imdb.load_data(num_words=1000)
+# from tensorflow.keras.datasets import imdb
+# (X_train, y_train), (X_test, y_test) = imdb.load_data(num_words=1000)
 
-type(y_train)
-y_train.dtype
+# type(y_train)
+# y_train.dtype
