@@ -13,12 +13,6 @@ from mlfinlab.feature_importance import get_orthogonal_features
 import trademl as tml
 
 
-### TENSORFLOW ATTRIBUTES
-assert tf.config.list_physical_devices('GPU')
-assert tf.config.list_physical_devices('GPU')[0][1] == 'GPU'
-assert tf.test.is_built_with_cuda()
-
-
 ### DON'T SHOW GRAPH OPTION (this is for guildai, ot to shoe graphs)
 matplotlib.use("Agg")
 

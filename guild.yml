@@ -1,10 +1,12 @@
-- model: models
-  description: Random forest model
-  operations:
-    prepare:
-      description: Prepare data for ML model
+- config: model-base
+  resources:
+    prepared-data:
+      - operation: prepare-data
+
+- operations:
+    prepare-data:
       main: trademl.modeling.prepare
-      flags‑import: all
+      flags-import: all
       flags:
         num_threads:
           arg_name: num_threads
@@ -70,10 +72,33 @@
           arg_name: ts_look_forward_window
           min: 1
           max: 1000000
-    train-random-forest:
+    pipeline:
+      steps:
+        - prepare-data
+        - random-forest:train
+        - decision-tree:train
+    # pipeline-2:
+    #   flags:
+    #     data-type:
+    #       default: [cats,dogs]
+    #     random-forest-depth:
+    #       default: [1,2,3,4,5]
+    #   steps:
+    #     - run: prepare-data type=${data-type}
+    #       isolate-runs: no
+    #       needed: yes
+    #     - run: random-forest:train depth=${random-forest-depth}
+    #       isolate-runs: no
+    #       needed: yes
+
+- model: random-forest
+  extends: model-base
+  description: Random forest model
+  operations:
+    train:
       description: Trainer for random forest  
       main: trademl.modeling.train_rf  # Python module when running the operation
-      # requires: prepare-data
+      # requires: prepared-data
       flags‑import: all
       flags:
         main_path:
@@ -124,10 +149,14 @@
           type: string
           default: 'balanced_subsample'
           choices: ['balanced','balanced_subsample']
-    train-lstm:
+
+- model: lstm
+  extends: model-base
+  operations:
+    train:
       description: Trainer a LSTM nerual network
       main: trademl.modeling.train_nn  # Python module when running the operation
-      # flags-dest: globals  #alternative is to use argparse module, see https://www-pre.guild.ai/reference/defaults/
+      # requires: prepared-data
       flags‑import: all
       flags:
         main_path:
