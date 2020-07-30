@@ -28,7 +28,7 @@ writer = SummaryWriter(log_dir)
 
 
 ### MODEL HYPERPARAMETERS
-main_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+innput_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
 rand_state = 3
 cv_type = 'purged_kfold'
 cv_number = 5
@@ -41,12 +41,12 @@ keep_important_features = 20  # for feature selection
 
 
 ### IMPORT PREPARED DATA
-X_train = pd.read_pickle(Path(main_path + '/data_prepare/X_train.pkl'))
-X_test = pd.read_pickle(Path(main_path + '/data_prepare/X_test.pkl'))
-y_train = pd.read_pickle(Path(main_path + '/data_prepare/y_train.pkl'))
-y_test = pd.read_pickle(Path(main_path + '/data_prepare/y_test.pkl'))
-sample_weights = pd.read_pickle(Path(main_path + './data_prepare/sample_weights.pkl'))
-labeling_info = pd.read_pickle(Path(main_path + '/data_prepare/labeling_info.pkl'))
+X_train = pd.read_pickle(Path(innput_path + '/data_prepare/X_train.pkl'))
+X_test = pd.read_pickle(Path(innput_path + '/data_prepare/X_test.pkl'))
+y_train = pd.read_pickle(Path(innput_path + '/data_prepare/y_train.pkl'))
+y_test = pd.read_pickle(Path(innput_path + '/data_prepare/y_test.pkl'))
+sample_weights = pd.read_pickle(Path(innput_path + './data_prepare/sample_weights.pkl'))
+labeling_info = pd.read_pickle(Path(innput_path + '/data_prepare/labeling_info.pkl'))
 
 
 ### CROS VALIDATION STEPS
@@ -105,7 +105,7 @@ else:
                 file_names=[f'shap_{save_id}.csv',
                             f'rf_importance_{save_id}.csv',
                             f'mpi_{save_id}.csv'],
-                directory=Path(main_path + '/important_features/X_train.pkl'))
+                directory=Path(innput_path + '/important_features/X_train.pkl'))
     
     
     # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES

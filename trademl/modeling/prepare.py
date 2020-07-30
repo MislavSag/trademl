@@ -22,6 +22,7 @@ DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
 
 
 ### NON-MODEL HYPERPARAMETERS (for guildai)
+output_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/'
 num_threads = 1
 structural_break_regime = 'all'
 labeling_technique = 'trend_scanning'
@@ -31,7 +32,7 @@ tb_volatility_scaler = 1
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.004
-ts_look_forward_window = 480  # 60 * 8 * 10 (10 days)
+ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
@@ -60,6 +61,9 @@ remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
                 'open_orig', 'high_orig', 'low_orig']
 data = import_data(DATA_PATH, remove_ohl, contract='SPY')
 
+######################################## DELTE LATER #########################################
+data = data.iloc[:10000]
+######################################## DELTE LATER #########################################
 
 def remove_correlated_columns(data, columns_ignore, threshold=0.99):
     # calculate correlation matrix
@@ -194,7 +198,8 @@ def save_files(objects, file_names, directory='important_features'):
             df.to_pickle(saving_path)
 
 
+### SAVE FILES
 save_files([X_train, y_train, X_test, y_test, sample_weights, labeling_info],
            ['X_train.pkl', 'y_train.pkl', 'X_test.pkl',
             'y_test.pkl', 'sample_weights.pkl', 'labeling_info.pkl'],
-           'data_prepare')
+           output_path + 'data_prepare')
