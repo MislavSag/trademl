@@ -83,15 +83,19 @@
         - random-forest:train
     pipeline-rf-opt:
       flags:
+        data-pca:
+          default: 0
         data-lookforward:
           default: 240
         random-forest-depth:
-          default: [4,5]
+          default: 4
+        random-forest-maxf:
+          default: 10
       steps:
-        - run: prepare-data ts_look_forward_window=${data-lookforward}
+        - run: prepare-data ts_look_forward_window=${data-lookforward} pca=${data-pca}
           isolate-runs: no
           needed: yes
-        - run: random-forest:train max_depth=${random-forest-depth}
+        - run: random-forest:train max_depth=${random-forest-depth} max_features=${random-forest-maxf} n_estimators=${random-forest-maxf}
           isolate-runs: no
           needed: yes
 
@@ -102,7 +106,7 @@
     train:
       description: Trainer for random forest  
       main: trademl.modeling.train_rf  # Python module when running the operation
-      requires: prepared-data
+      # requires: prepared-data
       flags‑import: all
       flags:
         innput_path:
@@ -163,16 +167,16 @@
       requires: prepared-data
       flags‑import: all
       flags:
-        main_path:
+        input_path:
           description: Path where prepared data and saved output exists
-          arg_name: main_path
+          arg_name: input_path
           type: string
           default: 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
           required: True
         train_val_index_split:
           description: How many observations to train/test part
           arg_name: train_val_index_split
-          default: 3
+          default: 0.75
           min: 0.0
           max: 0.99
         time_step_length:
@@ -208,6 +212,72 @@
           arg_name: epochs
           default: 15
 
+- model: lstm-kerastuner
+  extends: model-base
+  operations:
+    train:
+      description: Trainer a LSTM nerual network with keras tuner
+      main: trademl.modeling.train_nn_tuner  # Python module when running the operation
+      # requires: prepared-data
+      flags‑import: all
+      flags:
+        input_path:
+          description: Path where prepared data and saved output exists
+          arg_name: input_path
+          type: string
+          default: 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+          required: True
+        train_val_index_split:
+          description: How many observations to train/test part
+          arg_name: train_val_index_split
+          default: 0.75
+          min: 0.0
+          max: 0.99
+        time_step_length:
+          description: Time ste length when constructing 3D data from time series
+          arg_name: time_step_length
+          default: 120
+        batch_size:
+          description: Batch size
+          arg_name: batch_size
+          default: 128
+        n_lstm_layers:
+          description: Number of layer in the model
+          arg_name: n_lstm_layers
+          default: 3
+          min: 1
+          max: 4
+        n_units:
+          description: Number of units in the layers
+          arg_name: n_units
+          default: 64
+        dropout:
+          description: Dropout rate
+          arg_name: dropout
+          default: 0.2
+          min: 0.0
+          max: 0.95
+        lr:
+          description: Learning rate
+          arg_name: lr
+          default: 10e-2
+        epochs:
+          description: Number of epochs
+          arg_name: epochs
+          default: 15
+        optimizer:
+          description: Kerastuner optimizer to use
+          arg_name: optimizer
+          default: 'random'
+          choices: ['random','hyperband']
+        max_trials:
+          description: Max trials parameter for random search optimizer
+          arg_name: max_trials
+          default: 5
+        executions_per_trial:
+          description: Execution per trial parameter for random search optimizer
+          arg_name: executions_per_trial
+          default: 2
 
 
 # - model: random_forest_sklearnopt

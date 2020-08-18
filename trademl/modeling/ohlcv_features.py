@@ -12,7 +12,6 @@ from mlfinlab.structural_breaks import (
 import mlfinlab as ml
 import mlfinlab.microstructural_features as micro
 import trademl as tml
-
 from trademl.modeling.utils import time_method
 
 
@@ -57,7 +56,7 @@ print(data.shape)
 
 ### ADD FEATURES
 # add technical indicators
-periods = [5, 30, 60, 480, 960, 2400, 4800, 9600]
+periods = [5, 30, 480, 960, 2400, 4800, 9600]
 # data = add_technical_indicators(data, periods=periods)  # delete later
 data = tml.modeling.features.add_technical_indicators(data, periods=periods)
 data.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in data.columns]
@@ -167,15 +166,50 @@ data_vix = data_vix.sort_index()
 data = pd.merge_asof(data, data_vix, left_index=True, right_index=True)
 
 ### VIX FEATURES
-data['high_low'] = data['high'] - data['low']
-data['close_open'] = data['close'] - data['open']
+data['vix_high_low'] = data['high'] - data['low']
+data['vix_close_open'] = data['close'] - data['open']
 
-### LABELING (COMPUTATIONALLY INTENSIVE: DURING NIGHT)
-data_test = data.iloc[:10000, :]
-ts_1_day = tml.modeling.pipelines.trend_scanning_labels(
-    data_test['close'], t_events=data_test.index, look_forward_window=60*8,
-    min_sample_length=10, step=2
-)
+### LABELING (COMPUTATIONALLY INTENSIVE)
+# trend scanning
+observatins_per_day = int(pd.value_counts(data.index.normalize(), sort=False).mean())
+
+
+def add_trend_scanning_label(data, look_forward, col_prefix=''):
+    ts_1_day = tml.modeling.pipelines.trend_scanning_labels(
+        data['close'], t_events=data.index, look_forward_window=observatins_per_day,
+        min_sample_length=30, step=2
+    )
+    ts_1_day = ts_1_day.add_prefix(col_prefix)
+    return pd.concat([data, ts_1_day], axis=1)
+
+
+data = add_trend_scanning_label(data, observatins_per_day, 'day_1_')
+data = add_trend_scanning_label(data, observatins_per_day*2, 'day_2_')
+data = add_trend_scanning_label(data, observatins_per_day*3, 'day_3_')
+data = add_trend_scanning_label(data, observatins_per_day*5, 'day_5_')
+data = add_trend_scanning_label(data, observatins_per_day*10, 'day_10_')
+data = add_trend_scanning_label(data, observatins_per_day*20, 'day_20_')
+data = add_trend_scanning_label(data, observatins_per_day*30, 'day_30_')
+data = add_trend_scanning_label(data, observatins_per_day*60, 'day_60_')
+
+# triple-barrier labeling
+
+
+### STRUCTURAL BRAKES
+
+# convert data to hourly to make code faster and decrease random component
+close_hourly = data['close'].resample('H').last().dropna()
+close_hourly = np.log(close_hourly)
+
+# Chow-Type Dickey-Fuller Test
+chow = tml.modeling.structural_breaks.get_chow_type_stat(
+    series=close_hourly, min_length=10)
+breakdate = chow.loc[chow == chow.max()]
+data['chow_segment'] = 0
+data['chow_segment'][breakdate.index[0]:] = 1
+data['chow_segment'].loc[breakdate.index[0]:] = 1
+data['chow_segment'] = np.where(data.index < breakdate.index[0], 0, 1)
+data['chow_segment'].value_counts()
 
 
 ### SAVE UNSTATIONARY SPY
@@ -225,22 +259,6 @@ for i, col in enumerate(corrs.columns):
     cols_remove.append(index_multicorr)
 extreme_correlateed_assets = pd.DataFrame(cols_remove).columns
 data = data.drop(columns=extreme_correlateed_assets)
-
-
-### STRUCTURAL BRAKES
-
-# convert data to hourly to make code faster and decrease random component
-close_hourly = data['close_orig'].resample('H').last().dropna()
-close_hourly = np.log(close_hourly)
-
-# Chow-Type Dickey-Fuller Test
-chow = tml.modeling.structural_breaks.get_chow_type_stat(
-    series=close_hourly, min_length=10)
-breakdate = chow.loc[chow == chow.max()]
-data['chow_segment'] = 0
-data['chow_segment'].loc[breakdate.index[0]:] = 1
-data['chow_segment'] = np.where(data.index < breakdate.index[0], 0, 1)
-data['chow_segment'].value_counts()
 
 
 ### SADF

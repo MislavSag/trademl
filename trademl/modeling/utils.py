@@ -71,19 +71,19 @@ def serialize_decision_tree(model):
 
     return serialized_model
 
-def deserialize_decision_tree(model_dict):
-    deserialized_model = DecisionTreeClassifier(**model_dict['params'])
+# def deserialize_decision_tree(model_dict):
+#     deserialized_model = DecisionTreeClassifier(**model_dict['params'])   
 
-    deserialized_model.classes_ = np.array(model_dict['classes_'])
-    deserialized_model.max_features_ = model_dict['max_features_']
-    deserialized_model.n_classes_ = model_dict['n_classes_']
-    deserialized_model.n_features_ = model_dict['n_features_']
-    deserialized_model.n_outputs_ = model_dict['n_outputs_']
+#     deserialized_model.classes_ = np.array(model_dict['classes_'])
+#     deserialized_model.max_features_ = model_dict['max_features_']
+#     deserialized_model.n_classes_ = model_dict['n_classes_']
+#     deserialized_model.n_features_ = model_dict['n_features_']
+#     deserialized_model.n_outputs_ = model_dict['n_outputs_']
 
-    tree = deserialize_tree(model_dict['tree_'], model_dict['n_features_'], model_dict['n_classes_'], model_dict['n_outputs_'])
-    deserialized_model.tree_ = tree
+#     tree = deserialize_tree(model_dict['tree_'], model_dict['n_features_'], model_dict['n_classes_'], model_dict['n_outputs_'])
+#     deserialized_model.tree_ = tree
 
-    return deserialized_model
+#     return deserialized_model
 
 def serialize_random_forest(model):
     serialized_model = {

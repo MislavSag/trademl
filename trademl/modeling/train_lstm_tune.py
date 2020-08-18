@@ -31,6 +31,27 @@ log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
 writer = SummaryWriter(log_dir)
 
 
+### PREPROCESSING PARAMETERS
+output_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/'
+num_threads = 1
+structural_break_regime = 'all'
+labeling_technique = 'trend_scanning'
+std_outlier = 10
+tb_volatility_lookback = 500
+tb_volatility_scaler = 1
+tb_triplebar_num_days = 10
+tb_triplebar_pt_sl = [1, 1]
+tb_triplebar_min_ret = 0.004
+ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
+ts_min_sample_length = 30
+ts_step = 5
+tb_min_pct = 0.10
+sample_weights_type = 'returns'
+stationary_close_lables = False
+correlation_threshold = 0.90
+pca = False
+
+
 ### MODEL HYPERPARAMETERS
 input_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
 train_val_index_split = 0.75
@@ -46,23 +67,58 @@ max_trials = 2  # parameter for random optimizer
 executions_per_trial = 2  # parameter for random optimizer
 
 
+### GLOBALS (path to partialy preprocessed data)
+DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
 
-### IMPORT PREPARED DATA
-X_train = pd.read_pickle(Path(input_path + '/data_prepare/X_train.pkl'))
-X_test = pd.read_pickle(Path(input_path + '/data_prepare/X_test.pkl'))
-y_train = pd.read_pickle(Path(input_path + '/data_prepare/y_train.pkl'))
-y_test = pd.read_pickle(Path(input_path + '/data_prepare/y_test.pkl'))
-sample_weights = pd.read_pickle(Path(input_path + './data_prepare/sample_weights.pkl'))
-labeling_info = pd.read_pickle(Path(input_path + '/data_prepare/labeling_info.pkl'))
 
-###################### TEST ######################
-X_train = X_train[['close', 'high_low']]
-X_test = X_test[['close', 'high_low']]
-###################### TEST ######################
+### IMPORT DATA
+def import_data(data_path, remove_cols, contract='SPY'):
+    # import data
+    with pd.HDFStore(data_path + '/' + contract + '.h5') as store:
+        data = store.get(contract)
+    data.sort_index(inplace=True)
+    
+    # remove variables
+    remove_cols = [col for col in remove_cols if col in data.columns]
+    data.drop(columns=remove_cols, inplace=True)
+    
+    return data
+
+
+remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
+                'open_vix', 'high_vix', 'low_vix', 'close_vix', 'volume_vix',
+                'open_orig', 'high_orig', 'low_orig']
+data = import_data(DATA_PATH, remove_ohl, contract='SPY')
+
+
+### REMOVE CORRELATED FEARURES
+if correlation_threshold < 0.99:
+    data = tml.modeling.preprocessing.remove_correlated_columns(
+        data=data,
+        columns_ignore=['close_orig'],
+        threshold=correlation_threshold)
+
+
+### REGIME DEPENDENT ANALYSIS
+if structural_break_regime == 'chow':
+    if (data.loc[data['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
+        data = data.iloc[-(60*8*365):]
+    else:
+        data = data.loc[data['chow_segment'] == 1]
+
+
+### USE STATIONARY CLOSE TO CALCULATE LABELS
+if stationary_close_lables:
+    data['close_orig'] = data['close']  # with original close reslts are pretty bad!
+
+
+# ###################### TEST ######################
+data = data[['close', 'high_low']]
+# ###################### TEST ######################
 
 
 ### PREPARE LSTM
-x = X_train.values
+x = data.values
 y = y_train.values.reshape(-1, 1)
 x_test = X_test.values
 y_test_ = y_test.values.reshape(-1, 1)

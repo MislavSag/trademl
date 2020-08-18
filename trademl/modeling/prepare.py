@@ -62,7 +62,7 @@ remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
 data = import_data(DATA_PATH, remove_ohl, contract='SPY')
 
 ######################################## DELTE LATER #########################################
-data = data.iloc[:10000]
+# data = data.iloc[:10000]
 ######################################## DELTE LATER #########################################
 
 def remove_correlated_columns(data, columns_ignore, threshold=0.99):

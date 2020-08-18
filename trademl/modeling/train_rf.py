@@ -28,25 +28,25 @@ writer = SummaryWriter(log_dir)
 
 
 ### MODEL HYPERPARAMETERS
-innput_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+input_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
 rand_state = 3
 cv_type = 'purged_kfold'
 cv_number = 5
-max_depth = 3
-max_features = 15
-n_estimators = 500
-min_weight_fraction_leaf = 0.05
+max_depth = 2
+max_features = 20
+n_estimators = 350
+min_weight_fraction_leaf = 0.1  
 class_weight = 'balanced_subsample'
 keep_important_features = 20  # for feature selection
 
 
 ### IMPORT PREPARED DATA
-X_train = pd.read_pickle(Path(innput_path + '/data_prepare/X_train.pkl'))
-X_test = pd.read_pickle(Path(innput_path + '/data_prepare/X_test.pkl'))
-y_train = pd.read_pickle(Path(innput_path + '/data_prepare/y_train.pkl'))
-y_test = pd.read_pickle(Path(innput_path + '/data_prepare/y_test.pkl'))
-sample_weights = pd.read_pickle(Path(innput_path + './data_prepare/sample_weights.pkl'))
-labeling_info = pd.read_pickle(Path(innput_path + '/data_prepare/labeling_info.pkl'))
+X_train = pd.read_pickle(Path(input_path + '/data_prepare/X_train.pkl'))
+X_test = pd.read_pickle(Path(input_path + '/data_prepare/X_test.pkl'))
+y_train = pd.read_pickle(Path(input_path + '/data_prepare/y_train.pkl'))
+y_test = pd.read_pickle(Path(input_path + '/data_prepare/y_test.pkl'))
+sample_weights = pd.read_pickle(Path(input_path + './data_prepare/sample_weights.pkl'))
+labeling_info = pd.read_pickle(Path(input_path + '/data_prepare/labeling_info.pkl'))
 
 
 ### CROS VALIDATION STEPS
@@ -105,13 +105,21 @@ else:
                 file_names=[f'shap_{save_id}.csv',
                             f'rf_importance_{save_id}.csv',
                             f'mpi_{save_id}.csv'],
-                directory=Path(innput_path + '/important_features/X_train.pkl'))
+                directory=Path(input_path + '/important_features/X_train.pkl'))
     
     
     # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
     fi_cols = shap_values['col_name'].head(keep_important_features)
     X_train_important = X_train[fi_cols]
     X_test_important = X_test[fi_cols]
+    clf = RandomForestClassifier(criterion='entropy',
+                            max_features=keep_important_features,
+                            min_weight_fraction_leaf=min_weight_fraction_leaf,
+                            max_depth=max_depth,
+                            n_estimators=n_estimators,
+                            class_weight=class_weight,
+                            random_state=rand_state,
+                            n_jobs=16)
     clf_important = clf.fit(X_train_important, y_train, sample_weight=sample_weights)
     tml.modeling.metrics_summary.clf_metrics_tensorboard(
         writer, clf_important, X_train_important,

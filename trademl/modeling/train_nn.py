@@ -161,11 +161,12 @@ elif n_lstm_layers == 1:
             keras.layers.LSTM(n_units, input_shape=[None, x.shape[1]]),
                         keras.layers.Dense(1, activation='sigmoid')
     ])
-
-
 model.compile(loss='binary_crossentropy',
               optimizer=keras.optimizers.Adam(learning_rate=lr),
-              metrics=['accuracy']) # keras.metrics.AUC(), keras.metrics.Precision(), keras.metrics.Recall()])
+              metrics=['accuracy',
+                       keras.metrics.AUC(),
+                       keras.metrics.Precision(),
+                       keras.metrics.Recall()])
 # callbacks
 # def scheduler(epoch, lr=learning_rate):
 #   if epoch < 10:
@@ -179,13 +180,13 @@ checkpoints = keras.callbacks.ModelCheckpoint(
     filepath="weights.{epoch:02d}-{val_accuracy:.4f}.hdf5",
     save_weights_only=True)
 # model fit
-model.fit(X_train_lstm,
-          y_train_lstm,
-          epochs=epochs,
-          batch_size=batch_size,
-          shuffle=False,
-          validation_data=(X_val_lstm, y_val_lstm),
-          callbacks=[early_stopping_cb, checkpoints])
+history = model.fit(X_train_lstm,
+                    y_train_lstm,
+                    epochs=epochs,
+                    batch_size=batch_size,
+                    shuffle=False,
+                    validation_data=(X_val_lstm, y_val_lstm),
+                    callbacks=[early_stopping_cb, checkpoints])
 
 
 ### EVALUATE
