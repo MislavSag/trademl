@@ -10,6 +10,19 @@ from sklearn.ensemble import RandomForestClassifier
 import time
 from functools import wraps
 from sqlalchemy import create_engine
+import mfiles
+from os import environ, path
+from dotenv import load_dotenv
+
+
+### GET M-FILES CREDITENTIPALS
+basedir = os.path.dirname(os.path.dirname(__file__))
+load_dotenv(path.join(basedir, '.env'))
+MY_SERVER = environ.get('MY_SERVER')
+MY_USER = environ.get('MY_USER')
+MY_PASSWORD = environ.get('MY_PASSWORD')
+MY_VAULT = environ.get('MY_VAULT')
+
 
 
 def cbind_pandas_h2o(X_train, y_train):
@@ -46,7 +59,7 @@ def serialize_tree(tree):
 #     tree = sklearn.tree._tree.Tree(n_features, np.array([n_classes], dtype=np.intp), n_outputs)
 #     tree.__setstate__(tree_dict)
 
-    return tree
+#     return tree
 
 def serialize_decision_tree(model):
     tree, dtypes = serialize_tree(model.tree_)
@@ -252,3 +265,46 @@ def save_files(objects, file_names, directory='important_features'):
         elif ".pkl" in file_name:
             df.to_pickle(saving_path)
             
+
+def save_to_mfiles(vault_id, file_names):
+    # File info for test file
+    FILE_TYPE = "Dokument" # Replace with a object type defined in your server
+    # FILE_CLASS = "Dokument" # Replace with a object class defined in your server
+
+    # Initialize MFilesClient and upload file
+    my_client = mfiles.MFilesClient(server=MY_SERVER,
+                                    user=MY_USER,
+                                    password=MY_PASSWORD,
+                                    vault=MY_VAULT)
+    for f in file_names:
+        # FILE_EXTRA_INFO = {
+        #     "Name": FILE_NAME[:-4]
+        # }
+        my_client.upload_file(f, object_type=FILE_TYPE)
+        
+        
+def destroy_mfiles_object(vault_id, file_names):
+    # Initialize MFilesClient and upload file
+    my_client = mfiles.MFilesClient(server=MY_SERVER,
+                                    user=MY_USER,
+                                    password=MY_PASSWORD,
+                                    vault=MY_VAULT)
+    for f in file_names:
+        try:
+            search_result = my_client.quick_search(f)
+            object_id = search_result['Items'][0]['DisplayID']
+            my_client.destroy_object(object_type=0, object_id=int(object_id))
+        except IndexError:
+            print(f'file {f} not in mfiles')
+
+
+def read_mfiles(vault_id, file_names, path_to_save):
+    # Initialize MFilesClient and upload file
+    my_client = mfiles.MFilesClient(server=MY_SERVER,
+                                    user=MY_USER,
+                                    password=MY_PASSWORD,
+                                    vault=MY_VAULT)
+    
+    for f in file_names:
+        my_client.download_file_name(f, local_path=path_to_save + f)
+        
