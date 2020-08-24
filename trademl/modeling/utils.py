@@ -266,7 +266,7 @@ def save_files(objects, file_names, directory='important_features'):
             df.to_pickle(saving_path)
             
 
-def save_to_mfiles(vault_id, file_names):
+def save_to_mfiles(file_names):
     # File info for test file
     FILE_TYPE = "Dokument" # Replace with a object type defined in your server
     # FILE_CLASS = "Dokument" # Replace with a object class defined in your server
@@ -283,7 +283,7 @@ def save_to_mfiles(vault_id, file_names):
         my_client.upload_file(f, object_type=FILE_TYPE)
         
         
-def destroy_mfiles_object(vault_id, file_names):
+def destroy_mfiles_object(file_names):
     # Initialize MFilesClient and upload file
     my_client = mfiles.MFilesClient(server=MY_SERVER,
                                     user=MY_USER,
@@ -298,7 +298,7 @@ def destroy_mfiles_object(vault_id, file_names):
             print(f'file {f} not in mfiles')
 
 
-def read_mfiles(vault_id, file_names, path_to_save):
+def read_mfiles(file_names, path_to_save):
     # Initialize MFilesClient and upload file
     my_client = mfiles.MFilesClient(server=MY_SERVER,
                                     user=MY_USER,
