@@ -263,10 +263,10 @@ def set_mfiles_client(env_directory):
     """
     ### GET M-FILES CREDITENTIPALS
     load_dotenv(env_directory)
-    SERVER = os.environ.get('MY_SERVER')
-    USER = os.environ.get('MY_USER')
-    PASSWORD = os.environ.get('MY_PASSWORD')
-    VAULT = os.environ.get('MY_VAULT')
+    SERVER = os.environ.get('SERVER')
+    USER = os.environ.get('USER')
+    PASSWORD = os.environ.get('PASSWORD')
+    VAULT = os.environ.get('VAULT')
     mfiles_client = mfiles.MFilesClient(server=SERVER,
                                         user=USER,
                                         password=PASSWORD,
