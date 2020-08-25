@@ -239,7 +239,7 @@ def balance_multiclass(series, grid=np.arange(1, 10, 0.1)):
     return balanced_bins
 
 
-def save_files(objects, file_names, directory='important_features'):            s
+def save_files(objects, file_names, directory='important_features'):
     """
     Save file to specific deirectory.    
     params
@@ -286,4 +286,3 @@ def destroy_mfiles_object(mfiles_client, file_names):
             mfiles_client.destroy_object(object_type=0, object_id=int(object_id))
         except IndexError:
             print(f'file {f} not in mfiles')
-       
