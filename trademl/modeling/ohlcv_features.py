@@ -25,7 +25,7 @@ pd.set_option('display.width', 1000)
 ### HYPERPARAMETERS
 add_ta = False
 ta_periods = [5, 30, 480, 960, 2400, 4800, 9600]
-
+env_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 
 ### IMPORT DATA
 # import data from mysql database and 
@@ -191,38 +191,15 @@ data['chow_segment'] = np.where(data.index < breakdate.index[0], 0, 1)
 data['chow_segment'].value_counts()
 
 
-### SAVE UNSTATIONARY SPY
+### SAVE
+# save localy
 save_path = 'D:/market_data/usa/ohlcv_features/' + 'SPY_raw' + '.h5'
 with pd.HDFStore(save_path) as store:
     store.put('SPY_raw', data)
-
-
-############# TEST MFILES SAVING #############
-
-### IMPORT DATA
-def import_data(data_path, remove_cols, contract='SPY'):
-    # import data
-    with pd.HDFStore(data_path + '/' + contract + '.h5') as store:
-        data = store.get(contract)
-    data.sort_index(inplace=True)
-    
-    # remove variables
-    remove_cols = [col for col in remove_cols if col in data.columns]
-    data.drop(columns=remove_cols, inplace=True)
-    
-    return data
-
-
-remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-              'open_vix', 'high_vix', 'low_vix', 'volume_vix']
-data = import_data(DATA_PATH, remove_ohl, contract='SPY_raw')
-
-for f in file_names:
-    mfiles_client.upload_file(f, object_type='Dokument')
-
-
-############# TEST MFILES SAVING #############
-
+# save to mfiles
+mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
+tml.modeling.utils.destroy_mfiles_object(mfiles_client)
+mfiles_client.upload_file(data, object_type='Dokument')
 
 ###  STATIONARITY
 ohlc = data[['open', 'high', 'low', 'close']]  # save for later

@@ -257,24 +257,20 @@ def save_files(objects, file_names, directory='important_features'):
             df.to_pickle(saving_path)
             
 
-def set_mfiles_client(creds=None):
+def set_mfiles_client(env_directory):
     """
     Set up mfiles client
     """
-    if creds:
-        print("Need m-files creditentials")
-    else:
-        ### GET M-FILES CREDITENTIPALS
-        basedir = os.path.dirname(os.path.dirname(__file__))
-        load_dotenv(os.path.join(basedir, '.env'))
-        SERVER = os.environ.get('MY_SERVER')
-        USER = os.environ.get('MY_USER')
-        PASSWORD = os.environ.get('MY_PASSWORD')
-        VAULT = os.environ.get('MY_VAULT')
-        mfiles_client = mfiles.MFilesClient(server=SERVER,
-                                            user=USER,
-                                            password=PASSWORD,
-                                            vault=VAULT)
+    ### GET M-FILES CREDITENTIPALS
+    load_dotenv(env_directory)
+    SERVER = os.environ.get('MY_SERVER')
+    USER = os.environ.get('MY_USER')
+    PASSWORD = os.environ.get('MY_PASSWORD')
+    VAULT = os.environ.get('MY_VAULT')
+    mfiles_client = mfiles.MFilesClient(server=SERVER,
+                                        user=USER,
+                                        password=PASSWORD,
+                                        vault=VAULT)
     return mfiles_client
 
 
