@@ -199,7 +199,7 @@ with pd.HDFStore(save_path) as store:
 # save to mfiles
 if env_directory is not None:
     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
-    destroy_mfiles_object(mfiles_client, ['SPY_raw.h5'])# tml.modeling.utils.destroy_mfiles_object(mfiles_client, 'SPY_raw.h5')
+    tml.modeling.utils.destroy_mfiles_object(mfiles_client, ['SPY_raw.h5'])
     mfiles_client.upload_file(data, object_type='Dokument')
 
 ###  STATIONARITY
