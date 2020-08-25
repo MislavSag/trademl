@@ -217,8 +217,8 @@ remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
               'open_vix', 'high_vix', 'low_vix', 'volume_vix']
 data = import_data(DATA_PATH, remove_ohl, contract='SPY_raw')
 
-    for f in file_names:
-        mfiles_client.upload_file(f, object_type='Dokument')
+for f in file_names:
+    mfiles_client.upload_file(f, object_type='Dokument')
 
 
 ############# TEST MFILES SAVING #############

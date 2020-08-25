@@ -281,7 +281,7 @@ def set_mfiles_client(creds=None):
 def destroy_mfiles_object(mfiles_client, file_names):
     for f in file_names:
         try:
-            search_result = my_client.quick_search(f)
+            search_result = mfiles_client.quick_search(f)
             object_id = search_result['Items'][0]['DisplayID']
             mfiles_client.destroy_object(object_type=0, object_id=int(object_id))
         except IndexError:
