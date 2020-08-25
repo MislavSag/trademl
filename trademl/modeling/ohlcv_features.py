@@ -197,9 +197,10 @@ save_path = 'D:/market_data/usa/ohlcv_features/' + 'SPY_raw' + '.h5'
 with pd.HDFStore(save_path) as store:
     store.put('SPY_raw', data)
 # save to mfiles
-mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
-tml.modeling.utils.destroy_mfiles_object(mfiles_client)
-mfiles_client.upload_file(data, object_type='Dokument')
+if env_directory is not None:
+    mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
+    destroy_mfiles_object(mfiles_client, ['SPY_raw.h5'])# tml.modeling.utils.destroy_mfiles_object(mfiles_client, 'SPY_raw.h5')
+    mfiles_client.upload_file(data, object_type='Dokument')
 
 ###  STATIONARITY
 ohlc = data[['open', 'high', 'low', 'close']]  # save for later
