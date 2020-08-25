@@ -15,15 +15,6 @@ from os import environ, path
 from dotenv import load_dotenv
 
 
-### GET M-FILES CREDITENTIPALS
-basedir = os.path.dirname(os.path.dirname(__file__))
-load_dotenv(path.join(basedir, '.env'))
-MY_SERVER = environ.get('MY_SERVER')
-MY_USER = environ.get('MY_USER')
-MY_PASSWORD = environ.get('MY_PASSWORD')
-MY_VAULT = environ.get('MY_VAULT')
-
-
 
 def cbind_pandas_h2o(X_train, y_train):
     """
@@ -248,7 +239,7 @@ def balance_multiclass(series, grid=np.arange(1, 10, 0.1)):
     return balanced_bins
 
 
-def save_files(objects, file_names, directory='important_features'):            
+def save_files(objects, file_names, directory='important_features'):            s
     """
     Save file to specific deirectory.    
     params
@@ -266,45 +257,33 @@ def save_files(objects, file_names, directory='important_features'):
             df.to_pickle(saving_path)
             
 
-def save_to_mfiles(file_names):
-    # File info for test file
-    FILE_TYPE = "Dokument" # Replace with a object type defined in your server
-    # FILE_CLASS = "Dokument" # Replace with a object class defined in your server
+def set_mfiles_client(creds=None):
+    """
+    Set up mfiles client
+    """
+    if creds:
+        print("Need m-files creditentials")
+    else:
+        ### GET M-FILES CREDITENTIPALS
+        basedir = os.path.dirname(os.path.dirname(__file__))
+        load_dotenv(os.path.join(basedir, '.env'))
+        SERVER = os.environ.get('MY_SERVER')
+        USER = os.environ.get('MY_USER')
+        PASSWORD = os.environ.get('MY_PASSWORD')
+        VAULT = os.environ.get('MY_VAULT')
+        mfiles_client = mfiles.MFilesClient(server=SERVER,
+                                            user=USER,
+                                            password=PASSWORD,
+                                            vault=VAULT)
+    return mfiles_client
 
-    # Initialize MFilesClient and upload file
-    my_client = mfiles.MFilesClient(server=MY_SERVER,
-                                    user=MY_USER,
-                                    password=MY_PASSWORD,
-                                    vault=MY_VAULT)
-    for f in file_names:
-        # FILE_EXTRA_INFO = {
-        #     "Name": FILE_NAME[:-4]
-        # }
-        my_client.upload_file(f, object_type=FILE_TYPE)
-        
-        
-def destroy_mfiles_object(file_names):
-    # Initialize MFilesClient and upload file
-    my_client = mfiles.MFilesClient(server=MY_SERVER,
-                                    user=MY_USER,
-                                    password=MY_PASSWORD,
-                                    vault=MY_VAULT)
+
+def destroy_mfiles_object(mfiles_client, file_names):
     for f in file_names:
         try:
             search_result = my_client.quick_search(f)
             object_id = search_result['Items'][0]['DisplayID']
-            my_client.destroy_object(object_type=0, object_id=int(object_id))
+            mfiles_client.destroy_object(object_type=0, object_id=int(object_id))
         except IndexError:
             print(f'file {f} not in mfiles')
-
-
-def read_mfiles(file_names, path_to_save):
-    # Initialize MFilesClient and upload file
-    my_client = mfiles.MFilesClient(server=MY_SERVER,
-                                    user=MY_USER,
-                                    password=MY_PASSWORD,
-                                    vault=MY_VAULT)
-    
-    for f in file_names:
-        my_client.download_file_name(f, local_path=path_to_save + f)
-        
+       

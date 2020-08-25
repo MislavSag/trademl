@@ -43,7 +43,6 @@ sample_weights_type = 'returns'
 stationary_close_lables = False
 correlation_threshold = 0.98
 pca = False
-scaling = None
 
 
 ### IMPORT DATA
@@ -102,17 +101,69 @@ X_train, X_test, y_train, y_test = train_test_split(
     test_size=0.10, shuffle=False, stratify=None)
 
 
-### SCALING
-if scaling == 'expanding':
-    stdize_input = lambda x: (x - x.expanding(50).mean()) / x.expanding(50).std()
-    X_train = X_train.apply(stdize_input)
-    X_test = X_test.apply(stdize_input)
-    y_train = y_train.loc[~X_train.isna().any(axis=1)]
-    X_train = X_train.dropna()
-    y_test = y_test.loc[~X_test.isna().any(axis=1)]
-    X_test = X_test.dropna()
-
-    
-    
-    
+# PREPROCESSIONG
 # scaling
+stdize_input = lambda x: (x - x.expanding(time_step_length).mean()) / x.expanding(time_step_length).std()
+X_train = X_train.apply(stdize_input)
+X_test = X_test.apply(stdize_input)
+y_train = y_train.loc[~X_train.isna().any(axis=1)]
+X_train = X_train.dropna()
+y_test = y_test.loc[~X_test.isna().any(axis=1)]
+X_test = X_test.dropna()
+
+# calculate daily vol and filter time to trade
+daily_vol = ml.util.get_daily_vol(data['close'], lookback=50)
+cusum_events = ml.filters.cusum_filter(data['close'], threshold=daily_vol.mean()*1)
+def sequence_from_array(data, target_vec, cusum_events, time_step_length):
+    cusum_events_ = cusum_events.intersection(data.index)
+    lstm_sequences = []
+    targets = []
+    for date in cusum_events_:
+        observation = data[:date].iloc[-time_step_length:]
+        if observation.shape[0] < time_step_length or data.index[-1] < date:
+            next
+        else:
+            lstm_sequences.append(observation.values.reshape((1, observation.shape[0], observation.shape[1])))
+            targets.append(target_vec[target_vec.index == date])
+    lstm_sequences_all = np.vstack(lstm_sequences)
+    targets = np.vstack(targets)
+    targets = targets.astype(np.int64)
+    return lstm_sequences_all, targets
+
+
+X_train_seq, y_train_seq = sequence_from_array(
+    X_train.iloc[:int(train_val_index_split*X_train.shape[0])],
+    y_train.iloc[:int(train_val_index_split*X_train.shape[0])],
+    cusum_events, time_step_length)
+X_val_seq, y_val_seq = sequence_from_array(
+    X_train.iloc[int((train_val_index_split*X_train.shape[0] + 1)):],
+    y_train.iloc[int((train_val_index_split*X_train.shape[0] + 1)):],
+    cusum_events, time_step_length)
+X_test_seq, y_test_seq = sequence_from_array(X_test, y_test, cusum_events, time_step_length)
+
+
+# test for shapes
+print('X and y shape train: ', X_train_seq.shape, y_train_seq.shape)
+print('X and y shape validate: ', X_val_seq.shape, y_val_seq.shape)
+print('X and y shape test: ', X_test_seq.shape, y_test_seq.shape)
+
+
+
+### TEST MODEL
+model = keras.Sequential()
+model.add(layers.LSTM(32,
+                      return_sequences=True,
+                      input_shape=[None, X_train.shape[1]]))
+model.add(layers.LSTM(32, dropout=0.2))
+model.add(layers.Dense(1, activation='sigmoid'))
+model.compile(loss='binary_crossentropy',
+                optimizer=keras.optimizers.Adam(),
+                metrics=['accuracy',
+                        keras.metrics.AUC(),
+                        keras.metrics.Precision(),
+                        keras.metrics.Recall()]
+                )
+history = model.fit(X_train_seq, y_train_seq, batch_size=batch_size, epochs = 20, validation_data = (X_val_seq, y_val_seq))
+
+
+############# KERAS TEST ################

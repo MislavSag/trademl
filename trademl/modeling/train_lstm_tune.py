@@ -490,3 +490,133 @@ tml.modeling.metrics_summary.lstm_metrics(y_test_lstm, predict_classes)
 
 # # type(y_train)
 # # y_train.dtype
+
+
+
+
+############### NEW ####################
+
+### MODEL HYPERPARAMETERS
+input_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+train_val_index_split = 0.75
+time_step_length = 120
+batch_size = 128
+n_lstm_layers = 3
+n_units = 64
+dropout = 0.2
+lr = 10e-2
+epochs = 50
+optimizer = 'random'
+max_trials = 2  # parameter for random optimizer
+executions_per_trial = 2  # parameter for random optimizer
+
+
+
+### MODEL
+def lstm_model(hp):
+    # GPU doesn't support recurrent droput: https://github.com/tensorflow/tensorflow/issues/40944
+    model = keras.Sequential()
+    hp_units = hp.Int('units', min_value=32, max_value=256, step=32)
+    hp_dropout = hp.Float('dropout', min_value=0.0, max_value=0.5, default=0.25, step=0.05)
+    hp_num_layers = hp.Int('num_layers', 1, 3) 
+    if hp_num_layers == 1:
+        model.add(layers.LSTM(hp_units,
+                              input_shape=[None, X_train.shape[1]]))
+    elif hp_num_layers == 2:
+        model.add(layers.LSTM(hp_units,
+                              return_sequences=True,
+                              input_shape=[None, X_train.shape[1]]))
+        model.add(layers.LSTM(hp_units, dropout=hp_dropout))
+    elif hp_num_layers == 3:
+        model.add(layers.LSTM(hp_units,
+                              return_sequences=True,
+                              input_shape=[None, X_train.shape[1]]))
+        model.add(layers.LSTM(hp_units, return_sequences=True, dropout=hp_dropout))
+        model.add(layers.LSTM(hp_units, dropout=hp_dropout))
+    model.add(layers.Dense(1, activation='sigmoid'))
+
+    # compile the model
+    hp_learning_rate = hp.Float('learning_rate',
+                                min_value=1e-4,
+                                max_value=1e-2,
+                                sampling='LOG',
+                                default=1e-3
+                                ) 
+    model.compile(loss='binary_crossentropy',
+                  optimizer=keras.optimizers.Adam(learning_rate=hp_learning_rate),
+                  metrics=['accuracy',
+                           keras.metrics.AUC(),
+                           keras.metrics.Precision(),
+                           keras.metrics.Recall()]
+                  )
+    return model
+
+
+# define tuner
+optimizer = 'random'
+
+
+if optimizer == 'random':
+    tuner = kt.tuners.RandomSearch(lstm_model,
+                                   objective='val_accuracy',
+                                   max_trials=max_trials,
+                                   executions_per_trial=executions_per_trial,
+                                   directory='lstm_tuner',
+                                   project_name='stock_prediction_lstm')
+    tuner.search(X_train_seq,
+                 y_train_seq,
+                 epochs=epochs,
+                 batch_size=batch_size,
+                 shuffle=False,
+                 validation_data=(X_val_seq, y_val_seq),
+                 callbacks=[tf.keras.callbacks.EarlyStopping('val_loss', patience=10, restore_best_weights=True)]
+    )
+elif optimizer == 'hyperband':
+    tuner = kt.Hyperband(lstm_model,
+                        objective = 'val_accuracy', 
+                        max_epochs = 30,
+                        factor = 4,
+                        directory = 'my_dir',
+                        project_name = 'intro_to_kt')
+    tuner.search(X_train_seq,
+                 y_train_seq,
+                 batch_size=batch_size,
+                 shuffle=False,
+                 validation_data=(X_val_seq, y_val_seq)
+                 )
+
+
+# Build the model with the optimal hyperparameters and train it on the data
+tuner.results_summary()
+best_hps = tuner.get_best_hyperparameters(num_trials = 1)[0]
+model = tuner.hypermodel.build(best_hps)
+history = model.fit(X_train_seq, y_train_seq, batch_size=batch_size,
+                    epochs = epochs, validation_data = (X_val_seq, y_val_seq))
+
+# save best model params
+print('units: ', best_hps.get('units'))
+print('dropout: ', best_hps.get('dropout'))
+print('num_layers: ', best_hps.get('num_layers'))
+print('learning_rate: ', best_hps.get('learning_rate'))
+
+# get accuracy and score
+score, acc, auc, precision, recall = model.evaluate(
+    X_test_seq, y_test_seq, batch_size=batch_size)
+print('score_validation:', score)
+print('accuracy_validation:', acc)
+print('auc_validation:', auc)
+print('precision_validation:', precision)
+print('recall_validation:', recall)
+
+# get loss values and metrics
+# historydf = pd.DataFrame(history.history)
+# historydf.head(50)
+ 
+# predictions
+predictions = model.predict(X_test_seq)
+predict_classes = model.predict_classes(X_test_seq)
+
+# test metrics
+tml.modeling.metrics_summary.lstm_metrics(y_test_seq, predict_classes)
+
+
