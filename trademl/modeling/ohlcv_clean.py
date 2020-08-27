@@ -53,29 +53,42 @@ ohlc = data[['open', 'high', 'low', 'close']]
 ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig']
 
 
-ml.features.fracdiff.frac_diff_ffd(data['close'], 0.5)
+df1 = data['close'].resample('1D').last()
+df1.dropna(inplace=True)
+df1 = df1.squeeze()
 
 
+x = df1.values
+d = 0.2
+thres = 1e-4
+lim = len(x)
 
 
+@numba.njit
+def _frac_diff_ffd(x, d, lim, thres=_default_thresh):
+    """d is any positive real"""
+    w = get_weights_ffd(d, thres, lim)
+    width = len(w) - 1
+    output = []
+    # output.extend([np.nan] * width) # the first few entries *were* zero, should be nan?
+    # output.extend(np.repeat([np.nan], 3)) # the first few entries *were* zero, should be nan?
+    # output = [np.nan for i in range(width)]
+    for i in range(0, x.shape[0]):
+        if i < width:
+            output.append(np.nan)
+        else:
+            output.append(np.dot(w.T, x[i - width: i + 1])[0])
+    # output = np.vstack(output).reshape(-1)
+    # output - np.array(output, dtype=float)
+    return w, output
 
-# stationarity tests
-adfTest = data.apply(lambda x: adfuller(x, 
-                                        maxlag=1,
-                                        regression='c',
-                                        autolag=None),
-                        axis=0)
-stationaryCols = adfTest.columns[adfTest.iloc[1] > 0.1]
 
-# get minimum values of d for every column
-seq = np.linspace(0, 1, 16)
-min_d = data[stationaryCols].apply(lambda x: min_ffd_value(x.to_frame(), seq))
-    
-min_ffd_value(data['close'], seq)
+test, test1 = _frac_diff_ffd(x, d, lim, thres)
+test1.shape
 
 
 # get dmin for every column
-tml.modeling.stationarity.min_ffd_all_cols(data)
+stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(data)
 stationaryCols, min_d = min_ffd_all_cols(data)
 
 # save to github for later 

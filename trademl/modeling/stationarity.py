@@ -49,8 +49,10 @@ def frac_diff_ffd(x, d, thres=_default_thresh, lim=None):
     if lim is None:
         lim = len(x)
     w, out = _frac_diff_ffd(x, d, lim, thres=thres)
+    out = np.array(out)
     # print(f'weights is shape {w.shape}')
     return out
+
 
 # this method was not faster
 # def frac_diff_ffd_stride_tricks(x, d, thres=_default_thresh):
@@ -63,19 +65,19 @@ def frac_diff_ffd(x, d, thres=_default_thresh, lim=None):
 #     output[width:] = np.dot(np.lib.stride_tricks.as_strided(x, (len(x) - width, len(w)), (x.itemsize, x.itemsize)), w[:,0])
 #     return output
 
+
 @numba.njit
 def _frac_diff_ffd(x, d, lim, thres=_default_thresh):
     """d is any positive real"""
     w = get_weights_ffd(d, thres, lim)
     width = len(w) - 1
-    # output = []
-    # output.extend([np.nan] * width) # the first few entries *were* zero, should be nan?
-    # output.extend(np.repeat([np.nan], 3)) # the first few entries *were* zero, should be nan?
-    output = [np.nan for i in range(width)]
-    for i in range(width, len(x)):
-        output.append(np.dot(w.T, x[i - width: i + 1])[0])
-    output = np.vstack(output).reshape(-1)
-    return w, np.array(output)
+    output = []
+    for i in range(0, x.shape[0]):
+        if i < width:
+            output.append(np.nan)
+        else:
+            output.append(np.dot(w.T, x[i - width: i + 1])[0])
+    return w, output
 
 
 def fast_frac_diff(x, d):
