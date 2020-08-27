@@ -68,8 +68,10 @@ def _frac_diff_ffd(x, d, lim, thres=_default_thresh):
     """d is any positive real"""
     w = get_weights_ffd(d, thres, lim)
     width = len(w) - 1
-    output = []
-    output.extend([np.nan] * width) # the first few entries *were* zero, should be nan?
+    # output = []
+    # output.extend([np.nan] * width) # the first few entries *were* zero, should be nan?
+    # output.extend(np.repeat([np.nan], 3)) # the first few entries *were* zero, should be nan?
+    output = [i for i in np.repeat([np.nan], width)]
     for i in range(width, len(x)):
         output.append(np.dot(w.T, x[i - width: i + 1])[0])
     return w, np.array(output)
@@ -213,9 +215,10 @@ def min_ffd_all_cols(data):
                                             regression='c',
                                             autolag=None),
                          axis=0)
-    adfTestPval = [adf[1] for adf in adfTest]
-    adfTestPval = pd.Series(adfTestPval)
-    stationaryCols = data.loc[:, (adfTestPval > 0.1).to_list()].columns
+    stationaryCols = adfTest.columns[adfTest.iloc[1] > 0.1]
+    # adfTestPval = [adf[1] for adf in adfTest]
+    # adfTestPval = pd.Series(adfTestPval)
+    # stationaryCols = data.loc[:, (adfTestPval > 0.1).to_list()].columns
 
     # get minimum values of d for every column
     seq = np.linspace(0, 1, 16)

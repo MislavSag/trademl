@@ -28,8 +28,9 @@ writer = SummaryWriter(log_dir)
 
 
 ### MODEL HYPERPARAMETERS
-input_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+input_data_path = 'D:/algo_trading_files'
 rand_state = 3
+sample_weights_type = 'return'
 cv_type = 'purged_kfold'
 cv_number = 5
 max_depth = 2
@@ -41,12 +42,28 @@ keep_important_features = 20  # for feature selection
 
 
 ### IMPORT PREPARED DATA
-X_train = pd.read_pickle(Path(input_path + '/data_prepare/X_train.pkl'))
-X_test = pd.read_pickle(Path(input_path + '/data_prepare/X_test.pkl'))
-y_train = pd.read_pickle(Path(input_path + '/data_prepare/y_train.pkl'))
-y_test = pd.read_pickle(Path(input_path + '/data_prepare/y_test.pkl'))
-sample_weights = pd.read_pickle(Path(input_path + './data_prepare/sample_weights.pkl'))
-labeling_info = pd.read_pickle(Path(input_path + '/data_prepare/labeling_info.pkl'))
+X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
+X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
+y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
+y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
+labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
+
+
+### SAMPLE WEIGHTS
+if 't_value' in labeling_info.columns:
+    sample_weights = labeling_info['t_value'].reindex(X_train.index).abs()
+elif sample_weights_type == 'returns':
+    sample_weights = ml.sample_weights.get_weights_by_return(
+        labeling_info.reindex(X_train.index),
+        X_train.loc[X_train.index, 'close_orig' if 'close_orig' in X_train.columns else 'close'],
+        num_threads=1)
+elif sample_weights_type == 'time_decay':
+    sample_weights = ml.sample_weights.get_weights_by_time_decay(
+        labeling_info.reindex(X_train.index),
+        X_train.loc[X_train.index, 'close_orig' if 'close_orig' in X_train.columns else 'close'],
+        decay=0.5, num_threads=1)
+elif sample_weights_type == 'none':
+    sample_weights = None
 
 
 ### CROS VALIDATION STEPS

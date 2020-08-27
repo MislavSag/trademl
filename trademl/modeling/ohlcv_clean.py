@@ -23,9 +23,13 @@ pd.set_option('display.width', 1000)
 
 
 ### HYPERPARAMETERS
+save_path = 'D:/market_data/usa/ohlcv_features'
 add_ta = False
 ta_periods = [5, 30, 480, 960, 2400, 4800, 9600]
-env_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+add_labels = False
+env_directory = None  # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+median_outlier_thrteshold = 25
+
 
 ### IMPORT DATA
 # import data from mysql database and 
@@ -39,9 +43,56 @@ data.sort_index(inplace=True)
 
 ### REMOVE OUTLIERS
 print(data.shape)
-data = tml.modeling.outliers.remove_ourlier_diff_median(data, 25)
+data = tml.modeling.outliers.remove_ourlier_diff_median(data, median_outlier_thrteshold)
 print(data.shape)
     
+
+### STATIONARITY
+# save original ohlcv, I will need it later
+ohlc = data[['open', 'high', 'low', 'close']]
+ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig']
+
+
+ml.features.fracdiff.frac_diff_ffd(data['close'], 0.5)
+
+
+
+
+
+# stationarity tests
+adfTest = data.apply(lambda x: adfuller(x, 
+                                        maxlag=1,
+                                        regression='c',
+                                        autolag=None),
+                        axis=0)
+stationaryCols = adfTest.columns[adfTest.iloc[1] > 0.1]
+
+# get minimum values of d for every column
+seq = np.linspace(0, 1, 16)
+min_d = data[stationaryCols].apply(lambda x: min_ffd_value(x.to_frame(), seq))
+    
+min_ffd_value(data['close'], seq)
+
+
+# get dmin for every column
+tml.modeling.stationarity.min_ffd_all_cols(data)
+stationaryCols, min_d = min_ffd_all_cols(data)
+
+# save to github for later 
+min_dmin_d_save_for_backtesting = pd.Series(0, index=data.columns)
+min_dmin_d_save_for_backtesting.update(min_d)
+min_dmin_d_save_for_backtesting.dropna(inplace=True)
+min_dmin_d_save_for_backtesting.to_csv(
+    'C:/Users/Mislav/Documents/GitHub/trademl/data/min_d_' + contract + '.csv', sep=';')
+
+# convert unstationary to stationary
+data = tml.modeling.stationarity.unstat_cols_to_stat(data, min_d, stationaryCols)  # tml.modeling.stationarity.unstat_cols_to_stat
+data.dropna(inplace=True)
+
+# merge orig ohlc to spyStat
+data = data.merge(ohlc, how='left', left_index=True, right_index=True)
+
+
 
 ########### TEST ##############
 # data_sample = data.iloc[:20000]
@@ -52,9 +103,9 @@ print(data.shape)
 ########### TEST ##############
 
 
-### ADD FEATURES
+### 1) ADD FEATURES
 # add technical indicators
-if add_tecnical_indicators:
+if add_ta:
     # periods = [5, 30, 480, 960, 2400, 4800, 9600]
     data = tml.modeling.features.add_technical_indicators(data, periods=ta_periods)
     data.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in data.columns]
@@ -125,10 +176,10 @@ data['tick_rule'] = np.where(tick_diff != 0,
                              np.sign(tick_diff).shift(periods=-1))
 
 
-### REMOVE NAN FOR INDICATORS
+### REMOVE NAN
 data.isna().sum().sort_values(ascending=False).head(60)
-columns_na_below = data.isna().sum() < (max(periods) + 100)
-data = data.loc[:, columns_na_below]
+if add_ta:
+    data = data.loc[:, data.isna().sum() < (max(periods) + 100)]
 cols_remove_na = range((np.where(data.columns == 'volume')[0].item() + 1), data.shape[1])
 data.dropna(subset=data.columns[cols_remove_na], inplace=True)
 
@@ -148,33 +199,33 @@ data = pd.merge_asof(data, data_vix, left_index=True, right_index=True)
 data['vix_high_low'] = data['high'] - data['low']
 data['vix_close_open'] = data['close'] - data['open']
 
-### LABELING (COMPUTATIONALLY INTENSIVE)
-# trend scanning
-observatins_per_day = int(pd.value_counts(data.index.normalize(), sort=False).mean())
 
+### 2) LABELING (COMPUTATIONALLY INTENSIVE)
+if add_labels:
+    # trend scanning
+    def add_trend_scanning_label(data, look_forward, col_prefix=''):
+        ts_1_day = tml.modeling.pipelines.trend_scanning_labels(
+            data['close'], t_events=data.index, look_forward_window=observatins_per_day,
+            min_sample_length=30, step=2
+        )
+        ts_1_day = ts_1_day.add_prefix(col_prefix)
+        return pd.concat([data, ts_1_day], axis=1)
 
-def add_trend_scanning_label(data, look_forward, col_prefix=''):
-    ts_1_day = tml.modeling.pipelines.trend_scanning_labels(
-        data['close'], t_events=data.index, look_forward_window=observatins_per_day,
-        min_sample_length=30, step=2
-    )
-    ts_1_day = ts_1_day.add_prefix(col_prefix)
-    return pd.concat([data, ts_1_day], axis=1)
-
-
-data = add_trend_scanning_label(data, observatins_per_day, 'day_1_')
-data = add_trend_scanning_label(data, observatins_per_day*2, 'day_2_')
-data = add_trend_scanning_label(data, observatins_per_day*3, 'day_3_')
-data = add_trend_scanning_label(data, observatins_per_day*5, 'day_5_')
-data = add_trend_scanning_label(data, observatins_per_day*10, 'day_10_')
-data = add_trend_scanning_label(data, observatins_per_day*20, 'day_20_')
-data = add_trend_scanning_label(data, observatins_per_day*30, 'day_30_')
-data = add_trend_scanning_label(data, observatins_per_day*60, 'day_60_')
+    
+    observatins_per_day = int(pd.value_counts(data.index.normalize(), sort=False).mean())
+    data = add_trend_scanning_label(data, observatins_per_day, 'day_1_')
+    data = add_trend_scanning_label(data, observatins_per_day*2, 'day_2_')
+    data = add_trend_scanning_label(data, observatins_per_day*3, 'day_3_')
+    data = add_trend_scanning_label(data, observatins_per_day*5, 'day_5_')
+    data = add_trend_scanning_label(data, observatins_per_day*10, 'day_10_')
+    data = add_trend_scanning_label(data, observatins_per_day*20, 'day_20_')
+    data = add_trend_scanning_label(data, observatins_per_day*30, 'day_30_')
+    data = add_trend_scanning_label(data, observatins_per_day*60, 'day_60_')
 
 # triple-barrier labeling
 
 
-### STRUCTURAL BRAKES
+### 3) STRUCTURAL BRAKES
 
 # convert data to hourly to make code faster and decrease random component
 close_hourly = data['close'].resample('H').last().dropna()
@@ -193,18 +244,50 @@ data['chow_segment'].value_counts()
 
 ### SAVE
 # save localy
-save_path = 'D:/market_data/usa/ohlcv_features/' + 'SPY_raw' + '.h5'
-with pd.HDFStore(save_path) as store:
-    store.put('SPY_raw', data)
+file_name = 'SPY_raw'
+if add_ta:
+    file_name = file_name + '_ta'
+if add_labels:
+    file_name = file_name + '_labels'
+save_path_local = os.path.join(Path(save_path), file_name + '.h5')
+if os.path.exists(save_path_local):
+    os.remove(save_path_local)
+with pd.HDFStore(save_path_local) as store:
+    store.put(file_name, data)
 # save to mfiles
 if env_directory is not None:
     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
-    tml.modeling.utils.destroy_mfiles_object(mfiles_client, ['SPY_raw.h5'])
-    mfiles_client.upload_file(data, object_type='Dokument')
+    tml.modeling.utils.destroy_mfiles_object(mfiles_client, [file_name + '.h5'])
+    wd = os.getcwd()
+    os.chdir(Path(save_path))
+    mfiles_client.upload_file(file_name, object_type='Dokument')
+    os.chdir(wd)
+
 
 ###  STATIONARITY
-ohlc = data[['open', 'high', 'low', 'close']]  # save for later
-ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig']
+# save original ohlcv, I will need it later
+ohlc = data[['open', 'high', 'low', 'close', 'chow_segment']]
+ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig', 'chow_segment']
+
+
+from statsmodels.tsa.stattools import adfuller
+adfTest = data.apply(lambda x: adfuller(x, 
+                                        maxlag=1,
+                                        regression='c',
+                                        autolag=None),
+                        axis=0)
+adfTestPval = [adf[1] for adf in adfTest]
+adfTestPval = pd.Series(adfTestPval)
+stationaryCols = data.loc[:, (adfTestPval > 0.1).to_list()].columns
+
+# get minimum values of d for every column
+seq = np.linspace(0, 1, 16)
+min_d = data[stationaryCols].apply(lambda x: min_ffd_value(x.to_frame(), seq))
+
+
+
+
+
 
 # get dmin for every column
 stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(data)

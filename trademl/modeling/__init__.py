@@ -28,5 +28,5 @@ from trademl.modeling.structural_breaks import (
     get_chow_type_stat
 )
 from trademl.modeling.preprocessing import (
-    remove_correlated_columns
+    remove_correlated_columns, sequence_from_array
 )

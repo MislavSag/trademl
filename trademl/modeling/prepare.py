@@ -14,24 +14,24 @@ import trademl as tml
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+import mfiles
+matplotlib.use("Agg")  # don't show graphs because thaty would stop guildai script
 
 
-### DON'T SHOW GRAPH OPTION (this is for guildai, ot to shoe graphs)
-matplotlib.use("Agg")
-
-
-### GLOBALS (path to partialy preprocessed data)
-DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
-
-### NON-MODEL HYPERPARAMETERS (for guildai)
-output_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/'
-num_threads = 1
-label = 'day_10'
+### HYPERPARAMETERS
+# load and save data
+input_data_path = 'D:/market_data/usa/ohlcv_features'
+output_data_path = 'D:/algo_trading_files'
+env_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+# structural breaks
 structural_break_regime = 'all'
+# labeling
+label_tuning = True
+label = 'day_10'
 labeling_technique = 'trend_scanning'
-std_outlier = 10
-tb_volatility_lookback = 500
-tb_volatility_scaler = 1
+ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
+ts_min_sample_length = 30
+ts_step = 5
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.004
@@ -39,17 +39,22 @@ ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
-sample_weights_type = 'returns'
-stationary_close_lables = False
-correlation_threshold = 0.98
+# filtering
+tb_volatility_lookback = 500
+tb_volatility_scaler = 1
+# feature engineering
+correlation_threshold = 0.95
 pca = False
+# scaling
 scaling = None
+# performance
+num_threads = 1
 
 
 ### IMPORT DATA
 def import_data(data_path, remove_cols, contract='SPY'):
     # import data
-    with pd.HDFStore(data_path + '/' + contract + '.h5') as store:
+    with pd.HDFStore(os.path.join(data_path, contract + '.h5')) as store:
         data = store.get(contract)
     data.sort_index(inplace=True)
     
@@ -62,7 +67,7 @@ def import_data(data_path, remove_cols, contract='SPY'):
 
 remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
               'open_vix', 'high_vix', 'low_vix', 'volume_vix']
-data = import_data(DATA_PATH, remove_ohl, contract='SPY_raw')
+data = import_data(input_data_path, remove_ohl, contract='SPY_raw')
 
 
 ### REGIME DEPENDENT ANALYSIS
@@ -74,19 +79,60 @@ if structural_break_regime == 'chow':
 data = data.drop(columns=['chow_segment'])
 
 
+### LABELLING
+if label_tuning:
+    if labeling_technique == 'triple_barrier':
+        # TRIPLE BARRIER LABELING
+        triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
+            close_name='close_orig' if 'close_orig' in data.columns else 'close',
+            volatility_lookback=tb_volatility_lookback,
+            volatility_scaler=tb_volatility_scaler,
+            triplebar_num_days=tb_triplebar_num_days,
+            triplebar_pt_sl=tb_triplebar_pt_sl,
+            triplebar_min_ret=tb_triplebar_min_ret,
+            num_threads=num_threads,
+            tb_min_pct=tb_min_pct
+        )
+        tb_fit = triple_barrier_pipe.fit(data)
+        labeling_info = tb_fit.triple_barrier_info
+        X = tb_fit.transform(data)
+    elif labeling_technique == 'trend_scanning':
+        trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
+            close_name='close_orig' if 'close_orig' in data.columns else 'close',
+            volatility_lookback=tb_volatility_lookback,
+            volatility_scaler=tb_volatility_scaler,
+            ts_look_forward_window=ts_look_forward_window,
+            ts_min_sample_length=ts_min_sample_length,
+            ts_step=ts_step
+            )
+        labeling_info = trend_scanning_pipe.fit(data)
+        X = trend_scanning_pipe.transform(data)
+    elif labeling_technique == 'fixed_horizon':
+        X = data.copy()
+        labeling_info = ml.labeling.fixed_time_horizon(data['close_orig'], threshold=0.005, resample_by='B').dropna().to_frame()
+        labeling_info = labeling_info.rename(columns={'close_orig': 'bin'})
+        print(labeling_info.iloc[:, 0].value_counts())
+        X = X.iloc[:-1, :]
+else:
+    X_cols = [col for col in data.columns if 'day_' not in col]
+    X = data[X_cols]
+    y_cols = [col for col in data.columns if label in col]
+    labeling_info = data[y_cols]
 
-### CHOOSE LABELLING TECHNIQUE
-X_cols = [col for col in data.columns if 'day_' not in col]
-X = data[X_cols]
-y_cols = [col for col in data.columns if label in col]
-y_matrix = data[y_cols]
+
+### FILTERING
+if not label_tuning:
+    daily_vol = ml.util.get_daily_vol(data['close_orig' if 'close_orig' in data.columns else 'close'], lookback=50)
+    cusum_events = ml.filters.cusum_filter(data['close_orig' if 'close_orig' in data.columns else 'close'], threshold=daily_vol.mean()*1)
+    ### ZAVRSITI DO KRAJA ####
 
 
 ### REMOVE NA
-remove_na_rows = y_matrix.isna().any(axis=1)
+remove_na_rows = labeling_info.isna().any(axis=1)
 X = X.loc[~remove_na_rows]
-y_matrix = y_matrix.loc[~remove_na_rows]
-y_matrix.iloc[:, -1] = np.where(y_matrix.iloc[:, -1] == -1, 0, y_matrix.iloc[:, -1])
+labeling_info = labeling_info.loc[~remove_na_rows]
+labeling_info.iloc[:, -1] = np.where(labeling_info.iloc[:, -1] == -1, 0, labeling_info.iloc[:, -1])
+# labeling_info.iloc[:, -1] = labeling_info.iloc[:, -1].astype(pd.Int64Dtype())
 
 
 ### REMOVE CORRELATED ASSETS
@@ -98,7 +144,7 @@ X = tml.modeling.preprocessing.remove_correlated_columns(
 
 ### TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y_matrix.loc[:, y_matrix.columns.str.contains('bin')],
+    X, labeling_info.loc[:, labeling_info.columns.str.contains('bin')],
     test_size=0.10, shuffle=False, stratify=None)
 
 
@@ -112,7 +158,37 @@ if scaling == 'expanding':
     y_test = y_test.loc[~X_test.isna().any(axis=1)]
     X_test = X_test.dropna()
 
-    
-    
-    
-# scaling
+
+### DIMENSIONALITY REDUCTION
+if pca:
+    X_train = pd.DataFrame(preprocessing.scale(X_train), columns=X_train.columns)
+    X_test = pd.DataFrame(preprocessing.scale(X_test), columns=X_test.columns)
+    X_train = pd.DataFrame(
+        get_orthogonal_features(
+            X_train.drop(columns=['tick_rule', 'HT_TRENDMODE', 'chow_segment'])),
+        index=X_train.index).add_prefix("PCA_")
+    pca_n_compenents = X_train.shape[1]
+    X_test = pd.DataFrame(
+        get_orthogonal_features(
+            X_test.drop(columns=['tick_rule', 'HT_TRENDMODE', 'chow_segment']),
+            num_features=pca_n_compenents),
+        index=X_test.index).add_prefix("PCA_")
+
+
+### SAVE FILES
+# save localy
+file_names = ['X_train.pkl', 'y_train.pkl', 'X_test.pkl',
+              'y_test.pkl', 'labeling_info.pkl']
+tml.modeling.utils.save_files(
+    [X_train, y_train, X_test, y_test, labeling_info],
+    file_names,
+    output_data_path)
+# save to mfiles
+if env_directory is not None:
+    mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
+    tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
+    wd = os.getcwd()
+    os.chdir(Path(output_data_path))
+    for f in file_names:
+        mfiles_client.upload_file(f, object_type='Dokument')
+    os.chdir(wd)

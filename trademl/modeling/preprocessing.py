@@ -23,3 +23,24 @@ def remove_correlated_columns(data, columns_ignore, threshold=0.99):
     data = data.drop(columns=extreme_correlateed_assets)
     
     return data
+
+
+def sequence_from_array(data, target_vec, cusum_events, time_step_length):
+    """
+    Return 3d sequence from matrix that contain features and targets,
+    where trading dats are filteres.
+    """
+    cusum_events_ = cusum_events.intersection(data.index)
+    lstm_sequences = []
+    targets = []
+    for date in cusum_events_:
+        observation = data[:date].iloc[-time_step_length:]
+        if observation.shape[0] < time_step_length or data.index[-1] < date:
+            next
+        else:
+            lstm_sequences.append(observation.values.reshape((1, observation.shape[0], observation.shape[1])))
+            targets.append(target_vec[target_vec.index == date])
+    lstm_sequences_all = np.vstack(lstm_sequences)
+    targets = np.vstack(targets)
+    targets = targets.astype(np.int64)
+    return lstm_sequences_all, targets
