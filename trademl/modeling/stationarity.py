@@ -71,9 +71,10 @@ def _frac_diff_ffd(x, d, lim, thres=_default_thresh):
     # output = []
     # output.extend([np.nan] * width) # the first few entries *were* zero, should be nan?
     # output.extend(np.repeat([np.nan], 3)) # the first few entries *were* zero, should be nan?
-    output = [i for i in np.repeat([np.nan], width)]
+    output = [np.nan for i in range(width)]
     for i in range(width, len(x)):
         output.append(np.dot(w.T, x[i - width: i + 1])[0])
+    output = np.vstack(output).reshape(-1)
     return w, np.array(output)
 
 
