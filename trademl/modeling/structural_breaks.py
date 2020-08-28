@@ -9,7 +9,7 @@ import mlfinlab as ml
 
 
 # Chow-Type Dickey-Fuller Test
-@njit
+@numba.njit
 def _get_dfc_for_t(molecule_range, series_lag_values_start, series_diff, series_lag_values):
     """
     Get Chow-Type Dickey-Fuller Test statistics for each index in molecule
