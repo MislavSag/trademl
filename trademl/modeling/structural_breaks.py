@@ -4,7 +4,7 @@ STRUCTURAL BREAKS
 
 import pandas as pd
 import numpy as np
-from numba import njit, prange
+import numba
 import mlfinlab as ml
 
 
