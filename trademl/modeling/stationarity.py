@@ -97,11 +97,11 @@ def fast_frac_diff(x, d):
 # TESTS
 
 
-def test_all():
-    for d in [0.3, 1, 1.5, 2, 2.5]:
-        test_fast_frac_diff_equals_fracDiff_original_impl(d=d)
-        test_frac_diff_ffd_equals_original_impl(d=d)
-        # test_frac_diff_ffd_equals_prado_original(d=d) # his implementation is busted for fractional d
+# def test_all():
+#     for d in [0.3, 1, 1.5, 2, 2.5]:
+#         test_fast_frac_diff_equals_fracDiff_original_impl(d=d)
+#         test_frac_diff_ffd_equals_original_impl(d=d)
+#         # test_frac_diff_ffd_equals_prado_original(d=d) # his implementation is busted for fractional d
 
 
 # def test_frac_diff_ffd_equals_prado_original(d=3):
@@ -118,28 +118,28 @@ def test_all():
 #     # return locals()
 
 
-def test_frac_diff_ffd_equals_original_impl(d=3):
-    from .prado_orig import fracDiff_FFD_original_impl
-    import pandas as pd
+# def test_frac_diff_ffd_equals_original_impl(d=3):
+#     from .prado_orig import fracDiff_FFD_original_impl
+#     import pandas as pd
 
-    x = np.random.randn(100)
-    a = frac_diff_ffd(x, d, thres=_default_thresh)
-    b = fracDiff_FFD_original_impl(pd.DataFrame(x), d, thres=_default_thresh)
-    assert np.allclose(a, b)
-    # return locals()
+#     x = np.random.randn(100)
+#     a = frac_diff_ffd(x, d, thres=_default_thresh)
+#     b = fracDiff_FFD_original_impl(pd.DataFrame(x), d, thres=_default_thresh)
+#     assert np.allclose(a, b)
+#     # return locals()
 
 
-def test_fast_frac_diff_equals_fracDiff_original_impl(d=3):
-    from .prado_orig import fracDiff_original_impl
-    import pandas as pd
+# def test_fast_frac_diff_equals_fracDiff_original_impl(d=3):
+#     from .prado_orig import fracDiff_original_impl
+#     import pandas as pd
 
-    x = np.random.randn(100)
-    a = fast_frac_diff(x, d)
-    b = fracDiff_original_impl(pd.DataFrame(x), d, thres=None)
-    b = b.values
-    assert a.shape == b.shape
-    assert np.allclose(a, b)
-    # return locals()
+#     x = np.random.randn(100)
+#     a = fast_frac_diff(x, d)
+#     b = fracDiff_original_impl(pd.DataFrame(x), d, thres=None)
+#     b = b.values
+#     assert a.shape == b.shape
+#     assert np.allclose(a, b)
+#     # return locals()
 
 
 ### MY FUNCTIONS #####

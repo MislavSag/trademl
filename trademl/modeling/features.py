@@ -183,3 +183,5 @@ def add_fourier_transform(data, col, periods):
         data['fft_' + str(num_)] = np.abs(fft_list_m10)
     
     return data
+
+
