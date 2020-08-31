@@ -265,3 +265,42 @@ def my_get_sadf(series: pd.Series, model: str, lags: Union[int, list], min_lengt
     sadf_series_val = np.array(sadf_series)
     
     return sadf_series_val
+
+
+# # convert data to hourly to make code faster and decrease random component
+# close_daily = data['close'].resample('D').last().dropna()
+# close_daily = np.log(close_daily)
+
+
+# # MEASURE PERFORMANCE
+# from timeit import default_timer as timer
+# from datetime import timedelta
+# series = close_daily.iloc[:800].copy()
+# model = 'linear'
+# lags = 2
+# min_length = 20
+# add_const = False
+# phi = 0
+# # mlfinlab
+# start = timer()
+# mlfinlab_results = ml.structural_breaks.get_sadf(
+#     close_hou, min_length=min_length, model=model, phi=phi, num_threads=1, lags=lags)
+# end = timer()
+# print(timedelta(seconds=end-start))
+# print(mlfinlab_results.shape)
+# print(mlfinlab_results.head(20))
+# print(mlfinlab_results.tail(20))
+# # my function
+# start = timer()
+# results = my_get_sadf(
+#     close_daily, min_length=min_length, model=model, phi=phi, num_threads=1, lags=lags)
+# end = timer()
+# print(timedelta(seconds=end-start))
+# type(results)
+# print(results.shape)
+# print(results[:20])
+# print(results[-20:])
+
+# sadf = pd.Series(results, index=close_daily.index[23:])
+# breakdate =sadf.loc[sadf == sadf.max()]
+# sadf.plot()

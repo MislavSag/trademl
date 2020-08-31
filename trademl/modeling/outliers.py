@@ -31,7 +31,7 @@ def remove_ourlier_diff_median(data, median_scaler=25):
     :param data: (pd.DataFrame) with ohlc data
     :return: (pd.DataFrame) with removed outliers
     """
-    daily_diff = (data.resample('D').last().dropna().diff() + 0.005) * median_scaler
+    daily_diff = (data.resample('D').last().dropna().diff().abs + 0.05) * median_scaler
     daily_diff['diff_date'] = daily_diff.index.strftime('%Y-%m-%d')
     data_test = data.diff()
     data_test['diff_date'] = data_test.index.strftime('%Y-%m-%d')
