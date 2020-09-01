@@ -42,6 +42,8 @@ tb_min_pct = 0.10
 # filtering
 tb_volatility_lookback = 500
 tb_volatility_scaler = 1
+# stationarity
+stationarity_tecnique = 'fracdiff'
 # feature engineering
 correlation_threshold = 0.95
 pca = False
@@ -65,9 +67,7 @@ def import_data(data_path, remove_cols, contract='SPY'):
     return data
 
 
-remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-              'open_vix', 'high_vix', 'low_vix', 'volume_vix']
-data = import_data(input_data_path, remove_ohl, contract='SPY_raw')
+data = import_data(input_data_path, [], contract='SPY_raw')
 
 
 ### REGIME DEPENDENT ANALYSIS
@@ -79,12 +79,20 @@ if structural_break_regime == 'chow':
 data = data.drop(columns=['chow_segment'])
 
 
+### CHOOSE STATIONARY / UNSTATIONARY
+if stationarity_tecnique == 'fracdiff':
+    remove_cols = [col for col in data.columns if 'orig_' in col and col != 'orig_close']  
+elif stationarity_tecnique == 'orig':
+    remove_cols = [col for col in data.columns if 'fracdiff_' in col and col != 'orig_close']
+data = data.drop(columns=remove_cols)
+
+
 ### LABELLING
 if label_tuning:
     if labeling_technique == 'triple_barrier':
         # TRIPLE BARRIER LABELING
         triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-            close_name='close_orig' if 'close_orig' in data.columns else 'close',
+            close_name='orig_close' if 'orig_close' in data.columns else 'close',
             volatility_lookback=tb_volatility_lookback,
             volatility_scaler=tb_volatility_scaler,
             triplebar_num_days=tb_triplebar_num_days,
@@ -98,7 +106,7 @@ if label_tuning:
         X = tb_fit.transform(data)
     elif labeling_technique == 'trend_scanning':
         trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-            close_name='close_orig' if 'close_orig' in data.columns else 'close',
+            close_name='orig_close' if 'orig_close' in data.columns else 'close',
             volatility_lookback=tb_volatility_lookback,
             volatility_scaler=tb_volatility_scaler,
             ts_look_forward_window=ts_look_forward_window,
@@ -109,8 +117,8 @@ if label_tuning:
         X = trend_scanning_pipe.transform(data)
     elif labeling_technique == 'fixed_horizon':
         X = data.copy()
-        labeling_info = ml.labeling.fixed_time_horizon(data['close_orig'], threshold=0.005, resample_by='B').dropna().to_frame()
-        labeling_info = labeling_info.rename(columns={'close_orig': 'bin'})
+        labeling_info = ml.labeling.fixed_time_horizon(data['orig_close'], threshold=0.005, resample_by='B').dropna().to_frame()
+        labeling_info = labeling_info.rename(columns={'orig_close': 'bin'})
         print(labeling_info.iloc[:, 0].value_counts())
         X = X.iloc[:-1, :]
 else:
@@ -122,10 +130,10 @@ else:
 
 ### FILTERING
 if not label_tuning:
-    daily_vol = ml.util.get_daily_vol(data['close_orig' if 'close_orig' in data.columns else 'close'], lookback=50)
-    cusum_events = ml.filters.cusum_filter(data['close_orig' if 'close_orig' in data.columns else 'close'], threshold=daily_vol.mean()*1)
+    daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
+    cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
     ### ZAVRSITI DO KRAJA ####
-
+X = X.drop(columns=['orig_close'])
 
 ### REMOVE NA
 remove_na_rows = labeling_info.isna().any(axis=1)
@@ -177,16 +185,24 @@ if pca:
 
 ### SAVE FILES
 # save localy
-file_names = ['X_train.pkl', 'y_train.pkl', 'X_test.pkl',
-              'y_test.pkl', 'labeling_info.pkl']
+file_names_pkl = ['X_train.pkl', 'y_train.pkl', 'X_test.pkl',
+                  'y_test.pkl', 'labeling_info.pkl']
 tml.modeling.utils.save_files(
     [X_train, y_train, X_test, y_test, labeling_info],
-    file_names,
+    file_names_pkl,
+    output_data_path)
+file_names_csv = ['X_train.csv', 'y_train.csv', 'X_test.csv',
+                  'y_test.csv', 'labeling_info.csv']
+tml.modeling.utils.save_files(
+    [X_train, y_train, X_test, y_test, labeling_info],
+    file_names_csv,
     output_data_path)
 # save to mfiles
 if env_directory is not None:
+    file_names = file_names_pkl + file_names_csv
     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
-    tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
+    # tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
+    destroy_mfiles_object(mfiles_client, file_names)
     wd = os.getcwd()
     os.chdir(Path(output_data_path))
     for f in file_names:

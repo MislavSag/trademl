@@ -35,29 +35,10 @@ data.drop(columns=['date'], inplace=True)
 security = data.sort_index()
 
 
-
-
-daily_diff = (security.resample('D').last().dropna().diff().abs() + 0.1) * 20
-daily_diff['diff_date'] = daily_diff.index.strftime('%Y-%m-%d')
-data_test = security.diff()
-data_test['diff_date'] = data_test.index.strftime('%Y-%m-%d')
-data_test_diff = pd.merge(data_test, daily_diff, on='diff_date')
-indexer = ((np.abs(data_test_diff['close_x']) < np.abs(data_test_diff['close_y'])) &
-        (np.abs(data_test_diff['open_x']) < np.abs(data_test_diff['open_y'])) &
-        (np.abs(data_test_diff['high_x']) < np.abs(data_test_diff['high_y'])) & 
-        (np.abs(data_test_diff['low_x']) < np.abs(data_test_diff['low_y'])))
-np.where(indexer == False)
-data_test_diff.loc[np.where(indexer == False)]
-data_final = data.loc[indexer.values, :]
-data_final['high'].plot()
-
-# indexer = (indexer | data_test_diff['close_y'].isna())
-
 ### REMOVE OUTLIERS
 security = tml.modeling.outliers.remove_ourlier_diff_median(security, median_outlier_thrteshold)
+security['volume'] = np.where(security.index >= '2019-01-01', security['volume'] * 100, security['volume'])
 
-security = tml.modeling.outliers.remove_ohlc_ouliers(data, threshold_up=0.5, threshold_down=-0.3)
-security = tml.modeling.outliers.remove_ourlier_diff_median(security, median_outlier_thrteshold)
 
 ########### TEST FOR INDICATORS ##############
 # data_sample = data.iloc[:20000]
@@ -72,8 +53,8 @@ security = tml.modeling.outliers.remove_ourlier_diff_median(security, median_out
 # add technical indicators
 if add_ta:
     # periods = [5, 30, 480, 960, 2400, 4800, 9600]
-    data = tml.modeling.features.add_technical_indicators(data, periods=ta_periods)
-    data.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in data.columns]
+    security = tml.modeling.features.add_technical_indicators(security, periods=ta_periods)
+    security.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in security.columns]
 
 
 def add_ohlcv_features(data):
@@ -165,15 +146,15 @@ def add_ohlcv_features(data):
     return data
 
 
-data = add_ohlcv_features(data)
+security = add_ohlcv_features(security)
 
 
 ### REMOVE NAN
-data.isna().sum().sort_values(ascending=False).head(60)
+security.isna().sum().sort_values(ascending=False).head(60)
 if add_ta:
-    data = data.loc[:, data.isna().sum() < (max(periods) + 100)]
-cols_remove_na = range((np.where(data.columns == 'volume')[0].item() + 1), data.shape[1])
-data.dropna(subset=data.columns[cols_remove_na], inplace=True)
+    security = security.loc[:, security.isna().sum() < (max(periods) + 100)]
+cols_remove_na = range((np.where(security.columns == 'volume')[0].item() + 1), security.shape[1])
+security.dropna(subset=security.columns[cols_remove_na], inplace=True)
 
 
 ### 2) LABELING (COMPUTATIONALLY INTENSIVE)
@@ -188,15 +169,15 @@ if add_labels:
         return pd.concat([data, ts_1_day], axis=1)
 
     
-    observatins_per_day = int(pd.value_counts(data.index.normalize(), sort=False).mean())
-    data = add_trend_scanning_label(data, observatins_per_day, 'day_1_')
-    data = add_trend_scanning_label(data, observatins_per_day*2, 'day_2_')
-    data = add_trend_scanning_label(data, observatins_per_day*3, 'day_3_')
-    data = add_trend_scanning_label(data, observatins_per_day*5, 'day_5_')
-    data = add_trend_scanning_label(data, observatins_per_day*10, 'day_10_')
-    data = add_trend_scanning_label(data, observatins_per_day*20, 'day_20_')
-    data = add_trend_scanning_label(data, observatins_per_day*30, 'day_30_')
-    data = add_trend_scanning_label(data, observatins_per_day*60, 'day_60_')
+    observatins_per_day = int(pd.value_counts(security.index.normalize(), sort=False).mean())
+    security = add_trend_scanning_label(security, observatins_per_day, 'day_1_')
+    security = add_trend_scanning_label(security, observatins_per_day*2, 'day_2_')
+    security = add_trend_scanning_label(security, observatins_per_day*3, 'day_3_')
+    security = add_trend_scanning_label(security, observatins_per_day*5, 'day_5_')
+    security = add_trend_scanning_label(security, observatins_per_day*10, 'day_10_')
+    security = add_trend_scanning_label(security, observatins_per_day*20, 'day_20_')
+    security = add_trend_scanning_label(security, observatins_per_day*30, 'day_30_')
+    security = add_trend_scanning_label(security, observatins_per_day*60, 'day_60_')
 
     # triple-barrier labeling
 
@@ -204,16 +185,16 @@ if add_labels:
 ### 3) STRUCTURAL BRAKES
 
 # CHOW
-close_weekly = data['close'].resample('W').last().dropna()
+close_weekly = security['close'].resample('W').last().dropna()
 close_weekly_log = np.log(close_weekly)
 chow = tml.modeling.structural_breaks.get_chow_type_stat(
     series=close_weekly_log, min_length=10)
 breakdate = chow.loc[chow == chow.max()]
-data['chow_segment'] = 0
-data['chow_segment'][breakdate.index[0]:] = 1
-data['chow_segment'].loc[breakdate.index[0]:] = 1
-data['chow_segment'] = np.where(data.index < breakdate.index[0], 0, 1)
-data['chow_segment'].value_counts()
+security['chow_segment'] = 0
+security['chow_segment'][breakdate.index[0]:] = 1
+security['chow_segment'].loc[breakdate.index[0]:] = 1
+security['chow_segment'] = np.where(security.index < breakdate.index[0], 0, 1)
+security['chow_segment'].value_counts()
 
 # SADF
 # sadf_linear =ml.structural_breaks.get_sadf(
@@ -238,35 +219,22 @@ data['chow_segment'].value_counts()
 
 ### STATIONARITY
 # save original ohlcv, I will need it later
-ohlc = data[['open', 'high', 'low', 'close', 'chow_segment']]
-ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig', 'chow_segment']
-stationariti_test_cols = data.columns[:np.where(data.columns == 'vix_close_open')[0][0]]
-stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(data[stationariti_test_cols])
-
-
-
-### STATIONARITY
-# save original ohlcv, I will need it later
-ohlc = data[['open', 'high', 'low', 'close', 'chow_segment']]
-ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig', 'chow_segment']
-stationariti_test_cols = data.columns[:np.where(data.columns == 'vix_close_open')[0][0]]
-stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(data[stationariti_test_cols])
-
+stationariti_test_cols = security.columns[:np.where(security.columns == 'vix_close_open')[0][0]]
+stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(security[stationariti_test_cols])
 # save to github for later 
 min_dmin_d_save_for_backtesting = pd.Series(0, index=security.columns)
 min_dmin_d_save_for_backtesting.update(min_d)
 min_dmin_d_save_for_backtesting.dropna(inplace=True)
 min_dmin_d_save_for_backtesting.to_csv(
     'C:/Users/Mislav/Documents/GitHub/trademl/data/min_d_' + contract + '.csv', sep=';')
-
 # convert unstationary to stationary
+keep_unstat = security[stationaryCols].add_prefix('orig_')
 security = tml.modeling.stationarity.unstat_cols_to_stat(security, min_d, stationaryCols)  # tml.modeling.stationarity.unstat_cols_to_stat
+security.columns = ['fracdiff_' + col if col in stationaryCols else col for col in security.columns]
+security = pd.concat([keep_unstat, security], axis=1)
+# merge orig na stat
 security = security.dropna()
-security = security[stationaryCols].add_prefix('fracdiff_')
-
-# merge orig_ohlc
-security = security.merge(ohlc, how='left', left_index=True, right_index=True)
-
+security.head()
 
 
 ### SAVE
@@ -280,7 +248,7 @@ save_path_local = os.path.join(Path(save_path), file_name + '.h5')
 if os.path.exists(save_path_local):
     os.remove(save_path_local)
 with pd.HDFStore(save_path_local) as store:
-    store.put(file_name, data)
+    store.put(file_name, security)
 # save to mfiles
 if env_directory is not None:
     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
@@ -289,55 +257,3 @@ if env_directory is not None:
     os.chdir(Path(save_path))
     mfiles_client.upload_file(file_name, object_type='Dokument')
     os.chdir(wd)
-
-
-###  STATIONARITY
-# save original ohlcv, I will need it later
-ohlc = data[['open', 'high', 'low', 'close', 'chow_segment']]
-ohlc.columns = ['open_orig', 'high_orig', 'low_orig', 'close_orig', 'chow_segment']
-
-
-from statsmodels.tsa.stattools import adfuller
-adfTest = data.apply(lambda x: adfuller(x, 
-                                        maxlag=1,
-                                        regression='c',
-                                        autolag=None),
-                        axis=0)
-adfTestPval = [adf[1] for adf in adfTest]
-adfTestPval = pd.Series(adfTestPval)
-stationaryCols = data.loc[:, (adfTestPval > 0.1).to_list()].columns
-
-# get minimum values of d for every column
-seq = np.linspace(0, 1, 16)
-min_d = data[stationaryCols].apply(lambda x: min_ffd_value(x.to_frame(), seq))
-
-
-
-
-
-
-# get dmin for every column
-stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(data)
-
-# save to github for later 
-min_dmin_d_save_for_backtesting = pd.Series(0, index=data.columns)
-min_dmin_d_save_for_backtesting.update(min_d)
-min_dmin_d_save_for_backtesting.dropna(inplace=True)
-min_dmin_d_save_for_backtesting.to_csv(
-    'C:/Users/Mislav/Documents/GitHub/trademl/data/min_d_' + contract + '.csv', sep=';')
-
-# convert unstationary to stationary
-data = tml.modeling.stationarity.unstat_cols_to_stat(data, min_d, stationaryCols)  # tml.modeling.stationarity.unstat_cols_to_stat
-data.dropna(inplace=True)
-
-# merge orig ohlc to spyStat
-data = data.merge(ohlc, how='left', left_index=True, right_index=True)
-
-  
-
-### SAVE SPY WITH VIX
-
-# save SPY
-save_path = 'D:/market_data/usa/ohlcv_features/' + 'SPY' + '.h5'
-with pd.HDFStore(save_path) as store:
-    store.put('SPY', data)

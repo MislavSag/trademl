@@ -275,7 +275,7 @@ def set_mfiles_client(env_directory):
 
 
 def destroy_mfiles_object(mfiles_client, file_names):
-    if isinstance(file_mames, list):
+    if isinstance(file_names, list):
         for f in file_names:
             search_result = mfiles_client.quick_search(f)
             if search_result['Items'] == []:
