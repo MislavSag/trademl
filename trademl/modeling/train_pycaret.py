@@ -9,110 +9,20 @@ import mlfinlab as ml
 import trademl as tml
 
 
-### DON'T SHOW GRAPH OPTION
-# matplotlib.use("Agg")
 
-
-### GLOBALS
-DATA_PATH = 'D:/market_data/usa/ohlcv_features'
-
-### NON-MODEL HYPERPARAMETERS
-num_threads = 1
-structural_break_regime = 'all'
-labeling_technique = 'trend_scanning'
-std_outlier = 10
-tb_volatility_lookback = 500
-tb_volatility_scaler = 1
-tb_triplebar_num_days = 10
-tb_triplebar_pt_sl = [1, 1]
-tb_triplebar_min_ret = 0.004
-ts_look_forward_window = 1200  # 60 * 8 * 10 (10 days)
-ts_min_sample_length = 30
-ts_step = 5
-tb_min_pct = 0.10
-sample_weights_type = 'returns'
-cv_type = 'purged_kfold'
-cv_number = 4
-rand_state = 3
-stationary_close_lables = False
-
-
-def import_data(data_path, remove_cols, contract='SPY'):
-    # import data
-    with pd.HDFStore(data_path + '/' + contract + '.h5') as store:
-        data = store.get(contract)
-    data.sort_index(inplace=True)
-    
-    # remove variables
-    remove_cols = [col for col in remove_cols if col in data.columns]
-    data.drop(columns=remove_cols, inplace=True)
-    
-    return data
-
-
-### IMPORT DATA
-remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-                'open_vix', 'high_vix', 'low_vix', 'close_vix', 'volume_vix',
-                'open_orig', 'high_orig', 'low_orig']
-data = import_data(DATA_PATH, remove_ohl, contract='SPY')
-
-### REGIME DEPENDENT ANALYSIS
-if structural_break_regime == 'chow':
-    if (data.loc[data['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
-        data = data.iloc[-(60*8*365):]
-    else:
-        data = data.loc[data['chow_segment'] == 1]
-
-### USE STATIONARY CLOSE TO CALCULATE LABELS
-if stationary_close_lables:
-    data['close_orig'] = data['close']  # with original close reslts are pretty bad!
-        
-
-### LABELING
-if labeling_technique == 'triple_barrier':
-    # TRIPLE BARRIER LABELING
-    triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-        close_name='close_orig',
-        volatility_lookback=tb_volatility_lookback,
-        volatility_scaler=tb_volatility_scaler,
-        triplebar_num_days=tb_triplebar_num_days,
-        triplebar_pt_sl=tb_triplebar_pt_sl,
-        triplebar_min_ret=tb_triplebar_min_ret,
-        num_threads=num_threads,
-        tb_min_pct=tb_min_pct
-    )
-    tb_fit = triple_barrier_pipe.fit(data)
-    labeling_info = tb_fit.triple_barrier_info
-    X = tb_fit.transform(data)
-elif labeling_technique == 'trend_scanning':
-    trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-        close_name='close_orig',
-        volatility_lookback=tb_volatility_lookback,
-        volatility_scaler=tb_volatility_scaler,
-        ts_look_forward_window=ts_look_forward_window,
-        ts_min_sample_length=ts_min_sample_length,
-        ts_step=ts_step
-        )
-    labeling_info = trend_scanning_pipe.fit(data)
-    X = trend_scanning_pipe.transform(data)
-elif labeling_technique == 'fixed_horizon':
-    X = data.copy()
-    labeling_info = ml.labeling.fixed_time_horizon(
-        data['close_orig'], threshold=0.005, resample_by='B').dropna().to_frame()
-    labeling_info = labeling_info.rename(columns={'close_orig': 'bin'})
-    print(labeling_info.iloc[:, 0].value_counts())
-    X = X.iloc[:-1, :]
+### IMPORT PREPARED DATA
+input_data_path = 'D:/algo_trading_files'
+X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
+X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
+y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
+y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
+labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
 
 
 # TRAIN TEST SPLIT
-X_train, X_test, y_train, y_test = train_test_split(
-    X.drop(columns=['close_orig']), labeling_info['bin'],
-    test_size=0.10, shuffle=False, stratify=None)
 train = pd.concat([X_train, y_train], axis=1)
-train['bin'] = np.where(train['bin'] == -1, 0, train['bin'])
 train['bin'] = train['bin'].astype(np.int)
 test = pd.concat([X_test, y_test], axis=1)
-test['bin'] = np.where(test['bin'] == -1, 0, test['bin'])
 test['bin'] = test['bin'].astype(np.int)
 
 
@@ -123,15 +33,17 @@ test['bin'] = test['bin'].astype(np.int)
 exp_clf = setup(train,
                 target='bin',
                 train_size=0.9,
-                categorical_features=['tick_rule', 'HT_TRENDMODE', 'chow_segment'],
+                categorical_features=['tick_rule'],
                 pca=True,
                 pca_method='linear',
                 pca_components=10,
+                remove_perfect_collinearity=True,
                 remove_multicollinearity=False,
                 # outliers_threshold=None,
                 silent=True,  # don't need to confrim data types
-                html=False)
-compare_models(fold=10, turbo=True)
+                html=False,
+                session_id=123)
+compare_models(fold=8, turbo=True)
 
 # create models
 et = create_model('et')
@@ -239,3 +151,17 @@ final_gbc = load_model('final_gbc_model')
 final_xgboost = load_model('final_xgboost_model')
 final_knn = load_model('final_knn_model')
 final_blend_specific = load_model('final_blend_model')
+
+
+
+
+
+
+# from sktime.datasets import load_arrow_head
+
+
+# X, y = load_arrow_head(return_X_y=True)
+# X_train, X_test, y_train, y_test = train_test_split(X, y)
+# print(X_train.shape, y_train.shape, X_test.shape, y_test.shape)
+
+# X.shape

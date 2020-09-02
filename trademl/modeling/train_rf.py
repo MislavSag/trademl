@@ -29,12 +29,13 @@ writer = SummaryWriter(log_dir)
 
 ### MODEL HYPERPARAMETERS
 input_data_path = 'D:/algo_trading_files'
+use_pca_features = False
 rand_state = 3
 sample_weights_type = 'return'
 cv_type = 'purged_kfold'
 cv_number = 5
 max_depth = 2
-max_features = 20
+max_features = 10
 n_estimators = 350
 min_weight_fraction_leaf = 0.1  
 class_weight = 'balanced_subsample'
@@ -42,11 +43,18 @@ keep_important_features = 20  # for feature selection
 
 
 ### IMPORT PREPARED DATA
-X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
-X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
-y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
-y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
-labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
+if use_pca_features:
+    X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train_pca.pkl'))
+    X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test_pca.pkl'))
+    y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train_pca.pkl'))
+    y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test_pca.pkl'))
+    labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info_pca.pkl'))
+else:
+    X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
+    X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
+    y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
+    y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
+    labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
 
 
 ### SAMPLE WEIGHTS
@@ -91,10 +99,11 @@ scores = ml.cross_validation.ml_cross_val_score(
 ### CV RESULTS
 mean_score = scores.mean()
 std_score = scores.std()
+save_id = f'{max_depth}{max_features}{n_estimators}{str(mean_score)[2:6]}'
 print(f'Mean score: {mean_score}')
 writer.add_scalar(tag='mean_score', scalar_value=mean_score, global_step=None)
 writer.add_scalar(tag='std_score', scalar_value=std_score, global_step=None)
-save_id = f'{max_depth}{max_features}{n_estimators}{str(mean_score)[2:6]}'
+writer.add_text(tag='save_id', text_string=save_id, global_step=None)
 
 # retrain the model if mean score is high enough (higher than 0.5)
 if mean_score < 0.55:
@@ -122,7 +131,7 @@ else:
                 file_names=[f'shap_{save_id}.csv',
                             f'rf_importance_{save_id}.csv',
                             f'mpi_{save_id}.csv'],
-                directory=Path(input_path + '/important_features/X_train.pkl'))
+                directory=os.path.join(Path(input_data_path), 'important_features'))
     
     
     # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES

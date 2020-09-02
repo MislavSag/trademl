@@ -16,7 +16,7 @@ def remove_correlated_columns(data, columns_ignore, threshold=0.99):
     cols_remove = []
     for i, col in enumerate(corrs.columns):
         corrs_sample = corrs.iloc[i:, i:]  # remove ith column and row
-        corrs_vec = corrs_sample[col].iloc[(i+1):]
+        corrs_vec = corrs_sample.iloc[0, 1:]
         index_multicorr = corrs_vec.iloc[np.where(np.abs(corrs_vec) >= threshold)]
         cols_remove.append(index_multicorr)
     extreme_correlateed_assets = pd.DataFrame(cols_remove).columns

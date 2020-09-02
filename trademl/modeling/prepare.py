@@ -35,7 +35,7 @@ ts_step = 5
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.004
-ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
+ts_look_forward_window = 1200  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
@@ -43,7 +43,7 @@ tb_min_pct = 0.10
 tb_volatility_lookback = 500
 tb_volatility_scaler = 1
 # stationarity
-stationarity_tecnique = 'fracdiff'
+stationarity_tecnique = 'orig'
 # feature engineering
 correlation_threshold = 0.95
 pca = False
@@ -100,7 +100,7 @@ if label_tuning:
             triplebar_min_ret=tb_triplebar_min_ret,
             num_threads=num_threads,
             tb_min_pct=tb_min_pct
-        )
+        )   
         tb_fit = triple_barrier_pipe.fit(data)
         labeling_info = tb_fit.triple_barrier_info
         X = tb_fit.transform(data)
@@ -173,26 +173,30 @@ if pca:
     X_test = pd.DataFrame(preprocessing.scale(X_test), columns=X_test.columns)
     X_train = pd.DataFrame(
         get_orthogonal_features(
-            X_train.drop(columns=['tick_rule', 'HT_TRENDMODE', 'chow_segment'])),
+            X_train.drop(columns=['tick_rule'])),
         index=X_train.index).add_prefix("PCA_")
     pca_n_compenents = X_train.shape[1]
     X_test = pd.DataFrame(
         get_orthogonal_features(
-            X_test.drop(columns=['tick_rule', 'HT_TRENDMODE', 'chow_segment']),
+            X_test.drop(columns=['tick_rule']),
             num_features=pca_n_compenents),
         index=X_test.index).add_prefix("PCA_")
+    X_train.index = y_train.index
+    X_test.index = y_test.index
 
 
 ### SAVE FILES
 # save localy
-file_names_pkl = ['X_train.pkl', 'y_train.pkl', 'X_test.pkl',
-                  'y_test.pkl', 'labeling_info.pkl']
+file_names = ['X_train', 'y_train', 'X_test',
+              'y_test', 'labeling_info']
+if pca:
+    file_names = [f + '_pca' for f in file_names]
+file_names_pkl = [f + '.pkl' for f in file_names]
 tml.modeling.utils.save_files(
     [X_train, y_train, X_test, y_test, labeling_info],
     file_names_pkl,
     output_data_path)
-file_names_csv = ['X_train.csv', 'y_train.csv', 'X_test.csv',
-                  'y_test.csv', 'labeling_info.csv']
+file_names_csv = [f + '.csv' for f in file_names]
 tml.modeling.utils.save_files(
     [X_train, y_train, X_test, y_test, labeling_info],
     file_names_csv,
@@ -201,8 +205,7 @@ tml.modeling.utils.save_files(
 if env_directory is not None:
     file_names = file_names_pkl + file_names_csv
     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
-    # tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
-    destroy_mfiles_object(mfiles_client, file_names)
+    tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
     wd = os.getcwd()
     os.chdir(Path(output_data_path))
     for f in file_names:
