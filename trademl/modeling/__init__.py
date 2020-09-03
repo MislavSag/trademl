@@ -10,7 +10,7 @@ from trademl.modeling.features import (
 from trademl.modeling.outliers import (
     remove_ohlc_ouliers, remove_ourlier_diff_median)
 from trademl.modeling.stationarity import (
-    min_ffd_plot, min_ffd_all_cols, min_ffd_value)
+    min_ffd_all_cols, min_ffd_value)
 from trademl.modeling.utils import (
     cbind_pandas_h2o)
 from trademl.modeling.backtest import (
