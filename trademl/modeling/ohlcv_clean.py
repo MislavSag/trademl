@@ -28,7 +28,7 @@ median_outlier_thrteshold = 20
 ### IMPORT DATA
 # import data from mysql database and 
 contract = 'SPY_clean'
-q = 'SELECT date, open, high, low, close, volume FROM SPY'
+q = 'SELECT date, open, high, low, close, volume, average, barCount FROM SPY_IB'
 data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
 data.set_index(data.date, inplace=True)
 data.drop(columns=['date'], inplace=True)
@@ -37,8 +37,6 @@ security = data.sort_index()
 
 ### REMOVE OUTLIERS
 security = tml.modeling.outliers.remove_ourlier_diff_median(security, median_outlier_thrteshold)
-security['volume'] = np.where(security.index >= '2019-01-01', security['volume'] * 100, security['volume'])
-
 
 ########### TEST FOR INDICATORS ##############
 # data_sample = data.iloc[:20000]
@@ -150,9 +148,9 @@ security = add_ohlcv_features(security)
 
 
 ### REMOVE NAN
-security.isna().sum().sort_values(ascending=False).head(60)
+print(security.isna().sum().sort_values(ascending=False).head(60))
 if add_ta:
-    security = security.loc[:, security.isna().sum() < (max(periods) + 100)]
+    security = security.loc[:, security.isna().sum() < (max(ta_periods) + 100)]
 cols_remove_na = range((np.where(security.columns == 'volume')[0].item() + 1), security.shape[1])
 security.dropna(subset=security.columns[cols_remove_na], inplace=True)
 
@@ -194,7 +192,7 @@ security['chow_segment'] = 0
 security['chow_segment'][breakdate.index[0]:] = 1
 security['chow_segment'].loc[breakdate.index[0]:] = 1
 security['chow_segment'] = np.where(security.index < breakdate.index[0], 0, 1)
-security['chow_segment'].value_counts()
+print(security['chow_segment'].value_counts())
 
 # SADF
 # sadf_linear =ml.structural_breaks.get_sadf(
@@ -217,7 +215,21 @@ security['chow_segment'].value_counts()
 # # pd.Series(sadf_poly_2).plot()
 # # pd.Series(sadf_power).plot()
 
-### STATIONARITY
+
+### 4) STATIONARITY
+
+
+adfTest = security.apply(lambda x: adfuller(x, 
+                                        maxlag=1,
+                                        regression='c',
+                                        autolag=None)[1],
+                        axis=0)
+pd.DataFrame(adfTest)
+stationaryCols = adfTest.index[adfTest > 0.1].to_list()
+adfTest.iloc[0][1]
+
+
+
 # save original ohlcv, I will need it later
 stationariti_test_cols = security.columns[:np.where(security.columns == 'vix_close_open')[0][0]]
 stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(security[stationariti_test_cols])

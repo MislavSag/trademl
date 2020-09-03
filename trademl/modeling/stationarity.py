@@ -145,28 +145,6 @@ def fast_frac_diff(x, d):
 ### MY FUNCTIONS #####
 
     
-def min_ffd_plot(unstationary_pdseries):
-    """Plot:
-    1) correlation bretween first current value and first lag 
-    2) 5% pavlaue for ADF test
-    3 ) mean of ADF 95% confidence
-    
-    Arguments:
-        unstationary_pdseries {pd.Series} -- pd.Series you want to plot
-    """
-    out = pd.DataFrame(columns=['adfStat', 'pVal', 'lags', 'nObs', '95% conf', 'corr'])
-    for d in np.linspace(0, 1, 11):
-        df1 = np.log(unstationary_pdseries).resample('1D').last()  # downcast to daily obs        
-        df1.dropna(inplace=True)
-        df2 = frac_diff_ffd(df1.values, d=d, thres=1e-4).dropna()
-        corr = np.corrcoef(df1.loc[df2.index].squeeze(), df2.squeeze())[0, 1]
-        df2 = adfuller(df2.squeeze(), maxlag=1, regression='c', autolag=None)
-        out.loc[d] = list(df2[:4]) + [df2[4]['5%']] + [corr]  # with critical value
-    out[['adfStat', 'corr']].plot(secondary_y='adfStat', figsize=(10, 8))
-    plt.axhline(out['95% conf'].mean(), linewidth=1, color='r', linestyle='dotted')
-    return
-
-
 def min_ffd_value(unstationary_series, d_domain, pvalue_threshold=0.05):
     """
     Source: Chapter 5, AFML (section 5.5, page 83);
@@ -216,9 +194,10 @@ def min_ffd_all_cols(data):
     adfTest = data.apply(lambda x: adfuller(x, 
                                             maxlag=1,
                                             regression='c',
-                                            autolag=None),
+                                            autolag=None)[1],
                          axis=0)
-    stationaryCols = adfTest.columns[adfTest.iloc[1] > 0.1]
+    # stationaryCols = adfTest.columns[adfTest.iloc[1] > 0.1]
+    stationaryCols = adfTest.index[adfTest > 0.1].to_list()
     # adfTestPval = [adf[1] for adf in adfTest]
     # adfTestPval = pd.Series(adfTestPval)
     # stationaryCols = data.loc[:, (adfTestPval > 0.1).to_list()].columns

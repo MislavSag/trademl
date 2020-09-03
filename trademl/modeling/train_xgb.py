@@ -1,170 +1,82 @@
 # fundamental modules
+from pathlib import Path
 import numpy as np
 import pandas as pd
+from datetime import datetime
 from numba import njit
 import matplotlib.pyplot as plt
 import matplotlib
-import joblib
-import json
 import sys
 import os
-# preprocessing
 import sklearn
+from sklearn.ensemble import RandomForestClassifier, BaggingClassifier
+from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from mlfinlab.ensemble import SequentiallyBootstrappedBaggingClassifier
 from sklearn.base import clone
-import xgboost as xgb
 import shap
-# metrics 
+import xgboost as xgb
 import mlfinlab as ml
-# finance packages
+from mlfinlab.feature_importance import get_orthogonal_features
 import trademl as tml
+from tensorboardX import SummaryWriter
+matplotlib.use("Agg")  # don't show graphs
 
 
-### DON'T SHOW GRAPH OPTION
-matplotlib.use("Agg")
+### TENSORBORADX WRITER
+log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
+    "%Y%m%d-%H%M%S")
+writer = SummaryWriter(log_dir)
 
-
-### GLOBALS
-DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
-
-
-### IMPORT DATA
-contract = ['SPY']
-with pd.HDFStore(DATA_PATH + contract[0] + '.h5') as store:
-    data = store.get(contract[0])
-data.sort_index(inplace=True)
-
-
-### CHOOSE/REMOVE VARIABLES
-remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-            # 'vixFirst', 'vixHigh', 'vixLow', 'vixClose', 'vixVolume',
-            'open_orig', 'high_orig', 'low_orig']
-remove_ohl = [col for col in remove_ohl if col in data.columns]
-data.drop(columns=remove_ohl, inplace=True)  #correlated with close
-
-
-### NON-MODEL HYPERPARAMETERS
-num_threads = 1
-structural_break_regime = 'all'
-labeling_technique = 'trend_scanning'
-std_outlier = 10
-tb_volatility_lookback = 500
-tb_volatility_scaler = 1
-tb_triplebar_num_days = 10
-tb_triplebar_pt_sl = [1, 1]
-tb_triplebar_min_ret = 0.004
-ts_look_forward_window = 1200  # 60 * 8 * 10 (10 days)
-ts_min_sample_length = 30
-ts_step = 5
-tb_min_pct = 0.10
-sample_weights_type = 'returns'
-cv_type = 'purged_kfold'
-cv_number = 4
-rand_state = 3
-stationary_close_lables = False
 
 ### MODEL HYPERPARAMETERS
-# max_depth = 3
-# max_features = 20
-# n_estimators = 500
-
-### POSTMODEL PARAMETERS
-keep_important_features = 25
-# vectorbt_slippage = 0.0015
-# vectorbt_fees = 0.0015
-
-
-### REGIME DEPENDENT ANALYSIS
-if structural_break_regime == 'chow':
-    if (data.loc[data['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
-        data = data.iloc[-(60*8*365):]
-    else:
-        data = data.loc[data['chow_segment'] == 1]
-
-### USE STATIONARY CLOSE TO CALCULATE LABELS
-if stationary_close_lables:
-    data['close_orig'] = data['close']  # with original close reslts are pretty bad!
+input_data_path = 'D:/algo_trading_files'
+use_pca_features = False
+rand_state = 3
+sample_weights_type = 'return'
+cv_type = 'purged_kfold'
+cv_number = 5
+# model
+booster = 'gbtree'
+# num_feature = 15
+eta = 0.2
+min_child_weight = 1
+subsample = 0.95
+colsample_bytree = 0.9
+max_depth = 3
+learning_rate = 0.1
 
 
-### REMOVE OUTLIERS
-# outlier_remove = tml.modeling.pipelines.OutlierStdRemove(std_outlier)
-# data = outlier_remove.fit_transform(data)
+### IMPORT PREPARED DATA
+if use_pca_features:
+    X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train_pca.pkl'))
+    X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test_pca.pkl'))
+    y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train_pca.pkl'))
+    y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test_pca.pkl'))
+    labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info_pca.pkl'))
+else:
+    X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
+    X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
+    y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
+    y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
+    labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
 
 
-### LABELING
-if labeling_technique == 'triple_barrier':
-    # TRIPLE BARRIER LABELING
-    triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-        close_name='close_orig',
-        volatility_lookback=tb_volatility_lookback,
-        volatility_scaler=tb_volatility_scaler,
-        triplebar_num_days=tb_triplebar_num_days,
-        triplebar_pt_sl=tb_triplebar_pt_sl,
-        triplebar_min_ret=tb_triplebar_min_ret,
-        num_threads=num_threads,
-        tb_min_pct=tb_min_pct
-    )
-    tb_fit = triple_barrier_pipe.fit(data)
-    labeling_info = tb_fit.triple_barrier_info
-    X = tb_fit.transform(data)
-elif labeling_technique == 'trend_scanning':
-    trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-        close_name='close_orig',
-        volatility_lookback=tb_volatility_lookback,
-        volatility_scaler=tb_volatility_scaler,
-        ts_look_forward_window=ts_look_forward_window,
-        ts_min_sample_length=ts_min_sample_length,
-        ts_step=ts_step
-        )
-    labeling_info = trend_scanning_pipe.fit(data)
-    X = trend_scanning_pipe.transform(data)
-elif labeling_technique == 'fixed_horizon':
-    X = data.copy()
-    labeling_info = ml.labeling.fixed_time_horizon(data['close_orig'], threshold=0.005, resample_by='B').dropna().to_frame()
-    labeling_info = labeling_info.rename(columns={'close_orig': 'bin'})
-    print(labeling_info.iloc[:, 0].value_counts())
-    X = X.iloc[:-1, :]
-
-
-### CLUSTERED FEATURES
-# feat_subs = ml.clustering.feature_clusters.get_feature_clusters(
-#     X, dependence_metric='information_variation',
-#     distance_metric='angular', linkage_method='singular',
-#     n_clusters=1)
-
-
-### CALENDARS
-# import pandas_market_calendars as mcal
-# # Create a calendar
-# nyse = mcal.get_calendar('NYSE')
-# schedule = nyse.schedule(start_date='2016-12-30', end_date='2017-01-10')
-# schedule  
-# # Show available calendars
-# print(mcal.get_calendar_names())
-
-
-# TRAIN TEST SPLIT
-X_train, X_test, y_train, y_test = train_test_split(
-    X.drop(columns=['close_orig']), labeling_info['bin'],
-    test_size=0.10, shuffle=False, stratify=None)
-X_train, X_val, y_train, y_val = train_test_split(
-    X_train, y_train, test_size=0.15, shuffle=False, stratify=None)
-
-
-### SAMPLE WEIGHTS (DECAY FACTOR CAN BE ADDED!)
-if sample_weights_type == 'returns':
-    sample_weigths = ml.sample_weights.get_weights_by_return(
+### SAMPLE WEIGHTS
+if 't_value' in labeling_info.columns:
+    sample_weights = labeling_info['t_value'].reindex(X_train.index).abs()
+elif sample_weights_type == 'returns':
+    sample_weights = ml.sample_weights.get_weights_by_return(
         labeling_info.reindex(X_train.index),
-        data.loc[X_train.index, 'close_orig'],
+        X_train.loc[X_train.index, 'close_orig' if 'close_orig' in X_train.columns else 'close'],
         num_threads=1)
 elif sample_weights_type == 'time_decay':
-    sample_weigths = ml.sample_weights.get_weights_by_time_decay(
+    sample_weights = ml.sample_weights.get_weights_by_time_decay(
         labeling_info.reindex(X_train.index),
-        data.loc[X_train.index, 'close_orig'],
+        X_train.loc[X_train.index, 'close_orig' if 'close_orig' in X_train.columns else 'close'],
         decay=0.5, num_threads=1)
-elif labeling_technique is 'trend_scanning':
-    sample_weigths = labeling_info['t_value'].reindex(X_train.index).abs()
+elif sample_weights_type == 'none':
+    sample_weights = None
 
 
 ### CROS VALIDATION STEPS
@@ -176,42 +88,87 @@ if cv_type == 'purged_kfold':
 
 # MODEL
 # convert pandas df to xgboost matrix
-dmatrix_train = xgb.DMatrix(data=X_train, label=y_train.replace(-1, 0))
-dmatrix_test = xgb.DMatrix(data=X_test, label=y_test.replace(-1, 0))
+# dmatrix_train = xgb.DMatrix(data=X_train, label=y_train.astype(int))
+# dmatrix_test = xgb.DMatrix(data=X_test, label=y_test.astype(int))
 
-# parameters for GridSearch
-parameters = {'max_depth': range(2, 6, 1),
-              'n_estimators': range(50, 200, 50),
-              'learning_rate': [0.10, 1, 0.05]
-            }
+# # parameters for GridSearch
+# params = {
+#     'booster': booster,
+#     # 'num_feature': num_feature,
+#     'eta': eta,
+#     'min_child_weight': min_child_weight,
+#     'subsample': subsample,
+#     'max_depth': max_depth,
+#     'learning_rate': learning_rate,
+#     'colsample_bytree': colsample_bytree
+#     }
 
-# define estimator
-estimator = xgb.XGBClassifier(
-    objective= 'binary:logistic',
-    nthread=4,
-    seed=3
+# # define estimator
+# bst = xgb.train(params, dmatrix_train)
+# # make prediction
+# preds = bst.predict(dmatrix_test)
+
+# # cv
+# cv_results = xgb.cv(
+#     params=params,
+#     dtrain=dmatrix_train,
+#     num_boost_round = 999,  # Here we will use a large number again and count on early_stopping_rounds to find the optimal number of rounds before reaching the maximum.
+#     folds=cv,
+#     early_stopping_rounds=10,
+#     metrics="auc",
+#     as_pandas=True
+#     )
+
+# split X_train data
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train, y_train.astype(int),
+    test_size=0.15, shuffle=False, stratify=None)
+sample_weights_train=sample_weights.iloc[:X_train.shape[0]]
+
+clf = xgb.XGBClassifier(
+    n_estimators=500,
+    max_depth=max_depth,
+    learning_rate=learning_rate,
+    verbosity=1,
+    objective='binary:logistic',
+    booster=booster,
+    njobs=16,
+    min_child_weight=min_child_weight,
+    subsample=subsample,
+    colsample_bytree=colsample_bytree
 )
+clf.fit(X_train, y_train, eval_set=[(X_val, y_val)], eval_metric="auc", early_stopping_rounds=30, sample_weight=sample_weights_train, verbose=True)
 
-# define grid search
-clf = GridSearchCV(
-    estimator=estimator,
-    param_grid=parameters,
-    scoring='roc_auc',
-    refit=True,
-    cv=cv
-)
 
-# fit random search
-clf.fit(
-    X_train, y_train, verbose=True
-    # early_stopping_rounds=20, eval_set=[X_val, y_val], eval_metric='auc'
-        )
-learning_rate, max_depth, n_estimators = clf.best_params_.values()
+### CV RESULTS
+# eval scores
+evals_result = clf.evals_result()['validation_0']
+evals_result = np.array(list(evals_result.values())).reshape(-1)
+mean_score = evals_result.mean()
+best_score = evals_result.max()
+std_score = evals_result.std()
+save_id = f'{max_depth}{learning_rate}{min_child_weight}{str(mean_score)[2:6]}'
+print(f'Mean score: {best_score}')
+writer.add_scalar(tag='mean_score', scalar_value=mean_score, global_step=None)
+writer.add_scalar(tag='std_score', scalar_value=std_score, global_step=None)
+writer.add_scalar(tag='best_score', scalar_value=std_score, global_step=None)
+writer.add_text(tag='save_id', text_string=save_id, global_step=None)
 
-# model scores
-clf_predictions = clf.predict(X_test)
-clf_f1_score = sklearn.metrics.f1_score(y_test, clf_predictions)
-print(f'f1_score: {clf_f1_score}')
-print(f'optimal_model_depth: {depth}')
-print(f'n_estimators: {n_estimators}')
-print(f'max_features {n_features}')
+
+if best_score > 0.55:
+    # test scores
+    clf_predictions = clf.predict(X_test)
+    tml.modeling.metrics_summary.clf_metrics_tensorboard(
+        writer, clf, X_train, X_test, y_train, y_test, avg='binary')
+
+    # save feature importance tables and plots
+    # xgb.plot_importance(clf)
+    
+    
+    # shap_values, importances, mdi_feature_imp = tml.modeling.feature_importance.important_fatures(
+    #     clf, X_train, y_train, plot_name=save_id)
+    # tml.modeling.utils.save_files([shap_values, importances, mdi_feature_imp],
+    #             file_names=[f'shap_{save_id}.csv',
+    #                         f'rf_importance_{save_id}.csv',
+    #                         f'mpi_{save_id}.csv'],
+    #             directory=os.path.join(Path(input_data_path), 'important_features'))
