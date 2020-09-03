@@ -151,7 +151,7 @@ save_id = f'{max_depth}{learning_rate}{min_child_weight}{str(mean_score)[2:6]}'
 print(f'Mean score: {best_score}')
 writer.add_scalar(tag='mean_score', scalar_value=mean_score, global_step=None)
 writer.add_scalar(tag='std_score', scalar_value=std_score, global_step=None)
-writer.add_scalar(tag='best_score', scalar_value=std_score, global_step=None)
+writer.add_scalar(tag='best_score', scalar_value=best_score, global_step=None)
 writer.add_text(tag='save_id', text_string=save_id, global_step=None)
 
 

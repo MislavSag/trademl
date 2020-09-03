@@ -10,8 +10,8 @@ pd.set_option('display.width', 1000)
 
 
 # set home
-GUILD_HOME = 'C:/ProgramData/Anaconda3/.guild'
-guild.set_guild_home(GUILD_HOME)
+# GUILD_HOME = 'C:/ProgramData/Anaconda3/.guild'
+# guild.set_guild_home(GUILD_HOME)
 
 # df runs
 runs = guild.runs() 
@@ -21,10 +21,10 @@ runs = guild.runs()
 scalars = runs.scalars()
 
 # compare
-runs_cmpare = guild.runs().compare()
-runs_cmpare.head(15)
-runs_cmpare.sort_values(by=['fi_f1_test'], ascending=False).head()
-runs_cmpare.sort_values(by=['fi_f1_test'], ascending=False).head(1)['label'].iloc[0]
+runs_compare = guild.runs().compare()
+runs_compare.head(15)
+runs_compare.sort_values(by=['best_score'], ascending=True).head()
+runs_compare.sort_values(by=['fi_f1_tmean_score'], ascending=False).head(1)['label'].iloc[0]
 
 
 # # PLAYING WITH GOOGLE NEWS

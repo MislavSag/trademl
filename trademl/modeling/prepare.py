@@ -23,8 +23,6 @@ matplotlib.use("Agg")  # don't show graphs because thaty would stop guildai scri
 input_data_path = 'D:/market_data/usa/ohlcv_features'
 output_data_path = 'D:/algo_trading_files'
 env_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-# dimension
-sequence_3d = True
 # structural breaks
 structural_break_regime = 'all'
 # labeling
@@ -42,7 +40,7 @@ ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
 # filtering
-tb_volatility_lookback = 500
+tb_volatility_lookback = 100
 tb_volatility_scaler = 1
 # stationarity
 stationarity_tecnique = 'orig'
@@ -134,11 +132,11 @@ else:
 
 
 ### FILTERING
-daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
-cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
-if not label_tuning and not sequence_3d:
+if label_tuning:
     X = X.drop(columns=['orig_close'])
-elif label_tuning and not sequence_3d:
+else:
+    daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
+    cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
     X = X[cusum_events]
     labeling_info = labeling_info[cusum_events]
 ### ZAVRSITI DO KRAJA ####
@@ -194,69 +192,26 @@ if pca:
     X_test.index = y_test.index
 
 
-### 3D SEQUENCE
-if sequence_3d:
-    # calculate daily vol and filter time to trade
-    def sequence_from_array(data, target_vec, cusum_events, time_step_length):
-        cusum_events_ = cusum_events.intersection(data.index)
-        lstm_sequences = []
-        targets = []
-        for date in cusum_events_:
-            observation = data[:date].iloc[-time_step_length:]
-            if observation.shape[0] < time_step_length or data.index[-1] < date:
-                next
-            else:
-                lstm_sequences.append(observation.values.reshape((1, observation.shape[0], observation.shape[1])))
-                targets.append(target_vec[target_vec.index == date])
-        lstm_sequences_all = np.vstack(lstm_sequences)
-        targets = np.vstack(targets)
-        targets = targets.astype(np.int64)
-        return lstm_sequences_all, targets
-
-
-    X_val, y_val = sequence_from_array(
-        X_train.iloc[int((train_val_index_split*X_train.shape[0] + 1)):],
-        y_train.iloc[int((train_val_index_split*X_train.shape[0] + 1)):],
-        cusum_events, time_step_length)
-    X_train, y_train = sequence_from_array(
-        X_train.iloc[:int(train_val_index_split*X_train.shape[0])],
-        y_train.iloc[:int(train_val_index_split*X_train.shape[0])],
-        cusum_events, time_step_length)
-    X_test, y_test = sequence_from_array(X_test, y_test, cusum_events, time_step_length)
-
-
-
 ### SAVE FILES
 # save localy
-if not sequence_3d:
-    file_names = ['X_train', 'y_train', 'X_test',
-                  'y_test', 'labeling_info']
-    saved_files = [X_train, y_train, X_test, y_test, labeling_info]
-else:
-    file_names = ['X_train', 'y_train', 'X_test',
-                  'y_test', 'X_val', 'y_val']
-    saved_files = [X_train, y_train, X_test, y_test, X_val, y_val]
+file_names = ['X_train', 'y_train', 'X_test',
+                'y_test', 'labeling_info']
+saved_files = [X_train, y_train, X_test, y_test, labeling_info]
 if pca:
     file_names = [f + '_pca' for f in file_names]
-if sequence_3d:
-    file_names = [f + '_seq' for f in file_names]
 file_names_pkl = [f + '.pkl' for f in file_names]
-
-if not sequence_3d:
-    tml.modeling.utils.save_files(
-        saved_files,
-        file_names_pkl,
-        output_data_path)
-    file_names_csv = [f + '.csv' for f in file_names]
-    tml.modeling.utils.save_files(
-        saved_files,
-        file_names_csv,
-        output_data_path)
-else:
-    X_train
+tml.modeling.utils.save_files(
+    saved_files,
+    file_names_pkl,
+    output_data_path)
+file_names_csv = [f + '.csv' for f in file_names]
+tml.modeling.utils.save_files(
+    saved_files,
+    file_names_csv,
+    output_data_path)
 # save to mfiles
 if env_directory is not None:
-    file_names = file_names_pkl if sequence_3d else file_names_pkl + file_names_csv
+    file_names = file_names_pkl + file_names_csv
     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
     tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
     wd = os.getcwd()

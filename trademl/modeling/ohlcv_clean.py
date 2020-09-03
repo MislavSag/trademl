@@ -146,6 +146,8 @@ def add_ohlcv_features(data):
 
 security = add_ohlcv_features(security)
 
+security = tml.modeling.features.add_ohlcv_features(security)
+
 
 ### REMOVE NAN
 print(security.isna().sum().sort_values(ascending=False).head(60))
@@ -217,19 +219,6 @@ print(security['chow_segment'].value_counts())
 
 
 ### 4) STATIONARITY
-
-
-adfTest = security.apply(lambda x: adfuller(x, 
-                                        maxlag=1,
-                                        regression='c',
-                                        autolag=None)[1],
-                        axis=0)
-pd.DataFrame(adfTest)
-stationaryCols = adfTest.index[adfTest > 0.1].to_list()
-adfTest.iloc[0][1]
-
-
-
 # save original ohlcv, I will need it later
 stationariti_test_cols = security.columns[:np.where(security.columns == 'vix_close_open')[0][0]]
 stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(security[stationariti_test_cols])
@@ -246,7 +235,6 @@ security.columns = ['fracdiff_' + col if col in stationaryCols else col for col 
 security = pd.concat([keep_unstat, security], axis=1)
 # merge orig na stat
 security = security.dropna()
-security.head()
 
 
 ### SAVE

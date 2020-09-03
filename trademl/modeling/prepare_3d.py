@@ -170,22 +170,79 @@ if scaling == 'expanding':
     X_train = X_train.dropna()
     y_test = y_test.loc[~X_test.isna().any(axis=1)]
     X_test = X_test.dropna()
-    
 
 
+### 3D SEQUENCE
+# calculate daily vol and filter time to trade
+def sequence_from_array(data, target_vec, cusum_events, time_step_length):
+    cusum_events_ = cusum_events.intersection(data.index)
+    lstm_sequences = []
+    targets = []
+    for date in cusum_events_:
+        observation = data[:date].iloc[-time_step_length:]
+        if observation.shape[0] < time_step_length or data.index[-1] < date:
+            next
+        else:
+            lstm_sequences.append(observation.values.reshape((1, observation.shape[0], observation.shape[1])))
+            targets.append(target_vec[target_vec.index == date])
+    lstm_sequences_all = np.vstack(lstm_sequences)
+    targets = np.vstack(targets)
+    targets = targets.astype(np.int64)
+    return lstm_sequences_all, targets
+
+
+X_val, y_val = sequence_from_array(
+    X_train.iloc[int((train_val_index_split*X_train.shape[0] + 1)):],
+    y_train.iloc[int((train_val_index_split*X_train.shape[0] + 1)):],
+    cusum_events, time_step_length)
+X_train, y_train = sequence_from_array(
+    X_train.iloc[:int(train_val_index_split*X_train.shape[0])],
+    y_train.iloc[:int(train_val_index_split*X_train.shape[0])],
+    cusum_events, time_step_length)
+X_test, y_test = sequence_from_array(X_test, y_test, cusum_events, time_step_length)
 
 # test for shapes
-# print('X and y shape train: ', X_train_seq.shape, y_train_seq.shape)
-# print('X and y shape validate: ', X_val_seq.shape, y_val_seq.shape)
-# print('X and y shape test: ', X_test_seq.shape, y_test_seq.shape)
+print('X and y shape train: ', X_train.shape, y_train.shape)
+print('X and y shape validate: ', X_val.shape, y_val.shape)
+print('X and y shape test: ', X_test.shape, y_test.shape)
 
+# change labels type to integer64
+y_train = y_train.astype(np.int64)
+y_val = y_val.astype(np.int64)
+y_test = y_test.astype(np.int64)
+
+
+### SAVE FILES
+# save localy
+file_names = ['X_train_seq', 'y_train_seq', 'X_test_seq', 'y_test_seq', 'X_val_seq', 'y_val_seq']
+saved_files = [X_train, y_train, X_test, y_test, X_val, y_val]
+if pca:
+    file_names = [f + '_pca' for f in file_names]
+tml.modeling.utils.save_files(
+    saved_files,
+    file_names,
+    output_data_path)
+# save to mfiles
+if env_directory is not None:
+    file_names = [f + '.npy' for f in file_names]
+    mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
+    tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
+    wd = os.getcwd()
+    os.chdir(Path(output_data_path))
+    for f in file_names:
+        mfiles_client.upload_file(f, object_type='Dokument')
+    os.chdir(wd)
 
 
 ### TEST MODEL
+# X_train_test = X_train[:100]
+# y_train_test = y_train[:100]
+# X_val_test = X_val[:20]
+# y_val_test = y_val[:20]
 # model = keras.Sequential()
 # model.add(layers.LSTM(32,
 #                       return_sequences=True,
-#                       input_shape=[None, X_train.shape[1]]))
+#                       input_shape=[None, X_train.shape[2]]))
 # model.add(layers.LSTM(32, dropout=0.2))
 # model.add(layers.Dense(1, activation='sigmoid'))
 # model.compile(loss='binary_crossentropy',
@@ -195,4 +252,4 @@ if scaling == 'expanding':
 #                         keras.metrics.Precision(),
 #                         keras.metrics.Recall()]
 #                 )
-# history = model.fit(X_train_seq, y_train_seq, batch_size=128, epochs = 5, validation_data = (X_val_seq, y_val_seq))
+# history = model.fit(X_train_test, y_train_test, batch_size=128, epochs = 5, validation_data = (X_val_test, y_val_test))

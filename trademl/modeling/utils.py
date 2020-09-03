@@ -255,7 +255,9 @@ def save_files(objects, file_names, directory='important_features'):
             df.to_csv(saving_path)
         elif ".pkl" in file_name:
             df.to_pickle(saving_path)
-            
+        elif "." not in file_name:
+            np.save(saving_path, df)
+
 
 def set_mfiles_client(env_directory):
     """
