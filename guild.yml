@@ -109,9 +109,9 @@
       # requires: prepared-data
       flags‑import: all
       flags:
-        innput_path:
+        input_data_path:
           description: Path where prepared data and saved output exists
-          arg_name: innput_path
+          arg_name: input_data_path
           type: string
           default: 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
           required: True
@@ -157,6 +157,65 @@
           type: string
           default: 'balanced_subsample'
           choices: ['balanced','balanced_subsample']
+
+- model: xgboost
+  extends: model-base
+  description: Xgboost classifier
+  operations:
+    train:
+      description: Trainer for xgboost  
+      main: trademl.modeling.train_xgb  # Python module when running the operation
+      # requires: prepared-data
+      flags‑import: all
+      flags:
+        input_data_path:
+          description: Path where prepared data and saved output exists
+          arg_name: input_data_path
+          type: string
+          default: 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+          required: True
+        cv_type:
+          description: type of cv
+          arg_name: cv_type
+          type: string
+          default: 'purged_kfold'
+          choices: ['purged_kfold']
+        cv_number:
+          description: Number of CV folds to use in CV
+          arg_name: cv_number
+          min: 1
+          max: 20
+        max_depth:
+          description: Maximum depth for the tree in random forest algorithm
+          arg_name: max_depth
+          min: 1
+          max: 10
+        learning_rate:
+          description: Learning rate
+          arg_name: learning_rate
+          default: 10e-2
+        booster:
+          description: Xgbosst booster to use
+          arg_name: booster
+          type: string
+          default: 'gbtree'
+          choices: ['gbtree','gblinear','dart']
+        colsample_bytree:
+          description: look at xgbost docs
+          arg_name: colsample_bytree
+          default: 0.9
+        subsample:
+          description: >
+            When constructing the additional tree, don't use the full training data set.
+            Instead use a subset of randomly selected training data.
+          arg_name: subsample
+          default: 0.9
+        min_child_weight:
+          description: >
+            When constructing the additional tree, don't use the full training data set.
+            Instead use a subset of randomly selected training data.
+          arg_name: min_child_weight
+          default: 1
 
 - model: lstm
   extends: model-base
