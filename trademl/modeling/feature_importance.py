@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import sklearn
 import shap
+import xgboost as xgb
+import trademl as tml
 import matplotlib.pyplot as plt
 import mlfinlab as ml
 
@@ -172,7 +174,7 @@ def fi_xgboost(clf, X_train, save_id, save_path):
     Args:
         clf (xgb.sklearn.XGBClassifier or ): Classifier for which tto calculate important features.
         X_train (pd.DataFrame): X_train data used to calculate again (probabbly can be overcomed somehow)
-        plot_name (str): used as part of the plot name
+        save_id (str): used as part of the plot name
         save_path (str): path to directory where plots and tables are saved
 
     Returns:
@@ -193,7 +195,7 @@ def fi_xgboost(clf, X_train, save_id, save_path):
         os.makedirs(save_path_tables)
         
     # save plot and tables
-    saving_path = os.path.join(save_path_plots,f'xgboost_{plot_name}.png')
+    saving_path = os.path.join(save_path_plots,f'xgboost_{save_id}.png')
     xgb.plot_importance(clf, max_num_features=10)
     plt.savefig(saving_path)
     importances = pd.Series(clf.feature_importances_, index=X_train.columns)
