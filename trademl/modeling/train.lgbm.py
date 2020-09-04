@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from datetime import datetime
+from numba import njit
 import matplotlib.pyplot as plt
 import matplotlib
 import os
@@ -10,12 +11,11 @@ import sklearn
 from sklearn.model_selection import train_test_split
 from sklearn.base import clone
 import shap
-import xgboost as xgb
+import lightgbm as lgb
 import mlfinlab as ml
 import trademl as tml
 from tensorboardX import SummaryWriter
 matplotlib.use("Agg")  # don't show graphs
-import uuid 
 
 
 ### TENSORBORADX WRITER
@@ -32,13 +32,14 @@ sample_weights_type = 'return'
 cv_type = 'purged_kfold'
 cv_number = 5
 # model
-booster = 'gbtree'
-eta = 0.2
-min_child_weight = 1
+boosting_type = 'gbdt'
+num_leaves  = 50
+n_estimators  = 500
+min_child_samples = 10
 subsample = 0.95
-colsample_bytree = 0.9
 max_depth = 3
 learning_rate = 0.1
+colsample_bytree = 0.9
 
 
 ### IMPORT PREPARED DATA
@@ -80,81 +81,56 @@ if cv_type == 'purged_kfold':
         samples_info_sets=labeling_info['t1'].reindex(X_train.index))
 
 
-# MODEL
-# convert pandas df to xgboost matrix
-dmatrix_train = xgb.DMatrix(data=X_train, label=y_train.astype(int))
-dmatrix_test = xgb.DMatrix(data=X_test, label=y_test.astype(int))
+### MODEL
+# split X_train data
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train, y_train.astype(int),
+    test_size=0.15, shuffle=False, stratify=None)
+sample_weights_train=sample_weights.iloc[:X_train.shape[0]]
 
-# # parameters for GridSearch
-params = {
-    'booster': booster,
-    'eta': eta,
-    'min_child_weight': min_child_weight,
-    'subsample': subsample,
-    'max_depth': max_depth,
-    'learning_rate': learning_rate,
-    'colsample_bytree': colsample_bytree
-    }
-
-# cv
-cv_clf = xgb.cv(
-    params=params,
-    dtrain=dmatrix_train,
-    num_boost_round = 500,  # Here we will use a large number again and count on early_stopping_rounds to find the optimal number of rounds before reaching the maximum.
-    folds=cv,
-    early_stopping_rounds=15,
-    metrics="auc",
-    as_pandas=True
+# classifier
+clf = lgb.LGBMClassifier(
+    boosting_type=boosting_type,
+    num_leaves=num_leaves,
+    max_depth=max_depth,
+    learning_rate=learning_rate,
+    n_estimators=n_estimators,
+    objective='binary',
+    min_child_samples=min_child_samples,
+    subsample=subsample,
+    colsample_bytree=colsample_bytree
     )
 
-# cv scores
-cv_results = cv_clf.loc[cv_clf.iloc[:, 2] == cv_clf.iloc[:, 2].max()]
-mean_score = cv_results.iloc[0, 2]
-std_score = cv_results.iloc[0, 3]
-save_id = str(uuid.uuid1())
-print(f'Mean score: {mean_score}')
+
+clf = lgb.LGBMClassifier(
+    boosting_type=boosting_type,
+    num_leaves=num_leaves,
+    max_depth=max_depth,
+    learning_rate=learning_rate,
+    n_estimators=n_estimators,
+    objective='binary',
+    min_child_samples=min_child_samples,
+    subsample=subsample,
+    colsample_bytree=colsample_bytree
+    )
+clf = lgb.cv()
+
+
+# clf fit
+clf.fit(X_train, y_train, eval_set=[(X_val, y_val)], sample_weight=sample_weights_train,
+        eval_metric='auc', early_stopping_rounds=30, verbose=True)
+
+
+### CV RESULTS
+# eval scores
+evals_result = clf.evals_result()['validation_0']
+evals_result = np.array(list(evals_result.values())).reshape(-1)
+mean_score = evals_result.mean()
+best_score = evals_result.max()
+std_score = evals_result.std()
+save_id = f'{max_depth}{learning_rate}{min_child_weight}{str(mean_score)[2:6]}'
+print(f'Mean score: {best_score}')
 writer.add_scalar(tag='mean_score', scalar_value=mean_score, global_step=None)
 writer.add_scalar(tag='std_score', scalar_value=std_score, global_step=None)
+writer.add_scalar(tag='best_score', scalar_value=best_score, global_step=None)
 writer.add_text(tag='save_id', text_string=save_id, global_step=None)
-
-
-# Continue i=only if score is high enough
-if mean_score > 0.55:
-    # split X_train data
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train, y_train.astype(int),
-        test_size=0.15, shuffle=False, stratify=None)
-    sample_weights_train=sample_weights.iloc[:X_train.shape[0]]
-
-    clf = xgb.XGBClassifier(
-        n_estimators=500,
-        max_depth=max_depth,
-        learning_rate=learning_rate,
-        verbosity=1,
-        objective='binary:logistic',
-        booster=booster,
-        njobs=16,
-        min_child_weight=min_child_weight,
-        subsample=subsample,
-        colsample_bytree=colsample_bytree
-    )
-    clf.fit(X_train, y_train, eval_set=[(X_val, y_val)], eval_metric='auc',
-            early_stopping_rounds=30, sample_weight=sample_weights_train, verbose=True)
-
-    # eval scores
-    evals_result = clf.evals_result()['validation_0']
-    evals_result = np.array(list(evals_result.values())).reshape(-1)
-    best_score = evals_result.max()
-    print(f'Mean score: {best_score}')
-    writer.add_scalar(tag='best_score', scalar_value=best_score, global_step=None)
-
-    # Continue i=only if score is high enough
-    if best_score > 0.55:
-        # test scores
-        clf_predictions = clf.predict(X_test)
-        tml.modeling.metrics_summary.clf_metrics_tensorboard(
-            writer, clf, X_train, X_test, y_train, y_test, avg='binary')
-
-    # save important featues
-    fi_shap(clf, X_train, y_train, save_id, input_data_path)
-    fi_xgboost(clf, X_train, save_id, input_data_path)

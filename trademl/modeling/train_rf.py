@@ -30,7 +30,7 @@ writer = SummaryWriter(log_dir)
 ### MODEL HYPERPARAMETERS
 input_data_path = Path('D:/algo_trading_files')
 use_pca_features = False
-rand_state = 3
+# rand_state = 3    
 sample_weights_type = 'return'
 cv_type = 'purged_kfold'
 cv_number = 5
@@ -88,7 +88,7 @@ clf = RandomForestClassifier(criterion='entropy',
                                 max_depth=max_depth,
                                 n_estimators=n_estimators,
                                 class_weight=class_weight,
-                                random_state=rand_state,
+                                # random_state=rand_state,
                                 n_jobs=16)
 scores = ml.cross_validation.ml_cross_val_score(
     clf, X_train, y_train, cv_gen=cv, 
@@ -118,7 +118,7 @@ else:
                                 max_depth=max_depth,
                                 n_estimators=n_estimators,
                                 class_weight=class_weight,
-                                random_state=rand_state,
+                                # random_state=rand_state,
                                 n_jobs=16)
     clf.fit(X_train, y_train, sample_weight=sample_weights)
     tml.modeling.metrics_summary.clf_metrics_tensorboard(
@@ -126,7 +126,8 @@ else:
 
     # save feature importance tables and plots
     shap_values, importances, mdi_feature_imp = tml.modeling.feature_importance.important_features(
-        clf, X_train, y_train, save_id, os.path.join(input_data_path, 'fi_plots'))
+        clf, X_train, y_train, save_id,
+        save_path=os.path.join(Path(input_data_path), 'fi_plots'))
     tml.modeling.utils.save_files([shap_values, importances, mdi_feature_imp],
                 file_names=[f'shap_{save_id}.csv',
                             f'rf_importance_{save_id}.csv',
@@ -144,7 +145,7 @@ else:
                             max_depth=max_depth,
                             n_estimators=n_estimators,
                             class_weight=class_weight,
-                            random_state=rand_state,
+                            # random_state=rand_state,
                             n_jobs=16)
     clf_important = clf.fit(X_train_important, y_train, sample_weight=sample_weights)
     tml.modeling.metrics_summary.clf_metrics_tensorboard(

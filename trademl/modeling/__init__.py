@@ -20,7 +20,7 @@ from trademl.modeling.pipelines import (
     TripleBarierLabeling, OutlierStdRemove, trend_scanning_labels)
 from trademl.modeling.feature_importance import (
     feature_importance_values, feature_importnace_vec, plot_feature_importance,
-    important_features)
+    important_features, fi_shap, fi_xgboost)
 from trademl.modeling.utils import (
     serialize_random_forest, write_to_db, query_to_db, balance_multiclass, save_files,
     set_mfiles_client, destroy_mfiles_object
