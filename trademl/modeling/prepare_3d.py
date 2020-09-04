@@ -39,7 +39,7 @@ ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
 # filtering
-tb_volatility_lookback = 500
+tb_volatility_lookback = 100
 tb_volatility_scaler = 1
 # stationarity
 stationarity_tecnique = 'orig'
@@ -52,7 +52,7 @@ scaling = None
 num_threads = 1
 # sequence generation
 train_val_index_split = 0.9
-time_step_length = 20
+time_step_length = 25
 
 
 ### IMPORT DATA

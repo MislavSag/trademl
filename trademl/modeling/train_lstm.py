@@ -89,13 +89,14 @@ model.compile(loss='binary_crossentropy',
                        keras.metrics.Precision(),
                        keras.metrics.Recall()]
               )
-callbacks = [tf.keras.callbacks.EarlyStopping('val_loss', patience=5, restore_best_weights=True)]
+callbacks = [
+    tf.keras.callbacks.EarlyStopping('val_accuracy', patience=10, restore_best_weights=True)
+    ]
 history = model.fit(X_train, y_train,
                     batch_size=batch_size,
                     epochs=epochs,
-                    validation_data = (X_val, y_val),
+                    validation_data=(X_val, y_val),
                     callbacks=callbacks)
-
 
 # get accuracy and score
 score, acc, auc, precision, recall = model.evaluate(
@@ -105,10 +106,6 @@ print('accuracy_validation:', acc)
 print('auc_validation:', auc)
 print('precision_validation:', precision)
 print('recall_validation:', recall)
-
-# get loss values and metrics
-# historydf = pd.DataFrame(history.history)
-# historydf.head(50)
  
 # test metrics
 predictions = model.predict(X_test)

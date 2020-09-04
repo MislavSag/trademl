@@ -19,8 +19,8 @@ from trademl.modeling.utils import time_method
 ### HYPERPARAMETERS
 save_path = 'D:/market_data/usa/ohlcv_features'
 add_ta = False
-ta_periods = [5, 30, 480, 960, 2400, 4800, 9600]
-add_labels = False
+ta_periods = [30, 480, 960, 2400, 4800, 9600]
+add_labels = True
 env_directory = None  # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 median_outlier_thrteshold = 20
 
@@ -53,99 +53,7 @@ if add_ta:
     # periods = [5, 30, 480, 960, 2400, 4800, 9600]
     security = tml.modeling.features.add_technical_indicators(security, periods=ta_periods)
     security.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in security.columns]
-
-
-def add_ohlcv_features(data):
-    """
-    Calculate features based on OHLCV data and add tham to data feame.
-    """
-
-    # add ohlc transformations
-    data['high_low'] = data['high'] - data['low']
-    data['close_open'] = data['close'] - data['open']
-    data['close_ath'] = data['close'].cummax()
-        
-    # simple momentum
-    data['momentum1'] = data['close'].pct_change(periods=1)
-    data['momentum2'] = data['close'].pct_change(periods=2)
-    data['momentum3'] = data['close'].pct_change(periods=3)
-    data['momentum4'] = data['close'].pct_change(periods=4)
-    data['momentum5'] = data['close'].pct_change(periods=5)
-    
-    # Volatility
-    data['volatility_60'] = np.log(data['close']).diff().rolling(
-        window=60, min_periods=60, center=False).std()
-    data['volatility_30'] = np.log(data['close']).diff().rolling(
-        window=30, min_periods=30, center=False).std()
-    data['volatility_15'] = np.log(data['close']).diff().rolling(
-        window=15, min_periods=15, center=False).std()
-    data['volatility_10'] = np.log(data['close']).diff().rolling(
-        window=10, min_periods=10, center=False).std()
-    data['volatility_5'] =np.log(data['close']).diff().rolling(
-        window=5, min_periods=5, center=False).std()
-    
-    # Skewness
-    data['skew_60'] = np.log(data['close']).diff().rolling(
-        window=60, min_periods=60, center=False).skew()
-    data['skew_30'] = np.log(data['close']).diff().rolling(
-        window=30, min_periods=30, center=False).skew()
-    data['skew_15'] = np.log(data['close']).diff().rolling(
-        window=15, min_periods=15, center=False).skew()
-    data['skew_10'] = np.log(data['close']).diff().rolling(
-        window=10, min_periods=10, center=False).skew()
-    data['skew_5'] =np.log(data['close']).diff().rolling(
-        window=5, min_periods=5, center=False).skew()
-
-    # kurtosis
-    data['kurtosis_60'] = np.log(data['close']).diff().rolling(
-        window=60, min_periods=60, center=False).kurt()
-    data['kurtosis_30'] = np.log(data['close']).diff().rolling(
-        window=30, min_periods=30, center=False).kurt()
-    data['kurtosis_15'] = np.log(data['close']).diff().rolling(
-        window=15, min_periods=15, center=False).kurt()
-    data['kurtosis_10'] = np.log(data['close']).diff().rolling(
-        window=10, min_periods=10, center=False).kurt()
-    data['kurtosis_5'] =np.log(data['close']).diff().rolling(
-        window=5, min_periods=5, center=False).kurt()
-    
-    # microstructural features
-    data['roll_measure'] = micro.get_roll_measure(data['close'])
-    data['corwin_schultz_est'] = micro.get_corwin_schultz_estimator(
-        data['high'], data['low'], 100)
-    data['bekker_parkinson_vol'] = micro.get_bekker_parkinson_vol(
-        data['high'], data['low'], 100)
-    data['kyle_lambda'] = micro.get_bekker_parkinson_vol(
-        data['close'], data['volume'])
-    data['amihud_lambda'] = micro.get_bar_based_amihud_lambda(
-        data['close'], data['volume'])
-    data['hasbrouck_lambda'] = micro.get_bar_based_hasbrouck_lambda(
-        data['close'], data['volume'])
-    tick_diff = data['close'].diff()
-    data['tick_rule'] = np.where(tick_diff != 0,
-                                np.sign(tick_diff),
-                                np.sign(tick_diff).shift(periods=-1))
-    
-    ### ADD VIX TO DATABASE
-    q = 'SELECT date, open AS open_vix, high AS high_vix, low AS low_vix, \
-        close AS close_vix, volume AS volume_vix FROM VIX'
-    data_vix = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
-    data_vix.set_index(data_vix.date, inplace=True)
-    data_vix.drop(columns=['date'], inplace=True)
-    data_vix.sort_index(inplace=True)
-    # merge spy and vix with merge_asof which uses nearest back value for NA
-    data_vix = data_vix.sort_index()
-    data = pd.merge_asof(data, data_vix, left_index=True, right_index=True)
-    
-    ### VIX FEATURES
-    data['vix_high_low'] = data['high'] - data['low']
-    data['vix_close_open'] = data['close'] - data['open']
-
-    
-    return data
-
-
-security = add_ohlcv_features(security)
-
+# add features
 security = tml.modeling.features.add_ohlcv_features(security)
 
 
@@ -172,7 +80,6 @@ if add_labels:
     observatins_per_day = int(pd.value_counts(security.index.normalize(), sort=False).mean())
     security = add_trend_scanning_label(security, observatins_per_day, 'day_1_')
     security = add_trend_scanning_label(security, observatins_per_day*2, 'day_2_')
-    security = add_trend_scanning_label(security, observatins_per_day*3, 'day_3_')
     security = add_trend_scanning_label(security, observatins_per_day*5, 'day_5_')
     security = add_trend_scanning_label(security, observatins_per_day*10, 'day_10_')
     security = add_trend_scanning_label(security, observatins_per_day*20, 'day_20_')

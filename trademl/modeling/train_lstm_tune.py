@@ -31,29 +31,10 @@ log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
 writer = SummaryWriter(log_dir)
 
 
-### PREPROCESSING PARAMETERS
-output_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling/'
-num_threads = 1
-structural_break_regime = 'all'
-labeling_technique = 'trend_scanning'
-std_outlier = 10
-tb_volatility_lookback = 500
-tb_volatility_scaler = 1
-tb_triplebar_num_days = 10
-tb_triplebar_pt_sl = [1, 1]
-tb_triplebar_min_ret = 0.004
-ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
-ts_min_sample_length = 30
-ts_step = 5
-tb_min_pct = 0.10
-sample_weights_type = 'returns'
-stationary_close_lables = False
-correlation_threshold = 0.90
-pca = False
-
-
 ### MODEL HYPERPARAMETERS
-input_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+input_data_path = 'D:/algo_trading_files'
+use_pca_features = False
+# model
 train_val_index_split = 0.75
 time_step_length = 120
 batch_size = 128
@@ -63,141 +44,32 @@ dropout = 0.2
 lr = 10e-2
 epochs = 50
 optimizer = 'random'
-max_trials = 2  # parameter for random optimizer
+max_trials = 10  # parameter for random optimizer
 executions_per_trial = 2  # parameter for random optimizer
 
 
-### GLOBALS (path to partialy preprocessed data)
-DATA_PATH = 'D:/market_data/usa/ohlcv_features/'
+### IMPORT PREPARED DATA
+if use_pca_features:
+    X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq_pca.npy'))
+    X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq_pca.npy'))
+    X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq_pca.npy'))
+    y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq_pca.npy'))
+    y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq_pca.npy'))
+    y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq_pca.npy'))
+else:
+    X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq.npy'))
+    X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq.npy'))
+    X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq.npy'))
+    y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq.npy'))
+    y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq.npy'))
+    y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq.npy'))
 
 
-### IMPORT DATA
-def import_data(data_path, remove_cols, contract='SPY'):
-    # import data
-    with pd.HDFStore(data_path + '/' + contract + '.h5') as store:
-        data = store.get(contract)
-    data.sort_index(inplace=True)
-    
-    # remove variables
-    remove_cols = [col for col in remove_cols if col in data.columns]
-    data.drop(columns=remove_cols, inplace=True)
-    
-    return data
+### TEST ###
+# X_train = X_train[:1000]
+# y_train = y_train[:1000]
+### TEST ###
 
-
-remove_ohl = ['open', 'low', 'high', 'average', 'barCount',
-                'open_vix', 'high_vix', 'low_vix', 'close_vix', 'volume_vix',
-                'open_orig', 'high_orig', 'low_orig']
-data = import_data(DATA_PATH, remove_ohl, contract='SPY')
-
-
-### REMOVE CORRELATED FEARURES
-if correlation_threshold < 0.99:
-    data = tml.modeling.preprocessing.remove_correlated_columns(
-        data=data,
-        columns_ignore=['close_orig'],
-        threshold=correlation_threshold)
-
-
-### REGIME DEPENDENT ANALYSIS
-if structural_break_regime == 'chow':
-    if (data.loc[data['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
-        data = data.iloc[-(60*8*365):]
-    else:
-        data = data.loc[data['chow_segment'] == 1]
-
-
-### USE STATIONARY CLOSE TO CALCULATE LABELS
-if stationary_close_lables:
-    data['close_orig'] = data['close']  # with original close reslts are pretty bad!
-
-
-# ###################### TEST ######################
-data = data[['close', 'high_low']]
-# ###################### TEST ######################
-
-
-### PREPARE LSTM
-x = data.values
-y = y_train.values.reshape(-1, 1)
-x_test = X_test.values
-y_test_ = y_test.values.reshape(-1, 1)
-train_generator = keras.preprocessing.sequence.TimeseriesGenerator(
-    data=x,
-    targets=y,
-    length=time_step_length,
-    sampling_rate=1,
-    stride=1,
-    start_index=0,
-    end_index=int(train_val_index_split*x.shape[0]),
-    shuffle=False,
-    reverse=False,
-    batch_size=batch_size
-)
-validation_generator = keras.preprocessing.sequence.TimeseriesGenerator(
-    data=x,
-    targets=y,
-    length=time_step_length,
-    sampling_rate=1,
-    stride=1,
-    start_index=int((train_val_index_split*x.shape[0] + 1)),
-    end_index=None,  #int(train_test_index_split*X.shape[0])
-    shuffle=False,
-    reverse=False,
-    batch_size=batch_size
-)
-test_generator = keras.preprocessing.sequence.TimeseriesGenerator(
-    data=x_test,
-    targets=y_test_,
-    length=time_step_length,
-    sampling_rate=1,
-    stride=1,
-    start_index=0,
-    end_index=None,
-    shuffle=False,
-    reverse=False,
-    batch_size=batch_size
-)
-
-
-# convert generator to inmemory 3D series (if enough RAM)
-def generator_to_obj(generator):
-    xlist = []
-    ylist = []
-    for i in range(len(generator)):
-        x, y = generator[i]
-        xlist.append(x)
-        ylist.append(y)
-    X_train = np.concatenate(xlist, axis=0)
-    y_train = np.concatenate(ylist, axis=0)
-    return X_train, y_train
-
-
-X_train_lstm, y_train_lstm = generator_to_obj(train_generator)
-X_val_lstm, y_val_lstm = generator_to_obj(validation_generator)
-X_test_lstm, y_test_lstm = generator_to_obj(test_generator)
-
-# test for shapes
-print('X and y shape train: ', X_train_lstm.shape, y_train_lstm.shape)
-print('X and y shape validate: ', X_val_lstm.shape, y_val_lstm.shape)
-print('X and y shape test: ', X_test_lstm.shape, y_test_lstm.shape)
-
-# change -1 to 1
-for i, y in enumerate(y_train_lstm):
-    if y == -1.:
-        y_train_lstm[i,:] = 0. 
-for i, y in enumerate(y_val_lstm):
-    if y == -1.:
-        y_val_lstm[i,:] = 0. 
-for i, y in enumerate(y_test_lstm):
-    if y == -1.:
-        y_test_lstm[i,:] = 0. 
-
-# change labels type to integer64
-y_train_lstm = y_train_lstm.astype(np.int64)
-y_val_lstm = y_val_lstm.astype(np.int64)
-y_test_lstm = y_test_lstm.astype(np.int64)
- 
 
 ### MODEL
 def lstm_model(hp):
@@ -208,16 +80,16 @@ def lstm_model(hp):
     hp_num_layers = hp.Int('num_layers', 1, 3) 
     if hp_num_layers == 1:
         model.add(layers.LSTM(hp_units,
-                              input_shape=[None, x.shape[1]]))
+                              input_shape=[None, X_train.shape[2]]))
     elif hp_num_layers == 2:
         model.add(layers.LSTM(hp_units,
                               return_sequences=True,
-                              input_shape=[None, x.shape[1]]))
+                              input_shape=[None, X_train.shape[2]]))
         model.add(layers.LSTM(hp_units, dropout=hp_dropout))
     elif hp_num_layers == 3:
         model.add(layers.LSTM(hp_units,
                               return_sequences=True,
-                              input_shape=[None, x.shape[1]]))
+                              input_shape=[None, X_train.shape[2]]))
         model.add(layers.LSTM(hp_units, return_sequences=True, dropout=hp_dropout))
         model.add(layers.LSTM(hp_units, dropout=hp_dropout))
     model.add(layers.Dense(1, activation='sigmoid'))
@@ -251,13 +123,13 @@ if optimizer == 'random':
                                    executions_per_trial=executions_per_trial,
                                    directory='lstm_tuner',
                                    project_name='stock_prediction_lstm')
-    tuner.search(X_train_lstm,
-                 y_train_lstm,
+    tuner.search(X_train,
+                 y_train,
                  epochs=epochs,
                  batch_size=batch_size,
                  shuffle=False,
-                 validation_data=(X_val_lstm, y_val_lstm),
-                 callbacks=[tf.keras.callbacks.EarlyStopping('val_loss', patience=5, restore_best_weights=True)]
+                 validation_data=(X_val, y_val),
+                 callbacks=[tf.keras.callbacks.EarlyStopping('val_accuracy', patience=5, restore_best_weights=True)]
     )
 elif optimizer == 'hyperband':
     tuner = kt.Hyperband(lstm_model,
@@ -266,18 +138,19 @@ elif optimizer == 'hyperband':
                         factor = 4,
                         directory = 'my_dir',
                         project_name = 'intro_to_kt')
-    tuner.search(X_train_lstm,
-                 y_train_lstm,
+    tuner.search(X_train,
+                 y_train,
                  batch_size=batch_size,
                  shuffle=False,
-                 validation_data=(X_val_lstm, y_val_lstm)
+                 validation_data=(X_val, y_val)
                  )
 
 # Build the model with the optimal hyperparameters and train it on the data
-tuner.results_summary()
 best_hps = tuner.get_best_hyperparameters(num_trials = 1)[0]
 model = tuner.hypermodel.build(best_hps)
-history = model.fit(X_train_lstm, y_train_lstm, epochs = epochs, validation_data = (X_val_lstm, y_val_lstm))
+history = model.fit(
+    X_train, y_train, epochs = epochs, validation_data = (X_val, y_val),
+    callbacks=[tf.keras.callbacks.EarlyStopping('val_accuracy', patience=5, restore_best_weights=True)])
 
 # save best model params
 print('units: ', best_hps.get('units'))
@@ -287,7 +160,7 @@ print('learning_rate: ', best_hps.get('learning_rate'))
 
 # get accuracy and score
 score, acc, auc, precision, recall = model.evaluate(
-    X_test_lstm, y_test_lstm, batch_size=batch_size)
+    X_test, y_test, batch_size=batch_size)
 print('score_validation:', score)
 print('accuracy_validation:', acc)
 print('auc_validation:', auc)
@@ -299,11 +172,11 @@ print('recall_validation:', recall)
 # historydf.head(50)
  
 # predictions
-predictions = model.predict(X_test_lstm)
-predict_classes = model.predict_classes(X_test_lstm)
+predictions = model.predict(X_test)
+predict_classes = model.predict_classes(X_test)
 
 # test metrics
-tml.modeling.metrics_summary.lstm_metrics(y_test_lstm, predict_classes)
+tml.modeling.metrics_summary.lstm_metrics(y_test, predict_classes)
 
 
 
@@ -490,133 +363,3 @@ tml.modeling.metrics_summary.lstm_metrics(y_test_lstm, predict_classes)
 
 # # type(y_train)
 # # y_train.dtype
-
-
-
-
-############### NEW ####################
-
-### MODEL HYPERPARAMETERS
-input_path = 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
-train_val_index_split = 0.75
-time_step_length = 120
-batch_size = 128
-n_lstm_layers = 3
-n_units = 64
-dropout = 0.2
-lr = 10e-2
-epochs = 50
-optimizer = 'random'
-max_trials = 2  # parameter for random optimizer
-executions_per_trial = 2  # parameter for random optimizer
-
-
-
-### MODEL
-def lstm_model(hp):
-    # GPU doesn't support recurrent droput: https://github.com/tensorflow/tensorflow/issues/40944
-    model = keras.Sequential()
-    hp_units = hp.Int('units', min_value=32, max_value=256, step=32)
-    hp_dropout = hp.Float('dropout', min_value=0.0, max_value=0.5, default=0.25, step=0.05)
-    hp_num_layers = hp.Int('num_layers', 1, 3) 
-    if hp_num_layers == 1:
-        model.add(layers.LSTM(hp_units,
-                              input_shape=[None, X_train.shape[1]]))
-    elif hp_num_layers == 2:
-        model.add(layers.LSTM(hp_units,
-                              return_sequences=True,
-                              input_shape=[None, X_train.shape[1]]))
-        model.add(layers.LSTM(hp_units, dropout=hp_dropout))
-    elif hp_num_layers == 3:
-        model.add(layers.LSTM(hp_units,
-                              return_sequences=True,
-                              input_shape=[None, X_train.shape[1]]))
-        model.add(layers.LSTM(hp_units, return_sequences=True, dropout=hp_dropout))
-        model.add(layers.LSTM(hp_units, dropout=hp_dropout))
-    model.add(layers.Dense(1, activation='sigmoid'))
-
-    # compile the model
-    hp_learning_rate = hp.Float('learning_rate',
-                                min_value=1e-4,
-                                max_value=1e-2,
-                                sampling='LOG',
-                                default=1e-3
-                                ) 
-    model.compile(loss='binary_crossentropy',
-                  optimizer=keras.optimizers.Adam(learning_rate=hp_learning_rate),
-                  metrics=['accuracy',
-                           keras.metrics.AUC(),
-                           keras.metrics.Precision(),
-                           keras.metrics.Recall()]
-                  )
-    return model
-
-
-# define tuner
-optimizer = 'random'
-
-
-if optimizer == 'random':
-    tuner = kt.tuners.RandomSearch(lstm_model,
-                                   objective='val_accuracy',
-                                   max_trials=max_trials,
-                                   executions_per_trial=executions_per_trial,
-                                   directory='lstm_tuner',
-                                   project_name='stock_prediction_lstm')
-    tuner.search(X_train_seq,
-                 y_train_seq,
-                 epochs=epochs,
-                 batch_size=batch_size,
-                 shuffle=False,
-                 validation_data=(X_val_seq, y_val_seq),
-                 callbacks=[tf.keras.callbacks.EarlyStopping('val_loss', patience=10, restore_best_weights=True)]
-    )
-elif optimizer == 'hyperband':
-    tuner = kt.Hyperband(lstm_model,
-                        objective = 'val_accuracy', 
-                        max_epochs = 30,
-                        factor = 4,
-                        directory = 'my_dir',
-                        project_name = 'intro_to_kt')
-    tuner.search(X_train_seq,
-                 y_train_seq,
-                 batch_size=batch_size,
-                 shuffle=False,
-                 validation_data=(X_val_seq, y_val_seq)
-                 )
-
-
-# Build the model with the optimal hyperparameters and train it on the data
-tuner.results_summary()
-best_hps = tuner.get_best_hyperparameters(num_trials = 1)[0]
-model = tuner.hypermodel.build(best_hps)
-history = model.fit(X_train_seq, y_train_seq, batch_size=batch_size,
-                    epochs = epochs, validation_data = (X_val_seq, y_val_seq))
-
-# save best model params
-print('units: ', best_hps.get('units'))
-print('dropout: ', best_hps.get('dropout'))
-print('num_layers: ', best_hps.get('num_layers'))
-print('learning_rate: ', best_hps.get('learning_rate'))
-
-# get accuracy and score
-score, acc, auc, precision, recall = model.evaluate(
-    X_test_seq, y_test_seq, batch_size=batch_size)
-print('score_validation:', score)
-print('accuracy_validation:', acc)
-print('auc_validation:', auc)
-print('precision_validation:', precision)
-print('recall_validation:', recall)
-
-# get loss values and metrics
-# historydf = pd.DataFrame(history.history)
-# historydf.head(50)
- 
-# predictions
-predictions = model.predict(X_test_seq)
-predict_classes = model.predict_classes(X_test_seq)
-
-# test metrics
-tml.modeling.metrics_summary.lstm_metrics(y_test_seq, predict_classes)
-
-
