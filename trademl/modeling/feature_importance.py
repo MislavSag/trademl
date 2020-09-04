@@ -40,7 +40,7 @@ def plot_feature_importance(shap_val, X_train, name):
     plt.savefig(f'{name}feature_importance.png')
 
 
-def important_fatures(clf, X_train, y_train, plot_name):
+def important_features(clf, X_train, y_train, plot_name, save_path):
 
     # clone clf to not change it
     clf_ = sklearn.clone(clf)
@@ -58,9 +58,9 @@ def important_fatures(clf, X_train, y_train, plot_name):
     
     # save plots
     # create directory if it does not exists
-    if not os.path.exists('plots'):
-        os.makedirs('plots')
-    saving_path = Path(f'plots/shap_{plot_name}.png')
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    saving_path = os.path.join(Path(save_path),f'shap_{plot_name}.png')
             
     # shap plot
     shap.summary_plot(shap_values, X_train,
