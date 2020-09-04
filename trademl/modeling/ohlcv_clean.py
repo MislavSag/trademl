@@ -18,9 +18,9 @@ from trademl.modeling.utils import time_method
 
 ### HYPERPARAMETERS
 save_path = 'D:/market_data/usa/ohlcv_features'
-add_ta = False
-ta_periods = [30, 480, 960, 2400, 4800, 9600]
-add_labels = True
+add_ta = True
+ta_periods = [400, 2000, 8000]
+add_labels = False
 env_directory = None  # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 median_outlier_thrteshold = 20
 
@@ -35,37 +35,28 @@ data.drop(columns=['date'], inplace=True)
 security = data.sort_index()
 
 
-### REMOVE OUTLIERS
+### 1) REMOVE OUTLIERS
 security = tml.modeling.outliers.remove_ourlier_diff_median(security, median_outlier_thrteshold)
 
-########### TEST FOR INDICATORS ##############
-# data_sample = data.iloc[:20000]
-# periods = [5, 30, 60, 480, 960, 2400, 4800, 9600]
-# data_sample = tml.modeling.features.add_technical_indicators(data_sample, periods=periods)
-# data_sample.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in data_sample.columns]
-# data_sample.isna().sum().sort_values()
-########### TEST FOR INDICATORS ##############
 
-
-### 1) ADD FEATURES
+### 2) ADD FEATURES
 # add technical indicators
 if add_ta:
-    # periods = [5, 30, 480, 960, 2400, 4800, 9600]
     security = tml.modeling.features.add_technical_indicators(security, periods=ta_periods)
     security.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in security.columns]
 # add features
 security = tml.modeling.features.add_ohlcv_features(security)
 
 
-### REMOVE NAN
+### 3) REMOVE NAN
 print(security.isna().sum().sort_values(ascending=False).head(60))
 if add_ta:
-    security = security.loc[:, security.isna().sum() < (max(ta_periods) + 100)]
+    security = security.loc[:, security.isna().sum() < (max(ta_periods) + 10)]
 cols_remove_na = range((np.where(security.columns == 'volume')[0].item() + 1), security.shape[1])
 security.dropna(subset=security.columns[cols_remove_na], inplace=True)
 
 
-### 2) LABELING (COMPUTATIONALLY INTENSIVE)
+### 4) LABELING (COMPUTATIONALLY INTENSIVE)
 if add_labels:
     # trend scanning
     def add_trend_scanning_label(data, look_forward, col_prefix=''):
@@ -89,7 +80,7 @@ if add_labels:
     # triple-barrier labeling
 
 
-### 3) STRUCTURAL BRAKES
+### 5) STRUCTURAL BRAKES
 
 # CHOW
 close_weekly = security['close'].resample('W').last().dropna()
@@ -125,7 +116,7 @@ print(security['chow_segment'].value_counts())
 # # pd.Series(sadf_power).plot()
 
 
-### 4) STATIONARITY
+### 6) STATIONARITY
 # save original ohlcv, I will need it later
 stationariti_test_cols = security.columns[:np.where(security.columns == 'vix_close_open')[0][0]]
 stationaryCols, min_d = tml.modeling.stationarity.min_ffd_all_cols(security[stationariti_test_cols])
@@ -162,5 +153,5 @@ if env_directory is not None:
     tml.modeling.utils.destroy_mfiles_object(mfiles_client, [file_name + '.h5'])
     wd = os.getcwd()
     os.chdir(Path(save_path))
-    mfiles_client.upload_file(file_name, object_type='Dokument')
+    mfiles_client.upload_file(file_name + '.h5', object_type='Dokument')
     os.chdir(wd)

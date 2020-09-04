@@ -28,7 +28,7 @@ writer = SummaryWriter(log_dir)
 
 
 ### MODEL HYPERPARAMETERS
-input_data_path = 'D:/algo_trading_files'
+input_data_path = Path('D:/algo_trading_files')
 use_pca_features = False
 rand_state = 3
 sample_weights_type = 'return'
@@ -125,8 +125,8 @@ else:
         writer, clf, X_train, X_test, y_train, y_test, avg='binary')
 
     # save feature importance tables and plots
-    shap_values, importances, mdi_feature_imp = tml.modeling.feature_importance.important_fatures(
-        clf, X_train, y_train, plot_name=save_id)
+    shap_values, importances, mdi_feature_imp = tml.modeling.feature_importance.important_features(
+        clf, X_train, y_train, save_id, os.path.join(input_data_path, 'fi_plots'))
     tml.modeling.utils.save_files([shap_values, importances, mdi_feature_imp],
                 file_names=[f'shap_{save_id}.csv',
                             f'rf_importance_{save_id}.csv',
@@ -153,7 +153,3 @@ else:
 
 # close writer
 writer.close()
-
-# # mean_ = data['close'].expanding(30).mean()
-# # std_ = data['close'].expanding(30).std()
-# # data['expanded_close'] = (data['close'] - mean_) / std_

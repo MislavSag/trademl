@@ -23,6 +23,10 @@ matplotlib.use("Agg")  # don't show graphs because thaty would stop guildai scri
 input_data_path = 'D:/market_data/usa/ohlcv_features'
 output_data_path = 'D:/algo_trading_files'
 env_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+# features
+include_ta = True
+# stationarity
+stationarity_tecnique = 'fracdiff'
 # structural breaks
 structural_break_regime = 'all'
 # labeling
@@ -42,8 +46,6 @@ tb_min_pct = 0.10
 # filtering
 tb_volatility_lookback = 100
 tb_volatility_scaler = 1
-# stationarity
-stationarity_tecnique = 'orig'
 # feature engineering
 correlation_threshold = 0.95
 pca = False
@@ -70,7 +72,8 @@ def import_data(data_path, remove_cols, contract='SPY'):
     return data
 
 
-data = import_data(input_data_path, [], contract='SPY_raw')
+contract = 'SPY_raw_ta' if include_ta else 'SPY_raw'
+data = import_data(input_data_path, [], contract=contract)
 
 
 ### REGIME DEPENDENT ANALYSIS
@@ -151,11 +154,14 @@ labeling_info.iloc[:, -1] = np.where(labeling_info.iloc[:, -1] == -1, 0, labelin
 
 
 ### REMOVE CORRELATED ASSETS
+msg = f'Shape before removing correlated features with threshold {correlation_threshold}' \
+      f' is {X.shape} and after is'
+print(msg)
 X = tml.modeling.preprocessing.remove_correlated_columns(
     data=X,
     columns_ignore=[],
     threshold=correlation_threshold)
-
+print(X.shape)
 
 ### TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
