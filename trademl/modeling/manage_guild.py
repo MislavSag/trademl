@@ -43,5 +43,3 @@ runs_compare.sort_values(by=['mean_score'], ascending=False).head(1)['label'].il
 # # do not mention AAPL (over the past 6 month
 # search = gn.search('MSFT -APPL', when = '6m')
 # len(search)
-
-0.529400	

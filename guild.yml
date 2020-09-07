@@ -158,7 +158,7 @@
           needed: yes
         - run: >
             random-forest:train input_data_path=${random-input_data_path} max_depth=${random-forest-depth} max_features=${random-forest-maxf} n_estimators=${random-forest-maxf} 
-            n_estimators=${random-n_estimators} min_weight_fraction_leaf=${random-min_weight_fraction_leaf} class_weight=${random-class_weight}
+            n_estimators=${random-n_estimators} min_weight_fraction_leaf=${random-min_weight_fraction_leaf}
           isolate-runs: no
           needed: yes
 
