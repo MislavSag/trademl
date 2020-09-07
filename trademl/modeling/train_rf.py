@@ -10,14 +10,13 @@ import sys
 import os
 import sklearn
 from sklearn.ensemble import RandomForestClassifier, BaggingClassifier
-from sklearn.model_selection import GridSearchCV
-from mlfinlab.ensemble import SequentiallyBootstrappedBaggingClassifier
 from sklearn.base import clone
 import shap
 import mlfinlab as ml
 from mlfinlab.feature_importance import get_orthogonal_features
 import trademl as tml
 from tensorboardX import SummaryWriter
+import uuid
 matplotlib.use("Agg")  # don't show graphs
 
 
@@ -29,8 +28,6 @@ writer = SummaryWriter(log_dir)
 
 ### MODEL HYPERPARAMETERS
 input_data_path = Path('D:/algo_trading_files')
-use_pca_features = False
-# rand_state = 3    
 sample_weights_type = 'return'
 cv_type = 'purged_kfold'
 cv_number = 5
@@ -43,21 +40,15 @@ keep_important_features = 20  # for feature selection
 
 
 ### IMPORT PREPARED DATA
-if use_pca_features:
-    X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train_pca.pkl'))
-    X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test_pca.pkl'))
-    y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train_pca.pkl'))
-    y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test_pca.pkl'))
-    labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info_pca.pkl'))
-else:
-    X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
-    X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
-    y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
-    y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
-    labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
+X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
+X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
+y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
+y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
+labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
 
 
 ### SAMPLE WEIGHTS
+labeling_info.columns = labeling_info.columns.str.replace(r'day_\d+_', '', regex=True)
 if 't_value' in labeling_info.columns:
     sample_weights = labeling_info['t_value'].reindex(X_train.index).abs()
 elif sample_weights_type == 'returns':
@@ -99,7 +90,8 @@ scores = ml.cross_validation.ml_cross_val_score(
 ### CV RESULTS
 mean_score = scores.mean()
 std_score = scores.std()
-save_id = f'{max_depth}{max_features}{n_estimators}{str(mean_score)[2:6]}'
+save_id = str(uuid.uuid1())
+# save_id = f'{max_depth}{max_features}{n_estimators}{str(mean_score)[2:6]}'
 print(f'Mean score: {mean_score}')
 writer.add_scalar(tag='mean_score', scalar_value=mean_score, global_step=None)
 writer.add_scalar(tag='std_score', scalar_value=std_score, global_step=None)

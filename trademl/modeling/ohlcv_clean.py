@@ -20,7 +20,7 @@ from trademl.modeling.utils import time_method
 save_path = 'D:/market_data/usa/ohlcv_features'
 add_ta = True
 ta_periods = [400, 2000, 8000]
-add_labels = False
+add_labels = True
 env_directory = None  # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 median_outlier_thrteshold = 20
 
@@ -128,7 +128,7 @@ min_dmin_d_save_for_backtesting.to_csv(
     'C:/Users/Mislav/Documents/GitHub/trademl/data/min_d_' + contract + '.csv', sep=';')
 # convert unstationary to stationary
 keep_unstat = security[stationaryCols].add_prefix('orig_')
-security = tml.modeling.stationarity.unstat_cols_to_stat(security, min_d, stationaryCols)  # tml.modeling.stationarity.unstat_cols_to_stat
+security = tml.modeling.stationarity.unstat_cols_to_stat(security, min_d, stationaryCols)
 security.columns = ['fracdiff_' + col if col in stationaryCols else col for col in security.columns]
 security = pd.concat([keep_unstat, security], axis=1)
 # merge orig na stat

@@ -22,7 +22,7 @@ matplotlib.use("Agg")  # don't show graphs because thaty would stop guildai scri
 # load and save data
 input_data_path = 'D:/market_data/usa/ohlcv_features'
 output_data_path = 'D:/algo_trading_files'
-env_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+env_directory = None # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 # features
 include_ta = True
 # stationarity
@@ -30,12 +30,9 @@ stationarity_tecnique = 'fracdiff'
 # structural breaks
 structural_break_regime = 'all'
 # labeling
-label_tuning = True
-label = 'day_10'
+label_tuning = False
+label = 'day_10'  # 'day_1' 'day_2' 'day_5' 'day_10' 'day_20' 'day_30' 'day_60'
 labeling_technique = 'trend_scanning'
-ts_look_forward_window = 2000  # 60 * 8 * 10 (10 days)
-ts_min_sample_length = 30
-ts_step = 5
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.004
@@ -50,12 +47,10 @@ tb_volatility_scaler = 1
 correlation_threshold = 0.95
 pca = False
 # scaling
-scaling = None
+scaling = 'none'
 # performance
 num_threads = 1
-# sequence generation
-train_val_index_split = 0.9
-time_step_length = 20
+
 
 
 ### IMPORT DATA
@@ -73,6 +68,7 @@ def import_data(data_path, remove_cols, contract='SPY'):
 
 
 contract = 'SPY_raw_ta' if include_ta else 'SPY_raw'
+contract = 'SPY_raw_ta' if label_tuning else contract + '_labels'
 data = import_data(input_data_path, [], contract=contract)
 
 
@@ -140,8 +136,8 @@ if label_tuning:
 else:
     daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
     cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
-    X = X[cusum_events]
-    labeling_info = labeling_info[cusum_events]
+    X = X.reindex(cusum_events)
+    labeling_info = labeling_info.reindex(cusum_events)
 ### ZAVRSITI DO KRAJA ####
 
 
@@ -203,21 +199,21 @@ if pca:
 file_names = ['X_train', 'y_train', 'X_test',
                 'y_test', 'labeling_info']
 saved_files = [X_train, y_train, X_test, y_test, labeling_info]
-if pca:
-    file_names = [f + '_pca' for f in file_names]
+# if pca:
+#     file_names = [f + '_pca' for f in file_names]
 file_names_pkl = [f + '.pkl' for f in file_names]
 tml.modeling.utils.save_files(
     saved_files,
     file_names_pkl,
     output_data_path)
-file_names_csv = [f + '.csv' for f in file_names]
-tml.modeling.utils.save_files(
-    saved_files,
-    file_names_csv,
-    output_data_path)
+# file_names_csv = [f + '.csv' for f in file_names]
+# tml.modeling.utils.save_files(
+#     saved_files,
+#     file_names_csv,
+#     output_data_path)
 # save to mfiles
 if env_directory is not None:
-    file_names = file_names_pkl + file_names_csv
+    file_names = file_names_pkl #  + file_names_csv
     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
     tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
     wd = os.getcwd()

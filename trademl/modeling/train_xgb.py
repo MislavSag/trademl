@@ -42,18 +42,11 @@ learning_rate = 0.1
 
 
 ### IMPORT PREPARED DATA
-if use_pca_features:
-    X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train_pca.pkl'))
-    X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test_pca.pkl'))
-    y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train_pca.pkl'))
-    y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test_pca.pkl'))
-    labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info_pca.pkl'))
-else:
-    X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
-    X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
-    y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
-    y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
-    labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
+X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
+X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
+y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
+y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
+labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
 
 
 ### SAMPLE WEIGHTS
@@ -155,6 +148,6 @@ if mean_score > 0.55:
         tml.modeling.metrics_summary.clf_metrics_tensorboard(
             writer, clf, X_train, X_test, y_train, y_test, avg='binary')
 
-    # save important featues
-    fi_shap(clf, X_train, y_train, save_id, input_data_path)
-    fi_xgboost(clf, X_train, save_id, input_data_path)
+        # save important featues
+        tml.modeling.feature_importance.fi_shap(clf, X_train, y_train, save_id, input_data_path)
+        tml.modeling.feature_importance.fi_xgboost(clf, X_train, save_id, input_data_path)

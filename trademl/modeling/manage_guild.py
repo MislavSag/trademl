@@ -14,17 +14,19 @@ pd.set_option('display.width', 1000)
 # guild.set_guild_home(GUILD_HOME)
 
 # df runs
-runs = guild.runs() 
+# runs = guild.runs() 
 #runs.info()
 
 # scalars
-scalars = runs.scalars()
+# scalars = runs.scalars()
 
 # compare
 runs_compare = guild.runs().compare()
 runs_compare.head(15)
-runs_compare.sort_values(by=['best_score'], ascending=True).head()
-runs_compare.sort_values(by=['fi_f1_tmean_score'], ascending=False).head(1)['label'].iloc[0]
+runs_compare.sort_values(by=['mean_score'], ascending=False).head()
+runs_compare.sort_values(by=['fi_accuracy_test'], ascending=False).head()
+runs_compare.sort_values(by=['accuracy_test'], ascending=False).head()
+runs_compare.sort_values(by=['mean_score'], ascending=False).head(1)['label'].iloc[0]
 
 
 # # PLAYING WITH GOOGLE NEWS
@@ -41,3 +43,5 @@ runs_compare.sort_values(by=['fi_f1_tmean_score'], ascending=False).head(1)['lab
 # # do not mention AAPL (over the past 6 month
 # search = gn.search('MSFT -APPL', when = '6m')
 # len(search)
+
+0.529400	
