@@ -5,6 +5,7 @@ from pathlib import Path
 import sklearn
 import shap
 import xgboost as xgb
+import lightgbm as lgb
 import trademl as tml
 import matplotlib.pyplot as plt
 import mlfinlab as ml
@@ -135,6 +136,8 @@ def fi_shap(clf, X_train, y_train, save_id, save_path):
             return model_bytearray
         clf_.save_raw = myfun
     ######## THIS PART WOULD BE PROBABLE DELTE LATER AFTER THEY SOLVE ISSUE: https://github.com/slundberg/shap/issues/1215 ########
+    elif isinstance(clf, lgb.sklearn.LGBMClassifier):
+        clf_ = clf
     else:
         ############# IA M NOT SURE THIS I SNECESSARY ##############
         # clone clf to not change it
@@ -200,5 +203,31 @@ def fi_xgboost(clf, X_train, save_id, save_path):
     plt.savefig(saving_path)
     importances = pd.Series(clf.feature_importances_, index=X_train.columns)
     importances = importances.sort_values(ascending=False)
+    tml.modeling.utils.save_files([importances], [f'xgboost_{save_id}.csv'], save_path_tables)
+    
+    return 'Plot and table with xgboost default values saved'
+
+def fi_lightgbm(clf, X_train, save_id, save_path):
+    # assert data types
+    assert(clf, lgb.sklearn.LGBMClassifier)
+        
+    # define and create directories
+    save_path = Path(save_path)
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    save_path_plots = os.path.join(save_path, 'fi_plots')
+    if not os.path.exists(save_path_plots):
+        os.makedirs(save_path_plots)
+    save_path_tables = os.path.join(save_path, 'important_features')
+    if not os.path.exists(save_path_tables):
+        os.makedirs(save_path_tables)
+        
+    # save plot and tables
+    saving_path = os.path.join(save_path_plots,f'lightgbm_{save_id}.png')
+    lgb.plot_importance(clf, max_num_features=10)
+    plt.savefig(saving_path)
+    importances = pd.Series(clf.feature_importances_, index=X_train.columns)
+    importances = importances.sort_values(ascending=False)
+    tml.modeling.utils.save_files([importances], [f'lightgbm_{save_id}.csv'], save_path_tables)
     
     return 'Plot and table with xgboost default values saved'
