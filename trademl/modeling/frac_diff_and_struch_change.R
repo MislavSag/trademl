@@ -1,10 +1,3 @@
-library(xts)
-library(RMySQL)
-library(DBI)
-library(fracdiff)
-library(strucchange)
-library(MultipleBubbles)
-library(ggplot2)
 
 
 
@@ -40,11 +33,29 @@ close_hourly <- contract_hourly$contract_ohlcv.Close
 close_weekly <- contract_weekly$contract_ohlcv.Close
 
 
+# FRACDIFF ----------------------------------------------------------------
+
+min_d_fdGPH <- fracdiff::fdGPH(zoo::coredata(close_hourly))
+min_d_fdSperio <- fracdiff::fdSperio(zoo::coredata(close_hourly))
+min_d <- mean(c(min_d_fdGPH$d, min_d_fdSperio$d))
+fraddiff_series <- fracdiff::diffseries(zoo::coredata(spy_xts$close), min_d)
+fraddiff_ohlc <- apply(zoo::coredata(spy_ohlcv), 2, function(x) {fracdiff::diffseries(x, min_d)})
+colnames(fraddiff_ohlc) <- paste0('fracdiff_r_', colnames(fraddiff_ohlc))
+security <- cbind.data.frame(contract, fraddiff_ohlc)
+
+
+
+df <- pd$read_pickle('D:/algo_trading_files/X_test.pkl')
+
+
+
 # EXPLOSIVE TIME SERIES ----------------------------------------------------------------
 
-# standardized price data
-roll_std <- zoo::rollapply(close_weekly, width = 50, FUN = sd)
+# standardized close price
+price <- log(zoo::coredata(close_weekly))
+roll_std <- zoo::rollapply(close_weekly, width = 4, FUN = sd)
 stand_price <- price/roll_std
+plot(stand_price)
 
 # SUP SADF
 price <- log(zoo::coredata(close_weekly))
@@ -59,61 +70,9 @@ sadf_spy <- cbind.data.frame(price[(price_index+1):length(price)], test$badfs)
 colnames(sadf_spy) <- c('price', 'sadf')
 
 
-load("weekly_data.RData")
-
-# PSYMONITOR
-
-library(psymonitor)  # For testting for bubble monitoring
-library(ggplot2)     # To handle plots
-library(knitr)       # for nice looking tables
-
-data(snp)
-snp$pd <-  1/snp$value
-head(snp)
-
-y        <- snp$pd
-obs      <- length(y)
-r0       <- 0.01 + 1.8/sqrt(obs)
-swindow0 <- floor(r0*obs)
-dim      <- obs - swindow0 + 1
-IC       <- 2
-adflag   <- 6
-yr       <- 2
-Tb       <- 12*yr + swindow0 - 1
-nboot    <- 99
-
-bsadf          <- PSY(y, swindow0, IC, adflag)
-quantilesBsadf <- cvPSYwmboot(y, swindow0, IC, adflag, Tb, nboot, nCores = 2) #Note that the number of cores is arbitrarily set to 2.
-
-monitorDates <- snp$date[swindow0:obs]
-quantile95   <- quantilesBsadf %*% matrix(1, nrow = 1, ncol = dim)
-ind95        <- (bsadf > t(quantile95[2, ])) * 1
-periods      <- locate(ind95, monitorDates)
-
-bubbleDates <- disp(periods, obs)
-kable(bubbleDates, caption = "Bubble and Crisis Periods in the S&P 500")
-
-ggplot() + 
-  geom_rect(data = bubbleDates, aes(xmin = start, xmax = end, 
-                                    ymin = -Inf, ymax = Inf), alpha = 0.5) + 
-  geom_line(data = snp, aes(date, pd)) +
-  labs(title = "Figure 2: S&P 500 Price-to-Dividend Ratio",
-       subtitle = "January 1973 - July 2018",
-       caption = "Notes: The solid
-line is the price-to-dividend ratio and the shaded areas are the periods where
-the PSY statistic exceeds its 95% bootstrapped critical value.", 
-       x = "Year", y = "Ratio") 
 
 
-# FRACDIFF ----------------------------------------------------------------
 
-min_d_fdGPH <- fracdiff::fdGPH(zoo::coredata(close_hourly))
-min_d_fdSperio <- fracdiff::fdSperio(zoo::coredata(close_hourly))
-min_d <- mean(c(min_d_fdGPH$d, min_d_fdSperio$d))
-fraddiff_series <- fracdiff::diffseries(zoo::coredata(spy_xts$close), min_d)
-fraddiff_ohlc <- apply(zoo::coredata(spy_ohlcv), 2, function(x) {fracdiff::diffseries(x, min_d)})
-colnames(fraddiff_ohlc) <- paste0('fracdiff_r_', colnames(fraddiff_ohlc))
-security <- cbind.data.frame(contract, fraddiff_ohlc)
 
 
 # STRUCTURAL BREAKS AND EXPLOSIVE TS -------------------------------------------------------

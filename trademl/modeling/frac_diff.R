@@ -1,0 +1,5 @@
+library(xts)
+library(fracdiff)
+library(reticulate)
+reticulate::use_python('C:/ProgramData/Anaconda3/python.exe', required = TRUE)
+pd <- reticulate::import('pandas')
