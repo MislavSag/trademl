@@ -16,7 +16,7 @@ import mlfinlab as ml
 from mlfinlab.feature_importance import get_orthogonal_features
 import trademl as tml
 from tensorboardX import SummaryWriter
-import uuid
+import random
 matplotlib.use("Agg")  # don't show graphs
 
 
@@ -90,7 +90,7 @@ scores = ml.cross_validation.ml_cross_val_score(
 ### CV RESULTS
 mean_score = scores.mean()
 std_score = scores.std()
-save_id = str(uuid.uuid1())
+save_id = str(random.getrandbits(32))
 # save_id = f'{max_depth}{max_features}{n_estimators}{str(mean_score)[2:6]}'
 print(f'Mean score: {mean_score}')
 writer.add_scalar(tag='mean_score', scalar_value=mean_score, global_step=None)

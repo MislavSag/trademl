@@ -1,31 +1,61 @@
-from sktime.utils.data_container import detabularize
+from tslearn.neighbors import KNeighborsTimeSeriesClassifier
+import pandas as pd
+import numpy as mp
+from pathlib import Path
+import os
 
 
-
-input_data_path = 'D:/market_data/usa/ohlcv_features'
-output_data_path = 'D:/algo_trading_files'
-
-### IMPORT DATA
-def import_data(data_path, remove_cols, contract='SPY'):
-    # import data
-    with pd.HDFStore(os.path.join(data_path, contract + '.h5')) as store:
-        data = store.get(contract)
-    data.sort_index(inplace=True)
-    
-    # remove variables
-    remove_cols = [col for col in remove_cols if col in data.columns]
-    data.drop(columns=remove_cols, inplace=True)
-    
-    return data
+### TENSORBORADX WRITER
+log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
+    "%Y%m%d-%H%M%S")
+writer = SummaryWriter(log_dir)
 
 
-data = import_data(input_data_path, [], contract='SPY_raw')
+### MODEL HYPERPARAMETERS
+input_data_path = 'D:/algo_trading_files'
+# model
 
-price = pd.DataFrame(data['orig_close'])
-X = detabularize(price)
-X.iloc[0]
 
-from sktime.datasets import load_arrow_head
-X, y = load_arrow_head(return_X_y=True)
-X.iloc[0]
-type(X)
+### IMPORT PREPARED DATA
+X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq.npy'))
+X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq.npy'))
+X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq.npy'))
+y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq.npy'))
+y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq.npy'))
+y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq.npy'))
+col_names = pd.read_csv(os.path.join(Path(input_data_path), 'col_names.csv'))
+
+
+# CHOOSE FEATURE
+column_where = np.where(col_names == 'open_vix')[0]
+X_train = X_train[:1000, :, column_where]
+y_train = y_train[:1000]
+X_test = X_test[:1000, :, [column_where]]
+y_test = y_test[:1000]
+
+
+# KNeighbors Classifier
+clf = KNeighborsTimeSeriesClassifier(n_neighbors=2,
+                                     metric="dtw",
+                                     n_jobs=8)
+clf.fit(X_train, y_train)
+predictions = clf.predict(X_test)
+predictions_proba = clf.predict_proba(X_test)
+predictions_proba
+
+
+### CLUSTERING
+# KernelKMeans
+from tslearn.clustering import KernelKMeans
+from tslearn.generators import random_walks
+X = random_walks(n_ts=50, sz=32, d=1)
+X.shape
+X_train.shape
+gak_km = KernelKMeans(n_clusters=3, kernel="gak", random_state=0)
+gak_km.fit(X_train)
+gak_km.get_params()
+X_train_classes = gak_km.predict(X_train)
+
+
+# 
+

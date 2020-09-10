@@ -10,23 +10,26 @@ pd.set_option('display.width', 1000)
 
 
 # set home
-# GUILD_HOME = 'C:/ProgramData/Anaconda3/.guild'
-# guild.set_guild_home(GUILD_HOME)
+GUILD_HOME = 'C:/ProgramData/Anaconda3/.guild'
+guild.set_guild_home(GUILD_HOME)
 
 # df runs
-# runs = guild.runs() 
-#runs.info()
+runs = guild.runs()
+runs_rf = guild.runs(operations=["pipeline-rf-opt"])
+runs_rf_compare = runs_rf.compare()
 
-# scalars
-# scalars = runs.scalars()
+def clean_runs(runs, filter_metric=['accuracy_test']):
+    runs_clean = runs.dropna(axis=1, how='all')
+    runs_clean = runs_clean.sort_values(by=filter_metric)
+    runs_clean = runs_clean.dropna(subset=filter_metric)
+    runs_clean = runs_clean.loc[runs_clean[filter_metric[0]] > 0.55]
 
-# compare
-runs_compare = guild.runs().compare()
-runs_compare.head(15)
-runs_compare.sort_values(by=['mean_score'], ascending=False).head()
-runs_compare.sort_values(by=['fi_accuracy_test'], ascending=False).head()
-runs_compare.sort_values(by=['accuracy_test'], ascending=False).head()
-runs_compare.sort_values(by=['mean_score'], ascending=False).head(1)['label'].iloc[0]
+
+runs_rf_clean = clean_runs(runs_rf_compare)
+    
+runs_pipe_rf = guild.runs(operations=["pipeline-rf-opt"])
+runs_pipe_rf_compare = runs_pipe_rf.compare()
+runs_pipe_rf_compare.head()
 
 
 # # PLAYING WITH GOOGLE NEWS

@@ -33,37 +33,34 @@ writer = SummaryWriter(log_dir)
 
 ### MODEL HYPERPARAMETERS
 input_data_path = 'D:/algo_trading_files'
-use_pca_features = False
 # model
-batch_size = 128
-n_lstm_layers = 2
+batch_size = 256
+n_lstm_layers = 3
 n_units = 64
 dropout = 0.2
 lr = 10e-2
-epochs = 50
+epochs = 1000
 
 
 ### IMPORT PREPARED DATA
-if use_pca_features:
-    X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq_pca.npy'))
-    X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq_pca.npy'))
-    X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq_pca.npy'))
-    y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq_pca.npy'))
-    y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq_pca.npy'))
-    y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq_pca.npy'))
-else:
-    X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq.npy'))
-    X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq.npy'))
-    X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq.npy'))
-    y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq.npy'))
-    y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq.npy'))
-    y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq.npy'))
+X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq.npy'))
+X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq.npy'))
+X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq.npy'))
+y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq.npy'))
+y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq.npy'))
+y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq.npy'))
+col_names = pd.read_csv(os.path.join(Path(input_data_path), 'col_names.csv'))
     
 
-# ### TEST ###
+### TEST ###
+# CHOOSE COLUMNS
+# X_train = X_train[:, :, [0]]
+# X_test = X_test[:, :, [0]]
+# X_val = X_val[:, :, [0]]
+
 # X_train = X_train[:1000]
 # y_train = y_train[:1000]
-# ### TEST ###
+### TEST ###
 
 ### MODEL
 model = keras.Sequential()
@@ -87,10 +84,11 @@ model.compile(loss='binary_crossentropy',
               metrics=['accuracy',
                        keras.metrics.AUC(),
                        keras.metrics.Precision(),
-                       keras.metrics.Recall()]
+                       keras.metrics.Recall()
+                       ]
               )
 callbacks = [
-    tf.keras.callbacks.EarlyStopping('val_accuracy', patience=10, restore_best_weights=True)
+    tf.keras.callbacks.EarlyStopping('val_accuracy',  mode='max', patience=20, restore_best_weights=True)
     ]
 history = model.fit(X_train, y_train,
                     batch_size=batch_size,

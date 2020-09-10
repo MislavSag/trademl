@@ -202,6 +202,7 @@ saved_files = [X_train, y_train, X_test, y_test, labeling_info]
 # if pca:
 #     file_names = [f + '_pca' for f in file_names]
 file_names_pkl = [f + '.pkl' for f in file_names]
+[os.path.exists(os.path.join(output_data_path, f)) for f in file_names_pkl if os.path.exists(os.path.join(output_data_path, f))]
 tml.modeling.utils.save_files(
     saved_files,
     file_names_pkl,

@@ -33,7 +33,6 @@ writer = SummaryWriter(log_dir)
 
 ### MODEL HYPERPARAMETERS
 input_data_path = 'D:/algo_trading_files'
-use_pca_features = False
 # model
 train_val_index_split = 0.75
 time_step_length = 120
@@ -49,20 +48,13 @@ executions_per_trial = 2  # parameter for random optimizer
 
 
 ### IMPORT PREPARED DATA
-if use_pca_features:
-    X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq_pca.npy'))
-    X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq_pca.npy'))
-    X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq_pca.npy'))
-    y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq_pca.npy'))
-    y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq_pca.npy'))
-    y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq_pca.npy'))
-else:
-    X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq.npy'))
-    X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq.npy'))
-    X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq.npy'))
-    y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq.npy'))
-    y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq.npy'))
-    y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq.npy'))
+X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq.npy'))
+X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq.npy'))
+X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq.npy'))
+y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq.npy'))
+y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq.npy'))
+y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq.npy'))
+col_names = pd.read_csv(os.path.join(Path(input_data_path), 'col_names.csv'))
 
 
 ### TEST ###
@@ -72,6 +64,7 @@ else:
 
 
 ### MODEL
+# define model with hyperparameters
 def lstm_model(hp):
     # GPU doesn't support recurrent droput: https://github.com/tensorflow/tensorflow/issues/40944
     model = keras.Sequential()
@@ -112,10 +105,6 @@ def lstm_model(hp):
 
 
 # define tuner
-#################### FOR TEST ##############################
-optimizer = 'random'
-#################### FOR TEST ##############################
-
 if optimizer == 'random':
     tuner = kt.tuners.RandomSearch(lstm_model,
                                    objective='val_accuracy',

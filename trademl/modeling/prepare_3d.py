@@ -14,6 +14,7 @@ import trademl as tml
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+import statsmodels.api as sm
 
 
 
@@ -21,11 +22,13 @@ from tensorflow.keras import layers
 # load and save data
 input_data_path = 'D:/market_data/usa/ohlcv_features'
 output_data_path = 'D:/algo_trading_files'
-env_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+env_directory = None  # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+# features
+include_ta = True
 # structural breaks
 structural_break_regime = 'all'
 # labeling
-label_tuning = True
+label_tuning = False
 label = 'day_10'
 labeling_technique = 'trend_scanning'
 ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
@@ -42,17 +45,17 @@ tb_min_pct = 0.10
 tb_volatility_lookback = 100
 tb_volatility_scaler = 1
 # stationarity
-stationarity_tecnique = 'orig'
+stationarity_tecnique = 'fracdiff'
 # feature engineering
-correlation_threshold = 0.95
+correlation_threshold = 0.98
 pca = False
 # scaling
-scaling = None
+scaling = 'expanding'  # None
 # performace
 num_threads = 1
 # sequence generation
 train_val_index_split = 0.9
-time_step_length = 25
+
 
 
 ### IMPORT DATA
@@ -69,7 +72,9 @@ def import_data(data_path, remove_cols, contract='SPY'):
     return data
 
 
-data = import_data(input_data_path, [], contract='SPY_raw')
+contract = 'SPY_raw_ta' if include_ta else 'SPY_raw'
+contract = 'SPY_raw_ta' if label_tuning else contract + '_labels'
+data = import_data(input_data_path, [], contract=contract)
 
 
 ### REGIME DEPENDENT ANALYSIS
@@ -87,6 +92,17 @@ if stationarity_tecnique == 'fracdiff':
 elif stationarity_tecnique == 'orig':
     remove_cols = [col for col in data.columns if 'fracdiff_' in col and col != 'orig_close']
 data = data.drop(columns=remove_cols)
+
+
+### CHOOSE SEQ LENGTH
+close_column = ['fracdiff_close' if 'fracdiff_close' in data.columns else 'orig_close']
+pacf = sm.tsa.stattools.pacf(data[close_column], nlags=200)
+sig_test = lambda tau_h: np.abs(tau_h) > 2.58/np.sqrt(len(data))
+for i in range(len(pacf)):
+    if sig_test(pacf[i]) == False:
+        time_step_length = i - 1
+        print('time_step_length set to ', time_step_length)
+        break
 
 
 ### LABELLING
@@ -130,11 +146,10 @@ else:
     labeling_info = data[y_cols]
 
 
-### FILTERING
+### FILTERING 
 if not label_tuning:
     daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
     cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
-    ### ZAVRSITI DO KRAJA ####
 else:
     daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
     cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
@@ -149,30 +164,42 @@ labeling_info.iloc[:, -1] = np.where(labeling_info.iloc[:, -1] == -1, 0, labelin
 
 
 ### REMOVE CORRELATED ASSETS
+msg = f'Shape before removing correlated features with threshold {correlation_threshold}' \
+      f' is {X.shape} and after is'
+print(msg)
 X = tml.modeling.preprocessing.remove_correlated_columns(
     data=X,
     columns_ignore=[],
     threshold=correlation_threshold)
+print(X.shape)
+
+
+# TREAT CATEGORIAL VARIABLES
+X = X.drop(columns=['tick_rule', 'HT_TRENDMODE', 'volume_vix'])  # remove for now
+
 
 
 ### TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
     X, labeling_info.loc[:, labeling_info.columns.str.contains('bin')],
-    test_size=0.10, shuffle=False, stratify=None)
+    test_size=0.15, shuffle=False, stratify=None)
 
 
 ### SCALING
 if scaling == 'expanding':
-    stdize_input = lambda x: (x - x.expanding(50).mean()) / x.expanding(50).std()
+    stdize_input = lambda x: (x - x.expanding(time_step_length).mean()) / x.expanding(time_step_length).std()
     X_train = X_train.apply(stdize_input)
     X_test = X_test.apply(stdize_input)
     y_train = y_train.loc[~X_train.isna().any(axis=1)]
     X_train = X_train.dropna()
     y_test = y_test.loc[~X_test.isna().any(axis=1)]
     X_test = X_test.dropna()
+    
 
 
 ### 3D SEQUENCE
+# save colnames fo later
+col_names = X_train.columns
 # calculate daily vol and filter time to trade
 def sequence_from_array(data, target_vec, cusum_events, time_step_length):
     cusum_events_ = cusum_events.intersection(data.index)
@@ -190,7 +217,7 @@ def sequence_from_array(data, target_vec, cusum_events, time_step_length):
     targets = targets.astype(np.int64)
     return lstm_sequences_all, targets
 
-
+# example
 X_val, y_val = sequence_from_array(
     X_train.iloc[int((train_val_index_split*X_train.shape[0] + 1)):],
     y_train.iloc[int((train_val_index_split*X_train.shape[0] + 1)):],
@@ -216,12 +243,11 @@ y_test = y_test.astype(np.int64)
 # save localy
 file_names = ['X_train_seq', 'y_train_seq', 'X_test_seq', 'y_test_seq', 'X_val_seq', 'y_val_seq']
 saved_files = [X_train, y_train, X_test, y_test, X_val, y_val]
-if pca:
-    file_names = [f + '_pca' for f in file_names]
 tml.modeling.utils.save_files(
     saved_files,
     file_names,
     output_data_path)
+pd.Series(col_names).to_csv(os.path.join(Path(output_data_path), 'col_names.csv'))
 # save to mfiles
 if env_directory is not None:
     file_names = [f + '.npy' for f in file_names]
@@ -234,9 +260,21 @@ if env_directory is not None:
     os.chdir(wd)
 
 
+### TEST IF SHAPES AND VALUES ARE RIGHT
+# len(X_train[0,:,0]) == time_step_length
+# first_series_manually = X[:cusum_events[2]]
+# first_series_manually = first_series_manually[-time_step_length:]
+# print((X_train[2,:,0] == first_series_manually.iloc[:, 0]).all())  # test for first series and first feature
+# (X_train[0,:,1] == first_series_manually.iloc[:, 1]).all()  # test for first series and second feature
+# second_series_manually = X[:cusum_events[1]]
+# second_series_manually = second_series_manually[-25:]
+# print((X_train[1,:,0] == second_series_manually.iloc[:, 0]).all())
+# print((X_train[1,:,1] == second_series_manually.iloc[:, 1]).all())
+
+
 ### TEST MODEL
-# X_train_test = X_train[:100]
-# y_train_test = y_train[:100]
+# X_train_test = X_train[:1000]
+# y_train_test = y_train[:1000]
 # X_val_test = X_val[:20]
 # y_val_test = y_val[:20]
 # model = keras.Sequential()

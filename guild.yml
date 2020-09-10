@@ -279,6 +279,7 @@
             Instead use a subset of randomly selected training data.
           arg_name: subsample
           default: 0.9
+          max: 1
         min_child_weight:
           description: >
             When constructing the additional tree, don't use the full training data set.
@@ -291,7 +292,7 @@
   operations:
     train:
       description: Trainer a LSTM nerual network
-      main: trademl.modeling.train_nn  # Python module when running the operation
+      main: trademl.modeling.train_lstm  # Python module when running the operation
       requires: prepared-data
       flags‑import: all
       flags:
@@ -345,7 +346,7 @@
   operations:
     train:
       description: Trainer a LSTM nerual network with keras tuner
-      main: trademl.modeling.train_nn_tuner  # Python module when running the operation
+      main: trademl.modeling.train_lstm_tuner  # Python module when running the operation
       # requires: prepared-data
       flags‑import: all
       flags:
