@@ -207,6 +207,7 @@ def fi_xgboost(clf, X_train, save_id, save_path):
     
     return 'Plot and table with xgboost default values saved'
 
+
 def fi_lightgbm(clf, X_train, save_id, save_path):
     # assert data types
     assert(clf, lgb.sklearn.LGBMClassifier)

@@ -29,7 +29,7 @@ include_ta = True
 structural_break_regime = 'all'
 # labeling
 label_tuning = False
-label = 'day_10'
+label = 'day_5'
 labeling_technique = 'trend_scanning'
 ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
@@ -42,7 +42,7 @@ ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
 # filtering
-tb_volatility_lookback = 100
+tb_volatility_lookback = 200
 tb_volatility_scaler = 1
 # stationarity
 stationarity_tecnique = 'fracdiff'

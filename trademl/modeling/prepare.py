@@ -31,7 +31,7 @@ stationarity_tecnique = 'fracdiff'
 structural_break_regime = 'all'
 # labeling
 label_tuning = False
-label = 'day_10'  # 'day_1' 'day_2' 'day_5' 'day_10' 'day_20' 'day_30' 'day_60'
+label = 'day_5'  # 'day_1' 'day_2' 'day_5' 'day_10' 'day_20' 'day_30' 'day_60'
 labeling_technique = 'trend_scanning'
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
@@ -41,11 +41,11 @@ ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
 # filtering
-tb_volatility_lookback = 100
+tb_volatility_lookback = 75
 tb_volatility_scaler = 1
 # feature engineering
-correlation_threshold = 0.95
-pca = False
+correlation_threshold = 0.99
+pca = True
 # scaling
 scaling = 'none'
 # performance

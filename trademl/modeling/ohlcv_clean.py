@@ -95,8 +95,8 @@ security['chow_segment'] = np.where(security.index < breakdate.index[0], 0, 1)
 print(security['chow_segment'].value_counts())
 
 # SADF
-# sadf_linear =ml.structural_breaks.get_sadf(
-#     close_weekly_log, min_length=20, add_const=True, model='linear', phi=0.5, num_threads=1, lags=5)
+sadf_linear =ml.structural_breaks.get_sadf(
+    close_weekly_log, min_length=20, add_const=True, model='linear', phi=0.5, num_threads=1, lags=5)
 # sadf_quadratic = ml.structural_breaks.get_sadf(
 #     close_weekly_log, min_length=20, add_const=True, model='quadratic', phi=0.5, num_threads=1, lags=5)
 # sadf_poly_1 = ml.structural_breaks.get_sadf(

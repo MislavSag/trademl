@@ -17,6 +17,10 @@ import mlfinlab as ml
 import trademl as tml
 from tensorboardX import SummaryWriter
 matplotlib.use("Agg")
+# issue: https://github.com/tensorflow/tensorflow/issues/36508
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
+
 
 
 ### TENSORFLOW ATTRIBUTES
@@ -34,9 +38,10 @@ writer = SummaryWriter(log_dir)
 ### MODEL HYPERPARAMETERS
 input_data_path = 'D:/algo_trading_files'
 # model
-batch_size = 256
-n_lstm_layers = 3
+batch_size = 128
+n_lstm_layers = 2
 n_units = 64
+decrease_units = False
 dropout = 0.2
 lr = 10e-2
 epochs = 1000
@@ -68,12 +73,12 @@ if n_lstm_layers == 1:
     model.add(layers.LSTM(n_units,
                             input_shape=[None, X_train.shape[2]]))
 elif n_lstm_layers == 2:
-    model.add(layers.LSTM(n_units,
-                            return_sequences=True,
+    model.add(layers.LSTM(n_units // 2 if decrease_units else n_units,
+                          return_sequences=True,
                             input_shape=[None, X_train.shape[2]]))
     model.add(layers.LSTM(n_units, dropout=dropout))
 elif n_lstm_layers == 3:
-    model.add(layers.LSTM(n_units,
+    model.add(layers.LSTM(n_units // 2 // 2 if decrease_units else n_units,
                             return_sequences=True,
                             input_shape=[None, X_train.shape[2]]))
     model.add(layers.LSTM(n_units, return_sequences=True, dropout=dropout))
@@ -81,11 +86,7 @@ elif n_lstm_layers == 3:
 model.add(layers.Dense(1, activation='sigmoid'))
 model.compile(loss='binary_crossentropy',
               optimizer=keras.optimizers.Adam(learning_rate=lr),
-              metrics=['accuracy',
-                       keras.metrics.AUC(),
-                       keras.metrics.Precision(),
-                       keras.metrics.Recall()
-                       ]
+              metrics=['accuracy']
               )
 callbacks = [
     tf.keras.callbacks.EarlyStopping('val_accuracy',  mode='max', patience=20, restore_best_weights=True)
@@ -97,18 +98,48 @@ history = model.fit(X_train, y_train,
                     callbacks=callbacks)
 
 # get accuracy and score
-score, acc, auc, precision, recall = model.evaluate(
+score, acc = model.evaluate(
     X_test, y_test, batch_size=batch_size)
 print('score_validation:', score)
 print('accuracy_validation:', acc)
-print('auc_validation:', auc)
-print('precision_validation:', precision)
-print('recall_validation:', recall)
+writer.add_scalar(tag=f'score_validation', scalar_value=score)
+writer.add_scalar(tag=f'accuracy_validation', scalar_value=acc)
  
 # test metrics
 predictions = model.predict(X_test)
-predict_classes = model.predict_classes(X_test)
-tml.modeling.metrics_summary.lstm_metrics(y_test, predict_classes)
+predict_classes = (predictions > 0.5).astype("int32")
+# np.argmax(model.predict(x), axis=-1)  # For multiclass prediction
+# tml.modeling.metrics_summary.lstm_metrics(y_test, predict_classes)
+
+
+# KASNIJE IZBRISATI< KAD ACU KORISTITI NOVU VERZIJU TRRADEMLA
+from sklearn.metrics import (accuracy_score, confusion_matrix, recall_score,
+                             precision_score, f1_score, classification_report,accuracy_score,
+                             roc_curve)
+def lstm_metrics(y_test, predictions, avg='binary', prefix=''):
+    """
+    Show main matrics from LSTM classification: accuracy, precision, recall, 
+    confusion matrix for test set.
+    
+    :param y_test: (np.array) of test dependent variable
+    :param predictions: (np.array) of predictions from keras model
+    """
+    # save scalars
+    writer.add_scalar(tag=f'{prefix}accuracy_test',
+                      scalar_value=accuracy_score(y_test, predictions))
+    writer.add_scalar(tag=f'{prefix}recall_test',
+                      scalar_value=recall_score(y_test, predictions))
+    writer.add_scalar(tag=f'{prefix}precision_test',
+                    scalar_value=precision_score(y_test, predictions))
+    writer.add_scalar(tag=f'{prefix}f1_test',
+                scalar_value=f1_score(y_test, predictions))
+
+
+lstm_metrics(y_test, predict_classes)
+
+
+
+
 
 
 

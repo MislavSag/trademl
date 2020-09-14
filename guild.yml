@@ -302,16 +302,6 @@
           type: string
           default: 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
           required: True
-        train_val_index_split:
-          description: How many observations to train/test part
-          arg_name: train_val_index_split
-          default: 0.75
-          min: 0.0
-          max: 0.99
-        time_step_length:
-          description: Time ste length when constructing 3D data from time series
-          arg_name: time_step_length
-          default: 120
         batch_size:
           description: Batch size
           arg_name: batch_size
@@ -326,6 +316,12 @@
           description: Number of units in the layers
           arg_name: n_units
           default: 64
+        decrease_units:
+          description: decrease number of units with every layer
+          arg_name: decrease_units
+          default: 0
+          min: 0
+          max: 1
         dropout:
           description: Dropout rate
           arg_name: dropout
@@ -339,7 +335,7 @@
         epochs:
           description: Number of epochs
           arg_name: epochs
-          default: 15
+          default: 100
 
 - model: lstm-kerastuner
   extends: model-base
