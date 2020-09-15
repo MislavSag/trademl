@@ -6,6 +6,8 @@
 - operations:
     prepare-data:
       main: trademl.modeling.prepare
+      sourcecode: 
+        - include: '*.py'
       flags-import: all
       flags:
         input_path:
@@ -119,6 +121,8 @@
         - prepare-data
         - random-forest:train
     pipeline-rf-opt:
+      sourcecode: 
+        - include: '*.py'
       flags:
         data-include_ta:
           default: 1
@@ -169,6 +173,8 @@
     train:
       description: Trainer for random forest  
       main: trademl.modeling.train_rf  # Python module when running the operation
+      sourcecode: 
+        - include: '*.py'
       # requires: prepared-data
       flags‑import: all
       flags:
@@ -234,6 +240,8 @@
     train:
       description: Trainer for xgboost  
       main: trademl.modeling.train_xgb  # Python module when running the operation
+      sourcecode: 
+        - include: '*.py'
       # requires: prepared-data
       flags‑import: all
       flags:
@@ -287,12 +295,87 @@
           arg_name: min_child_weight
           default: 1
 
+- model: lightgbm
+  extends: model-base
+  description: Lightgbm classifier
+  operations:
+    train:
+      description: Trainer for lightgbm
+      main: trademl.modeling.train_lgbm
+      sourcecode: 
+        - include: '*.py'
+      # requires: prepared-data
+      flags‑import: all
+      flags:
+        input_data_path:
+          description: Path where prepared data and saved output exists
+          arg_name: input_data_path
+          type: string
+          default: 'C:/Users/Mislav/Documents/GitHub/trademl/trademl/modeling'
+          required: True
+        cv_type:
+          description: type of cv
+          arg_name: cv_type
+          type: string
+          default: 'purged_kfold'
+          choices: ['purged_kfold']
+        cv_number:
+          description: Number of CV folds to use in CV
+          arg_name: cv_number
+          min: 1
+          max: 20
+        num_leaves:
+          description: Max number of leaves in one tree
+          arg_name: num_leaves
+          default: 50
+          min: 1
+          max: 131072
+        n_estimators:
+          description: Number of boosting iterations
+          arg_name: n_estimators
+          default: 400
+          min: 10
+          max: 100000
+        max_depth:
+          description: Maximum depth for the tree in random forest algorithm
+          arg_name: max_depth
+          min: 1
+          max: 10
+        learning_rate:
+          description: Learning rate
+          arg_name: learning_rate
+          default: 10e-2
+        boosting_type:
+          description: Lightgbm booster to use
+          arg_name: boosting_type
+          type: string
+          default: 'gbdt'
+          choices: ['gbdt','rf','dart','goss']
+        colsample_bytree:
+          description: look at xgbost docs
+          arg_name: colsample_bytree
+          default: 0.9
+        subsample:
+          description: >
+            When constructing the additional tree, don't use the full training data set.
+            Instead use a subset of randomly selected training data.
+          arg_name: subsample
+          default: 0.9
+          max: 1
+        min_child_samples:
+          description: >
+            Minimal number of data in one leaf. Can be used to deal with over-fitting
+          arg_name: min_child_weight
+          default: 20
+
 - model: lstm
   extends: model-base
   operations:
     train:
       description: Trainer a LSTM nerual network
       main: trademl.modeling.train_lstm  # Python module when running the operation
+      sourcecode: 
+        - include: '*.py'
       requires: prepared-data
       flags‑import: all
       flags:
@@ -337,12 +420,14 @@
           arg_name: epochs
           default: 100
 
-- model: lstm-kerastuner
+- model: lstm-kerastune
   extends: model-base
   operations:
     train:
       description: Trainer a LSTM nerual network with keras tuner
-      main: trademl.modeling.train_lstm_tuner  # Python module when running the operation
+      main: trademl.modeling.train_lstm_tune  # Python module when running the operation
+      sourcecode: 
+        - include: '*.py'
       # requires: prepared-data
       flags‑import: all
       flags:
