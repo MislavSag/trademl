@@ -2,51 +2,43 @@ import pandas as pd
 import trademl as tml
 from trademl.modeling.data_import import import_ohlcv
 
-def import_ohlcv(path, contract='SPY_IB'):
-    cache_path = os.path.join(Path(path), 'cache', contract + '.h5')
-    if os.path.exists(cache_path):
-        data_cache = pd.read_hdf(cache_path, contract)
-        q = 'SELECT date, open, high, low, close, volume, average, barCount FROM ' + contract + ' ORDER BY id DESC LIMIT 1'
-        data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
-        if not (data['date'].iloc[-5:] == data_cache.index[-5:])[0]:        
-            q = 'SELECT date, open, high, low, close, volume, average, barCount FROM ' + contract
-            data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
-            data.set_index(data.date, inplace=True)
-            data.drop(columns=['date'], inplace=True)
-            data = data.sort_index()
-            cache_path = os.path.join(Path(path), 'cache', contract + '.h5')
-            data.to_hdf(cache_path, contract)
-     
-    return data
-    
 
+# Import data
 data = import_ohlcv('D:/market_data/usa/ohlcv_features', contract='SPY_IB')
 
-data = tml.modeling.data_import.import_ohlcv('D:/market_data/usa/ohlcv_features', contract='SPY_IB')
-
-data.head()
-
-### IMPORT DATA
-# # import data from mysql database and 
 
 
-# ################# MOVE LATER TO OTHER FOLDER #################
-
-# ### IMPORT DATA
-# def import_data(data_path, remove_cols, contract='SPY'):
-#     # import data
-#     with pd.HDFStore(os.path.join(data_path, contract + '.h5')) as store:
-#         data = store.get(contract)
-#     data.sort_index(inplace=True)
-    
-#     # remove variables
-#     remove_cols = [col for col in remove_cols if col in data.columns]
-#     data.drop(columns=remove_cols, inplace=True)
-    
-#     return data
+### 1) REMOVE OUTLIERS
+# security = tml.modeling.outliers.remove_ourlier_diff_median(data, median_outlier_thrteshold)
 
 
 
+# from sklearn.base import BaseEstimator, TransformerMixin
+# from trademl.modeling.outliers import remove_ourlier_diff_median
+
+
+# class RemoveOutlierDiffMedian(BaseEstimator, TransformerMixin):
+
+#     def __init__(self, median_outlier_thrteshold, state={}):
+#         self.median_outlier_thrteshold = median_outlier_thrteshold
+#         self.state = state
+
+#     def fit(self, X, y=None, state={}):
+#         if type(X) is tuple: X, y, self.state = X
+#         return self
+
+#     def transform(self, X, y=None, state={}):
+#         if type(X) is tuple: X, y, self.state = X
+
+#         X = remove_ourlier_diff_median(X, self.median_outlier_thrteshold)
+
+#         return X
+
+
+# data_sample = data.iloc[:10000]
+# remove_ourlier = RemoveOutlierDiffMedian(median_outlier_thrteshold=25)
+# data_sample = remove_ourlier.fit_transform(data_sample)
+# data_sample.head()
 
 
 # class ChowStructuralBreakSubsample(BaseEstimator, TransformerMixin):

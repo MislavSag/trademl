@@ -1,26 +1,6 @@
 import pandas as pd
 import numpy as np
-
-
-def remove_ohlc_ouliers(data, threshold_up=1, threshold_down=-0.3):
-    """
-    Remove ohlc obervations where value grater than threshold.
-    That is, remove rows where growth grater than threshold.
-
-    Returns:
-        pd.DataFrame
-    """
-    ohlcCols = ["open", 'high', 'low', 'close']
-    data = data.loc[
-        (data[ohlcCols].pct_change(1, freq='Min').fillna(0) < threshold_up).all(1) &
-        (data[ohlcCols].pct_change(1, freq='Min').shift(-1).fillna(0) > threshold_down).all(1)
-    ]
-    data = data.loc[
-        (data[ohlcCols].pct_change(1, freq='Min').fillna(0) > threshold_down).all(1) &
-        (data[ohlcCols].pct_change(1, freq='Min').shift(-1).fillna(0) < threshold_up).all(1)
-    ]
-
-    return data
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 def remove_ourlier_diff_median(data, median_scaler=25):
@@ -44,3 +24,21 @@ def remove_ourlier_diff_median(data, median_scaler=25):
     data_final = data.loc[indexer.values, :]
     
     return data_final
+
+
+class RemoveOutlierDiffMedian(BaseEstimator, TransformerMixin):
+
+    def __init__(self, median_outlier_thrteshold, state={}):
+        self.median_outlier_thrteshold = median_outlier_thrteshold
+        self.state = state
+
+    def fit(self, X, y=None, state={}):
+        if type(X) is tuple: X, y, self.state = X
+        return self
+
+    def transform(self, X, y=None, state={}):
+        if type(X) is tuple: X, y, self.state = X
+
+        X = remove_ourlier_diff_median(X, self.median_outlier_thrteshold)
+
+        return X
