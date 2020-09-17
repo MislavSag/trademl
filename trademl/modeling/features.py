@@ -13,6 +13,7 @@ from talib.abstract import (
     BETA, CORREL, LINEARREG, LINEARREG_ANGLE, LINEARREG_INTERCEPT, LINEARREG_SLOPE, TSF
 )
 from sklearn.base import BaseEstimator, TransformerMixin
+from trademl.modeling.utils import time_method
 
 
 def add_ind(ohlcv, f, n, periods):
@@ -63,6 +64,7 @@ def add_ind_df(ohlcv, f, n, periods):
     return ind
 
 
+@time_method
 def add_technical_indicators(data, periods):
     """Add tecnical indicators as featues.
     
@@ -287,18 +289,19 @@ class AddFeatures(BaseEstimator, TransformerMixin):
         print('Adding features')
         
         return self
-
+    
+    @time_method
     def transform(self, X, y=None):
         
         # add tecnical indicators
         if self.add_ta:
-            X = tml.modeling.features.add_technical_indicators(X, periods=self.ta_periods)
+            X = add_technical_indicators(X, periods=self.ta_periods)
             X.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in X.columns]
-            print('Tecnichnical indicators addad')
+            print('Technical indicators added')
         
         # add other features
-        X = tml.modeling.features.add_ohlcv_features(X)
-        print('Microstructural and other features addad')
+        X = add_ohlcv_features(X)
+        print('Microstructural and other features added')
         
         # remove na
         if self.add_ta:

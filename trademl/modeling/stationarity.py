@@ -5,6 +5,7 @@ from numpy.fft import fft, ifft
 from statsmodels.tsa.stattools import adfuller
 import numba
 from numba import njit
+from sklearn.base import BaseEstimator, TransformerMixin
 # import matplotlib.pyplot as plt
 #### PERFORMANCE !!! FROM 
 # https://github.com/cottrell/fractional-differentiation-time-series/blob/master/fracdiff/fracdiff.py
@@ -240,3 +241,38 @@ def unstat_cols_to_stat(data, min_d, stationaryCols):
     data.dropna(inplace=True)
 
     return data
+
+
+class Fracdiff(BaseEstimator, TransformerMixin):
+    
+    def __init__(self, keep_unstationary=False):
+        self.keep_unstationary = keep_unstationary
+        
+    def fit(self, X, y=None):
+
+        return self
+
+    def transform(self, X, y=None):
+        
+        print('Finding min d')
+        stationaryCols, min_d = min_ffd_all_cols(X)
+        
+        # save to github for later 
+        min_dmin_d_save_for_backtesting = pd.Series(0, index=X.columns)
+        min_dmin_d_save_for_backtesting.update(min_d)
+        min_dmin_d_save_for_backtesting.dropna(inplace=True)
+        # self.min_dmin_d_save_for_backtesting.to_csv(
+        #     'C:/Users/Mislav/Documents/GitHub/trademl/data/min_d_' + contract + '.csv', sep=';')
+
+        if self.keep_unstationary:
+            keep_unstat = X[stationaryCols].add_prefix('orig_')
+            X = unstat_cols_to_stat(X, min_d, stationaryCols)
+            X.columns = ['fracdiff_' + col if col in stationaryCols else col for col in X.columns]
+            X = pd.concat([keep_unstat, X], axis=1)
+            X = X.dropna()
+        else:
+            X = unstat_cols_to_stat(X, min_d, stationaryCols)
+            X.columns = ['fracdiff_' + col if col in stationaryCols else col for col in X.columns]
+            X = X.dropna()
+            
+        return X
