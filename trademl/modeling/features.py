@@ -12,6 +12,7 @@ from talib.abstract import (
     HT_PHASOR, HT_SINE, STOCHF, STOCH,
     BETA, CORREL, LINEARREG, LINEARREG_ANGLE, LINEARREG_INTERCEPT, LINEARREG_SLOPE, TSF
 )
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 def add_ind(ohlcv, f, n, periods):
@@ -274,3 +275,35 @@ def add_ohlcv_features(data):
 
     
     return data
+
+
+class AddFeatures(BaseEstimator, TransformerMixin):
+
+    def __init__(self, add_ta=True, ta_periods=[10, 100]):
+        self.add_ta = add_ta
+        self.ta_periods = ta_periods
+
+    def fit(self, X, y=None):
+        print('Adding features')
+        
+        return self
+
+    def transform(self, X, y=None):
+        
+        # add tecnical indicators
+        if self.add_ta:
+            X = tml.modeling.features.add_technical_indicators(X, periods=self.ta_periods)
+            X.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in X.columns]
+            print('Tecnichnical indicators addad')
+        
+        # add other features
+        X = tml.modeling.features.add_ohlcv_features(X)
+        print('Microstructural and other features addad')
+        
+        # remove na
+        if self.add_ta:
+            X = X.loc[:, X.isna().sum() < (max(self.ta_periods) + 10)]
+        cols_remove_na = range((np.where(X.columns == 'volume')[0].item() + 1), X.shape[1])
+        X.dropna(subset=X.columns[cols_remove_na], inplace=True)
+        
+        return X

@@ -34,11 +34,18 @@ class RemoveOutlierDiffMedian(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None, state={}):
         if type(X) is tuple: X, y, self.state = X
+        
+        print(f"Removing outliers")
+        
         return self
 
     def transform(self, X, y=None, state={}):
         if type(X) is tuple: X, y, self.state = X
-
+        
+        print(f"Shape before outlier removal: {X.shape}")
+        
         X = remove_ourlier_diff_median(X, self.median_outlier_thrteshold)
+        
+        print(f"Shape after outlier removal: {X.shape}")
 
         return X

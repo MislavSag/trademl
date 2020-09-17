@@ -1,10 +1,66 @@
 import pandas as pd
 import trademl as tml
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import train_test_split
 from trademl.modeling.data_import import import_ohlcv
-
+from trademl.modeling.outliers import RemoveOutlierDiffMedian
 
 # Import data
 data = import_ohlcv('D:/market_data/usa/ohlcv_features', contract='SPY_IB')
+
+# Split data
+X_train, X_test = train_test_split(
+    data, test_size=0.10, shuffle=False, stratify=None)
+
+# Preprocessing
+pipe = make_pipeline(
+    RemoveOutlierDiffMedian(median_outlier_thrteshold=25),
+    AddFeatures(ta_periods=[10, 20])
+    )
+X = pipe.fit_transform(X_train)
+
+
+# class AddFeatures(BaseEstimator, TransformerMixin):
+
+#     def __init__(self, add_ta=True, ta_periods=[10, 100]):
+#         self.add_ta = add_ta
+#         self.ta_periods = ta_periods
+
+#     def fit(self, X, y=None):
+
+#         return self
+
+#     def transform(self, X, y=None):
+#         # add tecnical indicators        
+#         if self.add_ta:
+#             X = tml.modeling.features.add_technical_indicators(X, periods=self.ta_periods)
+#             X.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in X.columns]
+        
+#         # add other features
+#         X = tml.modeling.features.add_ohlcv_features(X)
+        
+#         # remove na
+#         if self.add_ta:
+#             X = X.loc[:, X.isna().sum() < (max(self.ta_periods) + 10)]
+#         cols_remove_na = range((np.where(X.columns == 'volume')[0].item() + 1), X.shape[1])
+#         X.dropna(subset=X.columns[cols_remove_na], inplace=True)
+        
+#         return X
+
+
+af = AddFeatures(ta_periods=[10, 20])
+X = af.fit_transform(X)
+
+
+
+tb1 = TripleBarrierLabel()
+tb1_fit = tb1.fit(X)
+tb1_transform = tb1.transform(X)
+tb1_transform
+
+tb2 = tml.modeling.pipelines.TripleBarierLabeling()
+tb2_fit = tb2.fit(X)
+tb1_transform = tb1.transform(X)
 
 
 
@@ -35,10 +91,10 @@ data = import_ohlcv('D:/market_data/usa/ohlcv_features', contract='SPY_IB')
 #         return X
 
 
-# data_sample = data.iloc[:10000]
-# remove_ourlier = RemoveOutlierDiffMedian(median_outlier_thrteshold=25)
-# data_sample = remove_ourlier.fit_transform(data_sample)
-# data_sample.head()
+data_sample = data.iloc[:10000]
+remove_ourlier = RemoveOutlierDiffMedian(median_outlier_thrteshold=25)
+data_sample = remove_ourlier.fit_transform(data_sample)
+data_sample.head()
 
 
 # class ChowStructuralBreakSubsample(BaseEstimator, TransformerMixin):
