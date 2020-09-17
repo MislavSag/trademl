@@ -12,7 +12,7 @@ def import_ohlcv(path, contract='SPY_IB'):
         data = pd.read_hdf(cache_path, contract)
         q = 'SELECT date, open, high, low, close, volume, average, barCount FROM ' + contract + ' ORDER BY id DESC LIMIT 1'
         data_check = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
-        if not (data_check['date'] == data_catche.index[-1])[0]:        
+        if not (data_check['date'] == data.index[-1])[0]:        
             q = 'SELECT date, open, high, low, close, volume, average, barCount FROM ' + contract
             data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
             data.set_index(data.date, inplace=True)
