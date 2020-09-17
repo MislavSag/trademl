@@ -21,7 +21,7 @@ from trademl.modeling.feature_importance import (
     important_features, fi_shap, fi_xgboost, fi_lightgbm)
 from trademl.modeling.utils import (
     serialize_random_forest, write_to_db, query_to_db, balance_multiclass, save_files,
-    set_mfiles_client, destroy_mfiles_object, cbind_pandas_h2o, import_data
+    set_mfiles_client, destroy_mfiles_object, cbind_pandas_h2o
 )
 from trademl.modeling.structural_breaks import (
     get_chow_type_stat, my_get_sadf
