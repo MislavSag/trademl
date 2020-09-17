@@ -1,5 +1,6 @@
 .Rproj.user
 .Rhistory
+.Renviron
 .RData
 .Ruserdata
 data-prepare
