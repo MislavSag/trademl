@@ -5,26 +5,26 @@ from trademl.modeling.data_import import import_ohlcv
 def import_ohlcv(path, contract='SPY_IB'):
     cache_path = os.path.join(Path(path), 'cache', contract + '.h5')
     if os.path.exists(cache_path):
-        security = pd.read_hdf(cache_path, contract)
+        data_cache = pd.read_hdf(cache_path, contract)
         q = 'SELECT date, open, high, low, close, volume, average, barCount FROM ' + contract + ' ORDER BY id DESC LIMIT 1'
         data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
-        if not (data['date'] == security.index[-1])[0]:        
+        if not (data['date'].iloc[-5:] == data_cache.index[-5:])[0]:        
             q = 'SELECT date, open, high, low, close, volume, average, barCount FROM ' + contract
             data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
             data.set_index(data.date, inplace=True)
             data.drop(columns=['date'], inplace=True)
-            security = data.sort_index()
+            data = data.sort_index()
             cache_path = os.path.join(Path(path), 'cache', contract + '.h5')
-            security.to_hdf(cache_path, contract)
+            data.to_hdf(cache_path, contract)
      
     return data
     
 
-data = tml.modeling.data_import.import_ohlcv(
-    'D:/market_data/usa/ohlcv_features', 
-    contract='SPY_IB')
+data = import_ohlcv('D:/market_data/usa/ohlcv_features', contract='SPY_IB')
 
-data = import_ohlcv(path='D:/market_data/usa/ohlcv_features', contract='SPY_IB')
+data = tml.modeling.data_import.import_ohlcv('D:/market_data/usa/ohlcv_features', contract='SPY_IB')
+
+data.head()
 
 ### IMPORT DATA
 # # import data from mysql database and 
