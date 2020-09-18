@@ -6,6 +6,8 @@ from statsmodels.tsa.stattools import adfuller
 import numba
 from numba import njit
 from sklearn.base import BaseEstimator, TransformerMixin
+import re
+from trademl.modeling.utils import time_method
 # import matplotlib.pyplot as plt
 #### PERFORMANCE !!! FROM 
 # https://github.com/cottrell/fractional-differentiation-time-series/blob/master/fracdiff/fracdiff.py
@@ -275,4 +277,23 @@ class Fracdiff(BaseEstimator, TransformerMixin):
             X.columns = ['fracdiff_' + col if col in stationaryCols else col for col in X.columns]
             X = X.dropna()
             
+        return X
+
+
+class StationarityMethod(BaseEstimator, TransformerMixin):
+
+    def __init__(self, stationarity_method='fracdiff'):
+        self.stationarity_method = stationarity_method
+
+    def fit(self, X, y=None):
+        return self
+
+    @time_method
+    def transform(self, X, y=None):
+        if self.stationarity_method == 'fracdiff':
+            remove_cols = [re.sub('fracdiff_', '', col) for col in X.columns if 'fracdiff' in col]    
+        else:
+            remove_cols = [col for col in X.columns if 'fracdiff' in col]
+        X = X.drop(columns=remove_cols)
+        
         return X

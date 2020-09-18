@@ -38,7 +38,8 @@ class RemoveOutlierDiffMedian(BaseEstimator, TransformerMixin):
         print(f"Removing outliers")
         
         return self
-
+    
+    @time_method
     def transform(self, X, y=None, state={}):
         if type(X) is tuple: X, y, self.state = X
         
