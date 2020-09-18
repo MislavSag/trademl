@@ -24,7 +24,7 @@ from trademl.modeling.utils import (
     set_mfiles_client, destroy_mfiles_object, cbind_pandas_h2o
 )
 from trademl.modeling.structural_breaks import (
-    get_chow_type_stat, my_get_sadf
+    get_chow_type_stat, my_get_sadf, ChowStructuralBreakSubsample
 )
 from trademl.modeling.preprocessing import (
     remove_correlated_columns, sequence_from_array

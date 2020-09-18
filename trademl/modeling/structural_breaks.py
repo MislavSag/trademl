@@ -6,6 +6,9 @@ import pandas as pd
 import numpy as np
 import numba
 import mlfinlab as ml
+from sklearn.base import BaseEstimator, TransformerMixin
+from trademl.modeling.utils import time_method
+from trademl.modeling.structural_breaks import get_chow_type_stat
 
 
 # Chow-Type Dickey-Fuller Test
@@ -267,40 +270,41 @@ def my_get_sadf(series: pd.Series, model: str, lags: Union[int, list], min_lengt
     return sadf_series_val
 
 
-# # convert data to hourly to make code faster and decrease random component
-# close_daily = data['close'].resample('D').last().dropna()
-# close_daily = np.log(close_daily)
+class ChowStructuralBreakSubsample(BaseEstimator, TransformerMixin):
 
+    def __init__(self, min_length=10):
+        self.min_length = min_length
 
-# # MEASURE PERFORMANCE
-# from timeit import default_timer as timer
-# from datetime import timedelta
-# series = close_daily.iloc[:800].copy()
-# model = 'linear'
-# lags = 2
-# min_length = 20
-# add_const = False
-# phi = 0
-# # mlfinlab
-# start = timer()
-# mlfinlab_results = ml.structural_breaks.get_sadf(
-#     close_hou, min_length=min_length, model=model, phi=phi, num_threads=1, lags=lags)
-# end = timer()
-# print(timedelta(seconds=end-start))
-# print(mlfinlab_results.shape)
-# print(mlfinlab_results.head(20))
-# print(mlfinlab_results.tail(20))
-# # my function
-# start = timer()
-# results = my_get_sadf(
-#     close_daily, min_length=min_length, model=model, phi=phi, num_threads=1, lags=lags)
-# end = timer()
-# print(timedelta(seconds=end-start))
-# type(results)
-# print(results.shape)
-# print(results[:20])
-# print(results[-20:])
+    @time_method
+    def fit(self, X, y=None):
 
-# sadf = pd.Series(results, index=close_daily.index[23:])
-# breakdate =sadf.loc[sadf == sadf.max()]
-# sadf.plot()
+        return self
+
+    @time_method
+    def transform(self, X, y=None):
+        # extract close series
+        assert 'close' in X.columns, "Dataframe doesn't contain close column"
+        
+        # convert to weekly freq for performance and noise reduction
+        close_weekly = X['close'].resample('W').last().dropna()
+        close_weekly_log = np.log(close_weekly)
+        
+        # calculate chow indicator
+        chow = get_chow_type_stat(
+            series=close_weekly_log, min_length=self.min_length)
+        
+        # take second segment of structural break
+        breakdate = chow.loc[chow == chow.max()]
+        X['chow_segment'] = 0
+        X['chow_segment'][breakdate.index[0]:] = 1
+        X['chow_segment'].loc[breakdate.index[0]:] = 1
+        X['chow_segment'] = np.where(X.index < breakdate.index[0], 0, 1)
+        
+        # subsample
+        if (X.loc[X['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
+            X = X.iloc[-(60*8*365):]
+        else:
+            X = X.loc[data['chow_segment'] == 1]
+        X = X.drop(columns=['chow_segment'])
+    
+        return X
