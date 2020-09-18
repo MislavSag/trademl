@@ -14,21 +14,22 @@ class Radf(bt.Indicator):
     params = dict(period=600, adf_lag=2)
     
     def __init__(self):
-        self.close_slice = self.data0.close.get(size=self.p.period)
-        
+        self.addminperiod(self.params.period)
+
     def next(self):
+        self.close_slice = self.data0.close.get(size=self.p.period)
         x = {
-            'x': self.close_slice,
+            'x': self.close_slice.tolist(),
             'adf_lag': self.p.adf_lag
         }
         x = json.dumps(x)
-        # res = requests.post("http://46.101.219.193/plumber_test/radf", data=x)
-        # res_json = res.json()
-        # bsadf = res_json['bsadf']
-        # bsadf = pd.DataFrame.from_dict(bsadf)
-        # bsadf_last = bsadf.iloc[-1]
-        # self.lines.radf = bsadf_last
-        # self.lines.radf = self.close_slice
+        res = requests.post("http://46.101.219.193/plumber_test/radf", data=x)
+        res_json = res.json()
+        bsadf = res_json['bsadf']
+        bsadf = pd.DataFrame.from_dict(bsadf)
+        bsadf_last = bsadf.iloc[-1]
+        # print(f'{bsadf_last}')
+        self.lines.radf[0] = bsadf_last.item()
         
 
 
@@ -58,8 +59,12 @@ class TestStrategy(bt.Strategy):
         self.sma = bt.indicators.SimpleMovingAverage(
             self.datas[0], period=self.params.maperiod)
         self.radf = Radf(self.data)
-        print(f'{self.radf}')
 
+
+    def nextstart(self):
+        size = int(self.broker.get_cash() / self.data)
+        self.buy(size=size)
+        
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
             # Buy/Sell order submitted/accepted to/by broker - Nothing to do
@@ -110,7 +115,9 @@ class TestStrategy(bt.Strategy):
         if not self.position:
 
             # Not yet ... we MIGHT BUY if ...
-            if self.dataclose[0] > self.sma[0]:
+            # if self.dataclose[0] > self.sma[0]:
+            if self.radf[0] < 1.012245:
+                print(f'Buy at {self.radf[0]}')
 
                 # BUY, BUY, BUY!!! (with all possible default parameters)
                 self.log('BUY CREATE, %.2f' % self.dataclose[0])
@@ -120,7 +127,10 @@ class TestStrategy(bt.Strategy):
 
         else:
 
-            if self.dataclose[0] < self.sma[0]:
+            # if self.dataclose[0] < self.sma[0]:
+            if self.radf[0] > 1.012245:
+                print(f'Sell at {self.radf[0]}')
+                
                 # SELL, SELL, SELL!!! (with all possible default parameters)
                 self.log('SELL CREATE, %.2f' % self.dataclose[0])
 
@@ -180,7 +190,7 @@ if __name__ == '__main__':
     # change frequency
     data = data.resample('D').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'})  # wow!
     data = data.dropna()
-    data = data.iloc[:650]
+    # data = data.iloc[:2000]
 
     print('--------------------------------------------------')
     print(data)
@@ -199,3 +209,10 @@ if __name__ == '__main__':
 
     # Run over everything
     cerebro.run(maxcpus=8)
+    
+
+# import rpy2
+# print(rpy2.__version__)
+
+# from rpy2.robjects.packages import importr
+

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
+from trademl.modeling.utils import time_method
 
 
 def remove_ourlier_diff_median(data, median_scaler=25):

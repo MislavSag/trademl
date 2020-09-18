@@ -98,7 +98,7 @@ writer.add_scalar(tag='std_score', scalar_value=std_score, global_step=None)
 writer.add_text(tag='save_id', text_string=save_id, global_step=None)
 
 # retrain the model if mean score is high enough (higher than 0.5)
-if mean_score < 0.55:
+if mean_score < 0.54:
     print('good_performance: False')
 else:
     print('good_performance: True')
@@ -127,7 +127,7 @@ else:
                 directory=os.path.join(Path(input_data_path), 'important_features'))
     
     
-    # ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
+    ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES
     fi_cols = shap_values['col_name'].head(keep_important_features)
     X_train_important = X_train[fi_cols]
     X_test_important = X_test[fi_cols]
