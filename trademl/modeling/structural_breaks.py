@@ -8,7 +8,6 @@ import numba
 import mlfinlab as ml
 from sklearn.base import BaseEstimator, TransformerMixin
 from trademl.modeling.utils import time_method
-from trademl.modeling.structural_breaks import get_chow_type_stat
 
 
 # Chow-Type Dickey-Fuller Test
