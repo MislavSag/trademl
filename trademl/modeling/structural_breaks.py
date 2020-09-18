@@ -274,12 +274,10 @@ class ChowStructuralBreakSubsample(BaseEstimator, TransformerMixin):
     def __init__(self, min_length=10):
         self.min_length = min_length
 
-    @time_method
     def fit(self, X, y=None):
 
         return self
 
-    @time_method
     def transform(self, X, y=None):
         # extract close series
         assert 'close' in X.columns, "Dataframe doesn't contain close column"

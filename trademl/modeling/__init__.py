@@ -11,7 +11,7 @@ from trademl.modeling.features import (
 from trademl.modeling.outliers import (
     remove_ourlier_diff_median, RemoveOutlierDiffMedian)
 from trademl.modeling.stationarity import (
-    min_ffd_all_cols, min_ffd_value, Fracdiff)
+    min_ffd_all_cols, min_ffd_value, Fracdiff, StationarityMethod)
 from trademl.modeling.backtest import (
     cumulative_returns, hold_cash_backtest, enter_positions)
 from trademl.modeling.pipelines import (
