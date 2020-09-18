@@ -288,7 +288,6 @@ class StationarityMethod(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
-    @time_method
     def transform(self, X, y=None):
         if self.stationarity_method == 'fracdiff':
             remove_cols = [re.sub('fracdiff_', '', col) for col in X.columns if 'fracdiff' in col]    

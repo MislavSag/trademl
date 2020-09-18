@@ -24,7 +24,6 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         self.num_threads = num_threads
         self.min_pct = tb_min_pct
 
-    @time_method
     def fit(self, X, y=None):
         
         # extract close series
@@ -66,7 +65,6 @@ class TripleBarierLabeling(BaseEstimator, TransformerMixin):
         
         return self
     
-    @time_method
     def transform(self, X, y=None):
         
         # subsample
@@ -81,11 +79,9 @@ class OutlierStdRemove(BaseEstimator, TransformerMixin):
     def __init__(self, std_threshold):
         self.std_threshold = std_threshold
 
-    @time_method
     def fit(self, X, y=None):
         return self
 
-    @time_method
     def transform(self, X, y=None):
         X = X[X.apply(lambda x: (np.abs(x - x.mean()) / x.std()) < self.std_threshold).
               all(axis=1)]
@@ -211,7 +207,6 @@ class TrendScanning(BaseEstimator, TransformerMixin):
         self.ts_step = ts_step
         self.ts = None
 
-    @time_method
     def fit(self, X, y=None):
 
         # extract close series
@@ -239,7 +234,6 @@ class TrendScanning(BaseEstimator, TransformerMixin):
 
         return self.ts
 
-    @time_method
     def transform(self, X, y=None):
 
         # subsample
