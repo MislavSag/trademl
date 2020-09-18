@@ -18,7 +18,8 @@ from trademl.modeling.utils import time_method
 
 ### HYPERPARAMETERS
 save_path = 'D:/market_data/usa/ohlcv_features'
-add_ta = True
+contract = 'SPY_IB'
+add_ta = False
 ta_periods = [400, 2000, 8000]
 add_labels = True
 env_directory = None  # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -27,12 +28,19 @@ median_outlier_thrteshold = 20
 
 ### IMPORT DATA
 # import data from mysql database and 
-contract = 'SPY_clean'
-q = 'SELECT date, open, high, low, close, volume, average, barCount FROM SPY_IB'
-data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
-data.set_index(data.date, inplace=True)
-data.drop(columns=['date'], inplace=True)
-security = data.sort_index()
+cache_path = os.path.join(Path(save_path), 'cache', contract + '.h5')
+if os.path.exists(cache_path):
+    security = pd.read_hdf(cache_path, contract)
+    q = 'SELECT date, open, high, low, close, volume, average, barCount FROM ' + contract + ' ORDER BY id DESC LIMIT 1'
+    data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
+    if not (data['date'] == security.index[-1])[0]:        
+        q = 'SELECT date, open, high, low, close, volume, average, barCount FROM ' + contract
+        data = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
+        data.set_index(data.date, inplace=True)
+        data.drop(columns=['date'], inplace=True)
+        security = data.sort_index()
+        cache_path = os.path.join(Path(save_path), 'cache', contract + '.h5')
+        security.to_hdf(cache_path, contract)
 
 
 ### 1) REMOVE OUTLIERS
@@ -56,28 +64,32 @@ cols_remove_na = range((np.where(security.columns == 'volume')[0].item() + 1), s
 security.dropna(subset=security.columns[cols_remove_na], inplace=True)
 
 
-### 4) LABELING (COMPUTATIONALLY INTENSIVE)
-if add_labels:
-    # trend scanning
-    def add_trend_scanning_label(data, look_forward, col_prefix=''):
-        ts_1_day = tml.modeling.pipelines.trend_scanning_labels(
-            data['close'], t_events=data.index, look_forward_window=observatins_per_day,
-            min_sample_length=30, step=2
-        )
-        ts_1_day = ts_1_day.add_prefix(col_prefix)
-        return pd.concat([data, ts_1_day], axis=1)
+# ### 4) LABELING (COMPUTATIONALLY INTENSIVE)
+# if add_labels:
+#     # trend scanning
+#     def add_trend_scanning_label(data, look_forward, col_prefix=''):
+#         ts_1_day = tml.modeling.pipelines.trend_scanning_labels(
+#             data['close'], t_events=data.index, look_forward_window=observatins_per_day,
+#             min_sample_length=30, step=2
+#         )
+#         ts_1_day = ts_1_day.add_prefix(col_prefix)
+#         return pd.concat([data, ts_1_day], axis=1)
 
     
-    observatins_per_day = int(pd.value_counts(security.index.normalize(), sort=False).mean())
-    security = add_trend_scanning_label(security, observatins_per_day, 'day_1_')
-    security = add_trend_scanning_label(security, observatins_per_day*2, 'day_2_')
-    security = add_trend_scanning_label(security, observatins_per_day*5, 'day_5_')
-    security = add_trend_scanning_label(security, observatins_per_day*10, 'day_10_')
-    security = add_trend_scanning_label(security, observatins_per_day*20, 'day_20_')
-    security = add_trend_scanning_label(security, observatins_per_day*30, 'day_30_')
-    security = add_trend_scanning_label(security, observatins_per_day*60, 'day_60_')
+#     observatins_per_day = int(pd.value_counts(security.index.normalize(), sort=False).mean())
+#     security = add_trend_scanning_label(security, observatins_per_day, 'day_1_')
+#     security = add_trend_scanning_label(security, observatins_per_day*2, 'day_2_')
+#     security = add_trend_scanning_label(security, observatins_per_day*5, 'day_5_')
+#     security = add_trend_scanning_label(security, observatins_per_day*10, 'day_10_')
+#     security = add_trend_scanning_label(security, observatins_per_day*20, 'day_20_')
+#     security = add_trend_scanning_label(security, observatins_per_day*30, 'day_30_')
+#     security = add_trend_scanning_label(security, observatins_per_day*60, 'day_60_')
 
-    # triple-barrier labeling
+#     # triple-barrier labeling
+#     vertical_barriers = ml.labeling.add_vertical_barrier(
+#         t_events=cusum_events,
+#         close=close,
+#         num_days=self.triplebar_num_days)
 
 
 ### 5) STRUCTURAL BRAKES

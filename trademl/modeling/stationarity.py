@@ -265,7 +265,7 @@ class Fracdiff(BaseEstimator, TransformerMixin):
         #     'C:/Users/Mislav/Documents/GitHub/trademl/data/min_d_' + contract + '.csv', sep=';')
 
         if self.keep_unstationary:
-            keep_unstat = X[stationaryCols].add_prefix('orig_')
+            keep_unstat = X[stationaryCols]  # .add_prefix('orig_')
             X = unstat_cols_to_stat(X, min_d, stationaryCols)
             X.columns = ['fracdiff_' + col if col in stationaryCols else col for col in X.columns]
             X = pd.concat([keep_unstat, X], axis=1)

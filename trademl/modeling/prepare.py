@@ -11,11 +11,35 @@ from sklearn.model_selection import train_test_split
 import mlfinlab as ml
 from mlfinlab.feature_importance import get_orthogonal_features
 import trademl as tml
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
 import mfiles
+from tensorboardX import SummaryWriter
+from datetime import datetime
 matplotlib.use("Agg")  # don't show graphs because thaty would stop guildai script
+
+
+### TENSORBORADX WRITER
+log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
+    "%Y%m%d-%H%M%S")
+writer = SummaryWriter(log_dir)
+
+
+# import numpy as np
+# import requests
+# import json
+
+# x = {
+#     'x': np.random.rand(500).tolist(),
+#     'adf_lag': 2
+# }
+# x = json.dumps(x)
+
+# res = requests.post("http://46.101.219.193/plumber_test/radf", data=x)
+
+# # res_json = res.json()
+# # bsadf = res_json['bsadf']
+# # bsadf = pd.DataFrame.from_dict(bsadf)
+# # bsadf_last = bsadf.iloc[-1]
+
 
 
 ### HYPERPARAMETERS
@@ -31,7 +55,7 @@ stationarity_tecnique = 'fracdiff'
 structural_break_regime = 'all'
 # labeling
 label_tuning = False
-label = 'day_5'  # 'day_1' 'day_2' 'day_5' 'day_10' 'day_20' 'day_30' 'day_60'
+label = 'day_30'  # 'day_1' 'day_2' 'day_5' 'day_10' 'day_20' 'day_30' 'day_60'
 labeling_technique = 'trend_scanning'
 tb_triplebar_num_days = 10
 tb_triplebar_pt_sl = [1, 1]
@@ -41,7 +65,7 @@ ts_min_sample_length = 30
 ts_step = 5
 tb_min_pct = 0.10
 # filtering
-tb_volatility_lookback = 75
+tb_volatility_lookback = 50
 tb_volatility_scaler = 1
 # feature engineering
 correlation_threshold = 0.99
@@ -126,7 +150,7 @@ if label_tuning:
 else:
     X_cols = [col for col in data.columns if 'day_' not in col]
     X = data[X_cols]
-    y_cols = [col for col in data.columns if label in col]
+    y_cols = [col for col in data.columns if label + '_' in col]
     labeling_info = data[y_cols]
 
 
@@ -159,6 +183,13 @@ X = tml.modeling.preprocessing.remove_correlated_columns(
     threshold=correlation_threshold)
 print(X.shape)
 
+
+# TREAT CATEGORIAL VARIABLES
+categorial_features = ['tick_rule', 'HT_TRENDMODE', 'volume_vix']
+categorial_features = [col for col in categorial_features if col in X.columns]
+X = X.drop(columns=categorial_features)  # remove for now
+
+
 ### TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
     X, labeling_info.loc[:, labeling_info.columns.str.contains('bin')],
@@ -167,7 +198,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 ### SCALING
 if scaling == 'expanding':
-    stdize_input = lambda x: (x - x.expanding(50).mean()) / x.expanding(50).std()
+    stdize_input = lambda x: (x - x.expanding(tb_volatility_lookback).mean()) / x.expanding(tb_volatility_lookback).std()
     X_train = X_train.apply(stdize_input)
     X_test = X_test.apply(stdize_input)
     y_train = y_train.loc[~X_train.isna().any(axis=1)]
@@ -175,20 +206,24 @@ if scaling == 'expanding':
     y_test = y_test.loc[~X_test.isna().any(axis=1)]
     X_test = X_test.dropna()
 
+    y_train = y_train.loc[~X_train.isna().any(axis=1)]
+    X_train = X_train.dropna()
+    y_test = y_test.loc[~X_test.isna().any(axis=1)]
+    X_test = X_test.dropna()
 
+    
 ### DIMENSIONALITY REDUCTION
 if pca:
-    X_train = pd.DataFrame(preprocessing.scale(X_train), columns=X_train.columns)
-    X_test = pd.DataFrame(preprocessing.scale(X_test), columns=X_test.columns)
+    if scaling == 'none':
+        X_train = pd.DataFrame(preprocessing.scale(X_train), columns=X_train.columns)
+        X_test = pd.DataFrame(preprocessing.scale(X_test), columns=X_test.columns)
     X_train = pd.DataFrame(
-        get_orthogonal_features(
-            X_train.drop(columns=['tick_rule'])),
+        get_orthogonal_features(X_train),
         index=X_train.index).add_prefix("PCA_")
     pca_n_compenents = X_train.shape[1]
     X_test = pd.DataFrame(
-        get_orthogonal_features(
-            X_test.drop(columns=['tick_rule']),
-            num_features=pca_n_compenents),
+        get_orthogonal_features(X_test,
+                                num_features=pca_n_compenents),
         index=X_test.index).add_prefix("PCA_")
     X_train.index = y_train.index
     X_test.index = y_test.index
