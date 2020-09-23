@@ -21,35 +21,17 @@ def get_runs(operation):
     return runs
 
 
-def clean_runs(runs, filter_metric=['accuracy_test']):
+def clean_runs(runs, filter_metric=['accuracy_test'], good_performance=False):
     runs = runs.dropna(axis=1, how='all')
     runs = runs.sort_values(by=filter_metric, ascending=False)
+    if good_performance:
+        runs = runs.dropna(subset=filter_metric)
     return runs
 
 
-runs = get_runs(operation=['random-forest'])
+runs = get_runs(operation=['lightgbm'])
 runs_clean = clean_runs(runs)
 runs_clean.head()
-
-
-runs_xgboost = get_runs(operation=[])
-
-# df runs
-runs_clean = runs_lstm_compare.dropna(axis=1, how='all')
-runs_clean = runs_clean.sort_values(by=['accuracy_test'], ascending=True)
-runs_clean.head()
-
-
-
-def clean_runs(runs, filter_metric=['accuracy_test']):
-    runs_clean = runs.dropna(axis=1, how='all')
-    runs_clean = runs_clean.sort_values(by=filter_metric)
-    runs_clean = runs_clean.dropna(subset=filter_metric)
-    runs_clean = runs_clean.loc[runs_clean[filter_metric[0]] > 0.55]
-
-
-runs_rf_clean = clean_runs(runs_rf_compare)
-runs_lstm_compare = clean_runs(runs_lstm_compare, ['val_accuracy'])
 
 
 # HYPERPARAMETER ANALYSIS

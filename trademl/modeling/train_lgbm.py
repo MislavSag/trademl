@@ -15,6 +15,7 @@ import mlfinlab as ml
 import trademl as tml
 from tensorboardX import SummaryWriter
 import random
+import re
 matplotlib.use("Agg")  # don't show graphs
 
 
@@ -25,8 +26,7 @@ writer = SummaryWriter(log_dir)
 
 
 ### MODEL HYPERPARAMETERS
-input_data_path = 'D:/algo_trading_files'
-sample_weights_type = 'return'
+sample_weights_type = 'returns'
 cv_type = 'purged_kfold'
 cv_number = 5
 # model
@@ -38,14 +38,16 @@ subsample = 0.95
 max_depth = 3
 learning_rate = 0.1
 colsample_bytree = 0.9
+bagging_fraction = 1.0
+lambda_l1 = 0.1
 
 
 ### IMPORT PREPARED DATA
-X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
-X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
-y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
-y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
-labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
+X_train = pd.read_pickle('X_train.pkl')
+X_test = pd.read_pickle('X_test.pkl')
+y_train = pd.read_pickle('y_train.pkl')
+y_test = pd.read_pickle('y_test.pkl')
+labeling_info = pd.read_pickle('labeling_info.pkl')
 
 
 ### SAMPLE WEIGHTS
@@ -65,6 +67,10 @@ elif sample_weights_type == 'time_decay':
 elif sample_weights_type == 'none':
     sample_weights = None
 
+# Remove close column if pcais used
+if re.search('PCA', X_train.iloc[:,[0]].columns.values.item()):
+    X_train = X_train.drop(columns=['close'])
+    X_test = X_test.drop(columns=['close'])
 
 ### CROS VALIDATION STEPS
 if cv_type == 'purged_kfold':
@@ -89,7 +95,9 @@ params = {
     'n_estimators': n_estimators,
     'min_child_samples': min_child_samples,
     'subsample': subsample,
-    'colsample_bytree': colsample_bytree
+    'colsample_bytree': colsample_bytree,
+    'bagging_fraction': bagging_fraction,
+    'lambda_l1': lambda_l1
     }
 
 # cv
@@ -133,7 +141,9 @@ if mean_score > 0.55:
         objective='binary',
         min_child_samples=min_child_samples,
         subsample=subsample,
-        colsample_bytree=colsample_bytree
+        colsample_bytree=colsample_bytree,
+        bagging_fraction=bagging_fraction,
+        lambda_l1=lambda_l1
         )
 
     # clf fit
@@ -156,7 +166,9 @@ if mean_score > 0.55:
             writer, clf, X_train, X_test, y_train, y_test, avg='binary')
 
         # save important featues
-        tml.modeling.feature_importance.fi_shap(clf, X_train, y_train, save_id, input_data_path)
+        tml.modeling.feature_importance.fi_shap(clf, X_train, y_train, save_id, './')
         # fi_shap(clf, X_train, y_train, save_id, input_data_path)
-        tml.modeling.feature_importance.fi_lightgbm(clf, X_train, save_id, input_data_path)
+        tml.modeling.feature_importance.fi_lightgbm(clf, X_train, save_id, './')
         # fi_lightgbm(clf, X_train, save_id, input_data_path)
+
+

@@ -8,13 +8,19 @@ import matplotlib
 import sklearn
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
 import mlfinlab as ml
 from mlfinlab.feature_importance import get_orthogonal_features
 import trademl as tml
 import mfiles
 from tensorboardX import SummaryWriter
 from datetime import datetime
+from pycaret.preprocess import Zroe_NearZero_Variance, Fix_multicollinearity
+from trademl.modeling.structural_breaks import ChowStructuralBreakSubsample
+from trademl.modeling.stationarity import StationarityMethod
+from scipy.signal import savgol_filter
 matplotlib.use("Agg")  # don't show graphs because thaty would stop guildai script
+print('Start prepare step')
 
 
 ### TENSORBORADX WRITER
@@ -22,53 +28,34 @@ log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
     "%Y%m%d-%H%M%S")
 writer = SummaryWriter(log_dir)
 
-
-# import numpy as np
-# import requests
-# import json
-
-# x = {
-#     'x': np.random.rand(500).tolist(),
-#     'adf_lag': 2
-# }
-# x = json.dumps(x)
-
-# res = requests.post("http://46.101.219.193/plumber_test/radf", data=x)
-
-# # res_json = res.json()
-# # bsadf = res_json['bsadf']
-# # bsadf = pd.DataFrame.from_dict(bsadf)
-# # bsadf_last = bsadf.iloc[-1]
-
-
-
 ### HYPERPARAMETERS
 # load and save data
+contract = 'SPY_IB'
 input_data_path = 'D:/market_data/usa/ohlcv_features'
-output_data_path = 'D:/algo_trading_files'
 env_directory = None # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-# features
-include_ta = True
-# stationarity
+# subsample
+chow_subsample = None
 stationarity_tecnique = 'fracdiff'
 # structural breaks
 structural_break_regime = 'all'
 # labeling
-label_tuning = False
+label_tuning = True
 label = 'day_30'  # 'day_1' 'day_2' 'day_5' 'day_10' 'day_20' 'day_30' 'day_60'
-labeling_technique = 'trend_scanning'
-tb_triplebar_num_days = 10
+labeling_technique = 'tb'  # tb is triple-barrier; ts is trend scanning
+tb_triplebar_num_days = 4
 tb_triplebar_pt_sl = [1, 1]
-tb_triplebar_min_ret = 0.004
+tb_triplebar_min_ret = 0.005
 ts_look_forward_window = 1200  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
 ts_step = 5
-tb_min_pct = 0.10
+tb_min_pct = 0.05
 # filtering
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
+train_test_split_ratio = 0.1
+time_step_length = 10
 # feature engineering
-correlation_threshold = 0.99
+correlation_threshold = 0.99    
 pca = True
 # scaling
 scaling = 'none'
@@ -76,49 +63,27 @@ scaling = 'none'
 num_threads = 1
 
 
+# import data
+file_name = contract + '_clean'
+data = pd.read_hdf(os.path.join(Path(input_data_path), file_name + '.h5'), file_name)
+data.sort_index(inplace=True)
 
-### IMPORT DATA
-def import_data(data_path, remove_cols, contract='SPY'):
-    # import data
-    with pd.HDFStore(os.path.join(data_path, contract + '.h5')) as store:
-        data = store.get(contract)
-    data.sort_index(inplace=True)
-    
-    # remove variables
-    remove_cols = [col for col in remove_cols if col in data.columns]
-    data.drop(columns=remove_cols, inplace=True)
-    
-    return data
+# Choose subsamples, stationarity method and make labels
+pipe = make_pipeline(
+    ChowStructuralBreakSubsample(min_length=10) if chow_subsample else None,
+    StationarityMethod(stationarity_method='fracdiff'),
+    )
+data = pipe.fit_transform(data)
 
+# categorical variables
+categorial_features = ['tick_rule', 'HT_TRENDMODE', 'volume_vix']
+categorial_features = [col for col in categorial_features if col in data.columns]
+data = data.drop(columns=categorial_features)  # remove for now
 
-contract = 'SPY_raw_ta' if include_ta else 'SPY_raw'
-contract = 'SPY_raw_ta' if label_tuning else contract + '_labels'
-data = import_data(input_data_path, [], contract=contract)
-
-
-### REGIME DEPENDENT ANALYSIS
-if structural_break_regime == 'chow':
-    if (data.loc[data['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
-        data = data.iloc[-(60*8*365):]
-    else:
-        data = data.loc[data['chow_segment'] == 1]
-data = data.drop(columns=['chow_segment'])
-
-
-### CHOOSE STATIONARY / UNSTATIONARY
-if stationarity_tecnique == 'fracdiff':
-    remove_cols = [col for col in data.columns if 'orig_' in col and col != 'orig_close']  
-elif stationarity_tecnique == 'orig':
-    remove_cols = [col for col in data.columns if 'fracdiff_' in col and col != 'orig_close']
-data = data.drop(columns=remove_cols)
-
-
-### LABELLING
+# Labeling
 if label_tuning:
-    if labeling_technique == 'triple_barrier':
-        # TRIPLE BARRIER LABELING
+    if labeling_technique == 'tb':
         triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-            close_name='orig_close' if 'orig_close' in data.columns else 'close',
             volatility_lookback=tb_volatility_lookback,
             volatility_scaler=tb_volatility_scaler,
             triplebar_num_days=tb_triplebar_num_days,
@@ -130,9 +95,8 @@ if label_tuning:
         tb_fit = triple_barrier_pipe.fit(data)
         labeling_info = tb_fit.triple_barrier_info
         X = tb_fit.transform(data)
-    elif labeling_technique == 'trend_scanning':
+    elif labeling_technique == 'ts':
         trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-            close_name='orig_close' if 'orig_close' in data.columns else 'close',
             volatility_lookback=tb_volatility_lookback,
             volatility_scaler=tb_volatility_scaler,
             ts_look_forward_window=ts_look_forward_window,
@@ -152,48 +116,33 @@ else:
     X = data[X_cols]
     y_cols = [col for col in data.columns if label + '_' in col]
     labeling_info = data[y_cols]
-
-
-### FILTERING
-if label_tuning:
-    X = X.drop(columns=['orig_close'])
-else:
+    # filtering
     daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
     cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
     X = X.reindex(cusum_events)
     labeling_info = labeling_info.reindex(cusum_events)
-### ZAVRSITI DO KRAJA ####
 
-
-### REMOVE NA
+# remove na
 remove_na_rows = labeling_info.isna().any(axis=1)
 X = X.loc[~remove_na_rows]
 labeling_info = labeling_info.loc[~remove_na_rows]
 labeling_info.iloc[:, -1] = np.where(labeling_info.iloc[:, -1] == -1, 0, labeling_info.iloc[:, -1])
-# labeling_info.iloc[:, -1] = labeling_info.iloc[:, -1].astype(pd.Int64Dtype())
+
+# Removing large values (TA issue - causes model problems / overflow)
+# X.apply(lambda x: any((x >= 1e12) | (x <= -1e12)), axis=0)
 
 
 ### REMOVE CORRELATED ASSETS
-msg = f'Shape before removing correlated features with threshold {correlation_threshold}' \
-      f' is {X.shape} and after is'
-print(msg)
 X = tml.modeling.preprocessing.remove_correlated_columns(
     data=X,
     columns_ignore=[],
     threshold=correlation_threshold)
-print(X.shape)
-
-
-# TREAT CATEGORIAL VARIABLES
-categorial_features = ['tick_rule', 'HT_TRENDMODE', 'volume_vix']
-categorial_features = [col for col in categorial_features if col in X.columns]
-X = X.drop(columns=categorial_features)  # remove for now
 
 
 ### TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
     X, labeling_info.loc[:, labeling_info.columns.str.contains('bin')],
-    test_size=0.10, shuffle=False, stratify=None)
+    test_size=train_test_split_ratio, shuffle=False, stratify=None)
 
 
 ### SCALING
@@ -211,7 +160,67 @@ if scaling == 'expanding':
     y_test = y_test.loc[~X_test.isna().any(axis=1)]
     X_test = X_test.dropna()
 
-    
+
+
+# from gplearn.genetic import SymbolicTransformer
+# from gplearn.functions import make_function
+
+
+# def exponent(x):
+#     with np.errstate(over='ignore'):
+#         return np.where(np.abs(x) < 100, np.exp(x), 0.)
+
+
+# class Genetic(BaseEstimator, TransformerMixin):
+
+#     def __init__(self, population=50000, generations=10, hall_of_fame=500, components=200, metric='spearman'):
+#         self.state = {}
+#         self.population = population
+#         self.generations = generations
+#         self.hall_of_fame = hall_of_fame
+#         self.components = components
+#         self.metric = metric
+
+#         # population: Number of formulas per generation
+#         # generations: Number of generations
+#         # hall_of_fame: Best final evolution program to evaluate
+#         # components: X least correlated from the hall of fame
+#         # metric: pearson for linear model, spearman for tree based estimators
+
+#     def fit(self, X, y=None, state={}):
+#         exponential = make_function(function=exponent, name='exp', arity=1)
+
+#         function_set = ['add', 'sub', 'mul', 'div', 'sqrt', 'log', 'abs', 'neg', 'inv', 'max',
+#                         'min', 'tan', 'sin', 'cos', exponential]
+
+#         gp = SymbolicTransformer(generations=self.generations, population_size=self.population,
+#                                  hall_of_fame=self.hall_of_fame, n_components=self.components,
+#                                  function_set=function_set,
+#                                  parsimony_coefficient='auto',
+#                                  max_samples=0.6, verbose=1, metric=self.metric,
+#                                  random_state=0, n_jobs=7)
+
+#         self.state['genetic'] = {}
+#         self.state['genetic']['fit'] = gp.fit(X, y)
+
+#         return self
+
+#     def transform(self, X, y=None, state={}):
+#         features = self.state['genetic']['fit'].transform(X)
+#         features = pd.DataFrame(features, columns=["genetic_" + str(a) for a in range(features.shape[1])], index=X.index)
+#         X = X.join(features)
+
+#         return X, y, self.state
+
+
+# X_train_sample = X_train[:1000]
+# y_train_sample = y_train[:1000]
+# gen = Genetic()
+# test_gen = gen.fit_transform(X_train_sample, y_train_sample)
+# X_train.shape
+# test_gen[0].shape
+
+
 ### DIMENSIONALITY REDUCTION
 if pca:
     if scaling == 'none':
@@ -229,31 +238,27 @@ if pca:
     X_test.index = y_test.index
 
 
+### ADD close if it does not exists, needed for later
+if 'close' not in X_train.columns:
+    X_train = X_train.join(X['close'], how='left')
+    X_test = X_test.join(X['close'], how='left')
+
+
 ### SAVE FILES
-# save localy
-file_names = ['X_train', 'y_train', 'X_test',
-                'y_test', 'labeling_info']
+# save localy   
+file_names = ['X_train', 'y_train', 'X_test', 'y_test', 'labeling_info']
 saved_files = [X_train, y_train, X_test, y_test, labeling_info]
-# if pca:
-#     file_names = [f + '_pca' for f in file_names]
 file_names_pkl = [f + '.pkl' for f in file_names]
-[os.path.exists(os.path.join(output_data_path, f)) for f in file_names_pkl if os.path.exists(os.path.join(output_data_path, f))]
+X_train.to_pickle('X_train.pkl')
 tml.modeling.utils.save_files(
     saved_files,
     file_names_pkl,
-    output_data_path)
-# file_names_csv = [f + '.csv' for f in file_names]
-# tml.modeling.utils.save_files(
-#     saved_files,
-#     file_names_csv,
-#     output_data_path)
+    Path('./'))
+X_train.to_pickle('X_train.pkl')
 # save to mfiles
 if env_directory is not None:
-    file_names = file_names_pkl #  + file_names_csv
     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
     tml.modeling.utils.destroy_mfiles_object(mfiles_client, file_names)
-    wd = os.getcwd()
-    os.chdir(Path(output_data_path))
     for f in file_names:
-        mfiles_client.upload_file(f, object_type='Dokument')
-    os.chdir(wd)
+        mfiles_client.upload_file(file_names_pkl, object_type='Dokument')
+print('End prepare step')

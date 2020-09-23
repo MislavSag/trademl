@@ -14,6 +14,9 @@ from talib.abstract import (
 )
 from sklearn.base import BaseEstimator, TransformerMixin
 from trademl.modeling.utils import time_method
+from gplearn.genetic import SymbolicTransformer
+from gplearn.functions import make_function
+from scipy.signal import savgol_filter
 
 
 def add_ind(ohlcv, f, n, periods):
@@ -190,6 +193,13 @@ def add_fourier_transform(data, col, periods):
     return data
 
 
+def range_grow(start=5, steps=9, pct=.7):
+    s = [start]
+    for i in range(0, steps):
+        s.append(s[i] + s[i] * pct)
+    return [round(x) for x in s]
+
+
 def add_ohlcv_features(data):
     """
     Calculate features based on OHLCV data and add tham to data feame.
@@ -260,6 +270,20 @@ def add_ohlcv_features(data):
                                 np.sign(tick_diff),
                                 np.sign(tick_diff).shift(periods=-1))
     
+    # Add time features
+    data['minute'] = data.index.minute
+    data['hour'] = data.index.hour
+    data['day_of_week'] = data.index.dayofweek
+    data['week_of_month'] = data.index.to_series().apply(lambda d: (d.day - 1) // 7 + 1)
+    
+    # Add smoothed lags
+    smooth_name = f"smooth_close"
+    data[smooth_name] = savgol_filter(data['close'], 31, 3)
+    data = data.assign(**{
+        f"{smooth_name}_lag_{t}": data[[smooth_name]].shift(t)
+        for t in list(dict.fromkeys(range_grow(1, 150, .055)))
+    })
+    
     ### ADD VIX TO DATABASE
     q = 'SELECT date, open AS open_vix, high AS high_vix, low AS low_vix, \
         close AS close_vix, volume AS volume_vix FROM VIX'
@@ -310,3 +334,112 @@ class AddFeatures(BaseEstimator, TransformerMixin):
         X.dropna(subset=X.columns[cols_remove_na], inplace=True)
         
         return X
+
+
+def exponent(x):
+    with np.errstate(over='ignore'):
+        return np.where(np.abs(x) < 100, np.exp(x), 0.)
+
+
+class Genetic(BaseEstimator, TransformerMixin):
+
+    def __init__(self, population=50000, generations=10, hall_of_fame=500, components=200, metric='spearman'):
+        self.state = {}
+        self.population = population
+        self.generations = generations
+        self.hall_of_fame = hall_of_fame
+        self.components = components
+        self.metric = metric
+
+        # population: Number of formulas per generation
+        # generations: Number of generations
+        # hall_of_fame: Best final evolution program to evaluate
+        # components: X least correlated from the hall of fame
+        # metric: pearson for linear model, spearman for tree based estimators
+
+    def fit(self, X, y=None, state={}):
+        exponential = make_function(function=exponent, name='exp', arity=1)
+
+        function_set = ['add', 'sub', 'mul', 'div', 'sqrt', 'log', 'abs', 'neg', 'inv', 'max',
+                        'min', 'tan', 'sin', 'cos', exponential]
+
+        gp = SymbolicTransformer(generations=self.generations, population_size=self.population,
+                                 hall_of_fame=self.hall_of_fame, n_components=self.components,
+                                 function_set=function_set,
+                                 parsimony_coefficient='auto',
+                                 max_samples=0.6, verbose=1, metric=self.metric,
+                                 random_state=0, n_jobs=7)
+
+        self.state['genetic'] = {}
+        self.state['genetic']['fit'] = gp.fit(X, y)
+
+        return self
+
+    def transform(self, X, y=None, state={}):
+        features = self.state['genetic']['fit'].transform(X)
+        features = pd.DataFrame(features, columns=["genetic_" + str(a) for a in range(features.shape[1])], index=X.index)
+        X = X.join(features)
+
+        return X, y, self.state
+
+
+###### WEASEL #######
+# X_train_sample = X_train.iloc[:1000]
+# y_train_sample = y_train.iloc[:1000]
+# weasel = WEASEL(sparse=False)
+# weasel.fit(X_train_sample, y_train_sample)
+# weasel_feature = weasel.transform(X_train)
+# weasel_feature.shape
+# X_train_sample.shape
+
+
+# from pyts.datasets import load_gunpoint
+# from pyts.transformation import WEASEL
+# from sklearn.decomposition import TruncatedSVD
+
+# X_train_pyts, X_test_pyts, y_train_pyts, __pyts = load_gunpoint(return_X_y=True)
+
+# X_train.shape
+
+# weasel = WEASEL(sparse=False)
+# weasel.fit(X_train, y_train)
+# WEASEL(...)
+# >>>len(weasel.vocabulary_)
+
+# >>> weasel.transform(X_test).shape
+
+# close_sequence = data['close']
+# def close_to_3d(data, cusum_events, time_step_length):
+#     cusum_events_ = cusum_events.intersection(data.index)
+#     lstm_sequences = []
+#     targets = []
+#     for date in cusum_events_:
+#         observation = data[:date].iloc[-time_step_length:]
+#         if observation.shape[0] < time_step_length or data.index[-1] < date:
+#             next
+#         else:
+#             lstm_sequences.append(observation.values.reshape((1, observation.shape[0])))
+#             # targets.append(target_vec[target_vec.index == date])
+#     lstm_sequences_all = np.vstack(lstm_sequences)
+#     # targets = np.vstack(targets)
+#     # targets = targets.astype(np.int64)
+#     return lstm_sequences_all
+
+
+# close_sequence = data['close'].loc[:X_train.index[-1]]
+# close_3d_test = close_to_3d(close_sequence, labeling_info.index, time_step_length=10)
+# close_3d_test.shape
+# y_train.shape
+# y_train_seq = y_train_seq.reshape(-1)
+
+# window_sizes = np.ceil(np.array([.1, .3, .5, .7, .9]) * time_step_length).astype(np.int64)
+# window_sizes = window_sizes[window_sizes > 5]
+# weasel = WEASEL(word_size=5, n_bins=5, window_sizes=window_sizes, sparse=False)
+# weasel.fit(close_3d_test, y_train)
+# features = weasel.transform(close_3d_test)
+# tsvd = TruncatedSVD(n_components=10)  # Reduce sparce matrix
+# weasel_tsvd = tsvd.fit(features)
+# weasel_tsvd = tsvd.transform(features)
+# features = pd.DataFrame(features, columns=["weasel_" + str(a) for a in range(features.shape[1])],
+#                         index=X_train.index)
+# features.iloc[:, 15].value_counts()

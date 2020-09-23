@@ -17,6 +17,7 @@ from mlfinlab.feature_importance import get_orthogonal_features
 import trademl as tml
 from tensorboardX import SummaryWriter
 import random
+import re
 matplotlib.use("Agg")  # don't show graphs
 
 
@@ -27,8 +28,7 @@ writer = SummaryWriter(log_dir)
 
 
 ### MODEL HYPERPARAMETERS
-input_data_path = Path('D:/algo_trading_files')
-sample_weights_type = 'return'
+sample_weights_type = 'returns'
 cv_type = 'purged_kfold'
 cv_number = 5
 max_depth = 2
@@ -40,11 +40,11 @@ keep_important_features = 20  # for feature selection
 
 
 ### IMPORT PREPARED DATA
-X_train = pd.read_pickle(os.path.join(Path(input_data_path), 'X_train.pkl'))
-X_test = pd.read_pickle(os.path.join(Path(input_data_path), 'X_test.pkl'))
-y_train = pd.read_pickle(os.path.join(Path(input_data_path), 'y_train.pkl'))
-y_test = pd.read_pickle(os.path.join(Path(input_data_path), 'y_test.pkl'))
-labeling_info = pd.read_pickle(os.path.join(Path(input_data_path), 'labeling_info.pkl'))
+X_train = pd.read_pickle('X_train.pkl')
+X_test = pd.read_pickle('X_test.pkl')
+y_train = pd.read_pickle('y_train.pkl')
+y_test = pd.read_pickle('y_test.pkl')
+labeling_info = pd.read_pickle('labeling_info.pkl')
 
 
 ### SAMPLE WEIGHTS
@@ -63,6 +63,12 @@ elif sample_weights_type == 'time_decay':
         decay=0.5, num_threads=1)
 elif sample_weights_type == 'none':
     sample_weights = None
+
+
+# Remove close column if pcais used
+if re.search('PCA', X_train.iloc[:,[0]].columns.values.item()):
+    X_train = X_train.drop(columns=['close'])
+    X_test = X_test.drop(columns=['close'])
 
 
 ### CROS VALIDATION STEPS
@@ -119,12 +125,12 @@ else:
     # save feature importance tables and plots
     shap_values, importances, mdi_feature_imp = tml.modeling.feature_importance.important_features(
         clf, X_train, y_train, save_id,
-        save_path=os.path.join(Path(input_data_path), 'fi_plots'))
+        save_path=os.path.join(Path('./'), 'fi_plots'))
     tml.modeling.utils.save_files([shap_values, importances, mdi_feature_imp],
                 file_names=[f'shap_{save_id}.csv',
                             f'rf_importance_{save_id}.csv',
                             f'mpi_{save_id}.csv'],
-                directory=os.path.join(Path(input_data_path), 'important_features'))
+                directory=os.path.join(Path('./'), 'important_features'))
     
     
     ### REFIT THE MODEL WITH MOST IMPORTANT FEATURES

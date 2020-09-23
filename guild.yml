@@ -1,7 +1,9 @@
-- config: model-base
+- config: meta-model
   resources:
-    prepared-data:
+    op-prepare:
       - operation: prepare-data
+        select: .*.pkl
+        name: prepared-data
 
 - operations:
     prepare-data:
@@ -16,22 +18,12 @@
           arg_name: input_path
           type: string
           default: D:/market_data/usa/ohlcv_features
-        output_path:
-          description: Main path where to save output
-          arg_name: output_path
-          type: string
-          default: D:/algo_trading_files
         structural_break_regime:
           description: Shoud we use structural breaks and if yes, which one
           arg_name: structural_break_regime
           type: string
           default: 'all'
           choices: ['all','chow']
-        include_ta:
-          description: Booean, should tecnical indicators be included in the feature space
-          arg_name: include_ta
-          default: 0
-          hoices: [0,1]
         stationarity_tecnique:
           description: Use stationary columns or not. If yes which type of stationarity
           arg_name: structural_break_regime
@@ -41,7 +33,7 @@
         label_tuning:
           description: Should we tune labeling parameters or import existing labels
           arg_name: label_tuning
-          default: 0
+          default: 1
           hoices: [0,1]
         label:
           description: If label_tuning parameter is True, choose label.
@@ -53,8 +45,8 @@
           description: Labeling technique to use for classification
           arg_name: labeling_technique
           type: string
-          default: 'trend_scanning'
-          choices: ['triple_barrier','trend_scanning']
+          default: 'tb'
+          choices: ['tb','ts']
         ts_look_forward_window:
           description: How much time units into the future to look when looking for trend
           arg_name: ts_look_forward_window
@@ -71,7 +63,7 @@
         tb_triplebar_num_days:
           description: Number of days for defining vertical bars
           arg_name: tb_triplebar_num_days
-          min: 1
+          min: 0
           max: 1000
         tb_triplebar_min_ret:
           description: minimal return for barrier to be used in the sample
@@ -118,17 +110,11 @@
           min: 1
           max: 32
     pipeline-rf:
-      steps:
-        - prepare-data
-        - random-forest:train
-    pipeline-rf-opt:
       sourcecode: 
         - include: '*.py'
       flags:
-        data-include_ta:
-          default: 1
         data-label_tuning:
-          default: 0
+          default: 1
         data-label:
           default: 'day_5'
         data-pca:
@@ -139,12 +125,12 @@
           default: 100
         data-tb_volatility_scaler:
           default: 1
+        data-tb_triplebar_num_days:
+          default: 8
         data-correlation_threshold:
           default: 0.98
         data-scaling:
           default: 'none'
-        random-input_data_path:
-          default: 'D:/algo_trading_files'
         random-forest-depth:
           default: 4
         random-forest-maxf:
@@ -157,35 +143,119 @@
           default: 'balanced_subsample'
       steps:
         - run: > 
-            prepare-data include_ta=${data-include_ta} label_tuning=${data-label_tuning} label=${data-label} tb_volatility_lookback=${data-tb_volatility_lookback}
+            prepare-data label_tuning=${data-label_tuning} label=${data-label} tb_volatility_lookback=${data-tb_volatility_lookback}
             tb_volatility_scaler=${data-tb_volatility_scaler} correlation_threshold=${data-correlation_threshold} pca=${data-pca} scaling=${data-scaling}
           isolate-runs: no
           needed: no
         - run: >
-            random-forest:train input_data_path=${random-input_data_path} max_depth=${random-forest-depth} max_features=${random-forest-maxf} n_estimators=${random-forest-maxf} 
+            random-forest:train max_depth=${random-forest-depth} max_features=${random-forest-maxf} n_estimators=${random-n_estimators} 
             n_estimators=${random-n_estimators} min_weight_fraction_leaf=${random-min_weight_fraction_leaf}
           isolate-runs: no
           needed: no
+    pipeline-rf-opt:
+      sourcecode: 
+        - include: '*.py'
+      flags:
+        data-label_tuning:
+          default: 1
+        data-label:
+          default: 'day_5'
+        data-pca:
+          default: 0
+        data-lookforward:
+          default: 240
+        data-tb_volatility_lookback:
+          default: 100
+        data-tb_volatility_scaler:
+          default: 1
+        data-tb_triplebar_num_days:
+          default: 8
+        data-correlation_threshold:
+          default: 0.98
+        data-scaling:
+          default: 'none'
+        random-class_weight:
+          default: 'balanced_subsample'
+      steps:
+        - run: > 
+            prepare-data label_tuning=${data-label_tuning} label=${data-label} 
+            tb_volatility_lookback=${data-tb_volatility_lookback} 
+            tb_volatility_scaler=${data-tb_volatility_scaler} 
+            correlation_threshold=${data-correlation_threshold} 
+            pca=${data-pca} 
+            scaling=${data-scaling}
+          isolate-runs: no
+          needed: no
+        - run: random-forest:train
+          isolate-runs: no
+          needed: no
+          flags:
+            max_depth: [2,3,4,5,6,7] 
+            max_features: [1,5,10]
+            n_estimators: [250,500]
+            min_weight_fraction_leaf: range[0.0:0.1:0.02]
+    pipeline-lightgbm-opt:
+      sourcecode: 
+        - include: '*.py'
+      flags:
+        data-label_tuning:
+          default: 1
+        data-label:
+          default: 'day_5'
+        data-pca:
+          default: 0
+        data-lookforward:
+          default: 240
+        data-tb_volatility_lookback:
+          default: 100
+        data-tb_volatility_scaler:
+          default: 1
+        data-tb_triplebar_num_days:
+          default: 8
+        data-correlation_threshold:
+          default: 0.98
+        data-scaling:
+          default: 'none'
+        data-num_threads:
+          default: 8
+      steps:
+        - run: > 
+            prepare-data label_tuning=${data-label_tuning} label=${data-label} 
+            tb_volatility_lookback=${data-tb_volatility_lookback} 
+            tb_volatility_scaler=${data-tb_volatility_scaler} 
+            correlation_threshold=${data-correlation_threshold} 
+            pca=${data-pca} 
+            scaling=${data-scaling}
+            num_threads=${data-num_threads}
+          isolate-runs: no
+          needed: no
+        - run: lightgbm:train
+          isolate-runs: no
+          needed: no
+          max-trials: 64
+          flags:
+            boosting_type: [gbdt,dart]
+            num_leaves: range[10:100]
+            max_depth: range[2:10]
+            # min_child_samples: range[5:50]
+            subsample: range[0.5:1.0:0.05]
+            # lambda_l1: linspace[0:5.0:10]
+            # bagging_freq: uniform[1:7]
+            # min_child_samples: uniform[5:100]
 
 - model: random-forest
-  extends: model-base
+  extends: meta-model
   description: Random forest model
   operations:
     train:
       description: Trainer for random forest  
       main: trademl.modeling.train_rf  # Python module when running the operation
+      requires: op-prepare
       sourcecode: 
         - include: '*.py'
       needed: no
-      # requires: prepared-data
       flags‑import: all
       flags:
-        input_data_path:
-          description: Path where prepared data and saved output exists
-          arg_name: input_data_path
-          type: string
-          default: 'D:/algo_trading_files'
-          required: True
         num_threads:
           arg_name: num_threads
           description: Number of threads to use in mlfinlab multhithread function
@@ -195,7 +265,7 @@
           description: Sample weights to use in training
           arg_name: sample_weights_type
           type: string
-          default: 'none'
+          default: 'returns'
           choices: [returns,time_decay,none]
         cv_type:
           description: type of cv
@@ -236,12 +306,13 @@
           choices: ['balanced','balanced_subsample']
 
 - model: xgboost
-  extends: model-base
+  extends: meta-model
   description: Xgboost classifier
   operations:
     train:
       description: Trainer for xgboost  
       main: trademl.modeling.train_xgb  # Python module when running the operation
+      requires: op-prepare
       sourcecode: 
         - include: '*.py'
       # requires: prepared-data
@@ -298,15 +369,15 @@
           default: 1
 
 - model: lightgbm
-  extends: model-base
+  extends: meta-model
   description: Lightgbm classifier
   operations:
     train:
       description: Trainer for lightgbm
       main: trademl.modeling.train_lgbm
+      requires: op-prepare
       sourcecode: 
         - include: '*.py'
-      # requires: prepared-data
       flags‑import: all
       flags:
         input_data_path:
@@ -369,9 +440,12 @@
             Minimal number of data in one leaf. Can be used to deal with over-fitting
           arg_name: min_child_weight
           default: 20
+        lambda_l1:
+          arg_name: lambda_l1
+          default: 0.1
+        
 
 - model: lstm
-  extends: model-base
   operations:
     train:
       description: Trainer a LSTM nerual network
@@ -423,7 +497,6 @@
           default: 100
 
 - model: lstm-kerastune
-  extends: model-base
   operations:
     train:
       description: Trainer a LSTM nerual network with keras tuner
@@ -491,163 +564,6 @@
           arg_name: executions_per_trial
           default: 2
 
-- model: random-forest-pipe
-  extends: model-base
-  description: Random forest model with all preprocesing steps
-  operations:
-    train:
-      description: Trainer for random forest
-      main: trademl.modeling.train_rf_pipe  # Python module when running the operation
-      sourcecode: 
-        - include: '*.py'
-      needed: yes
-      # requires: prepared-data
-      flags‑import: all
-      flags:
-        input_path:
-          description: Path to read data from. 
-          arg_name: input_path
-          type: string
-          default: D:/market_data/usa/ohlcv_features
-        structural_break_regime:
-          description: Shoud we use structural breaks and if yes, which one
-          arg_name: structural_break_regime
-          type: string
-          default: 'all'
-          choices: ['all','chow']
-        include_ta:
-          description: Booean, should tecnical indicators be included in the feature space
-          arg_name: include_ta
-          default: 0
-          hoices: [0,1]
-        stationarity_tecnique:
-          description: Use stationary columns or not. If yes which type of stationarity
-          arg_name: structural_break_regime
-          type: string
-          default: 'fracdiff'
-          choices: ['orig','fracdiff']
-        label_tuning:
-          description: Should we tune labeling parameters or import existing labels
-          arg_name: label_tuning
-          default: 0
-          hoices: [0,1]
-        label:
-          description: If label_tuning parameter is True, choose label.
-          arg_name: label
-          type: string
-          default: 'day_5'
-          choices: ['day_1','day_2','day_5','day_10','day_20','day_30','day_60']
-        labeling_technique:
-          description: Labeling technique to use for classification
-          arg_name: labeling_technique
-          type: string
-          default: 'trend_scanning'
-          choices: ['triple_barrier','trend_scanning']
-        ts_look_forward_window:
-          description: How much time units into the future to look when looking for trend
-          arg_name: ts_look_forward_window
-          min: 1
-          max: 1000000
-        ts_min_sample_length:
-          description: Minimum sample length used to fit regression
-          arg_name: ts_min_sample_length
-          default: 30
-        ts_step:
-          description: Optimal t-value index is searched every ‘step’ indices
-          arg_name: ts_step
-          default: 5
-        tb_triplebar_num_days:
-          description: Number of days for defining vertical bars
-          arg_name: tb_triplebar_num_days
-          min: 1
-          max: 1000
-        tb_triplebar_min_ret:
-          description: minimal return for barrier to be used in the sample
-          arg_name: tb_triplebar_min_ret
-          min: 0.001
-          max: 0.1
-        tb_min_pct:
-          description: A fraction used to decide if the observation occurs less than that fraction.
-          arg_name: tb_min_pct
-          default: 0.05
-        tb_volatility_lookback:
-          description: Number of days in the past for calculating daily volatility
-          arg_name: tb_volatility_lookback
-          default: 100
-          min: 1
-          max: 1000000
-        tb_volatility_scaler:
-          arg_name: tb_volatility_scaler
-          description: Scalar which multiplies daily_vol to make sampling more/less frequent
-          default: 1
-          min: 0.1
-          max: 3.0
-        correlation_threshold:
-          description: Threshold for removing highly correlated columns
-          arg_name: correlation_threshold
-          min: 0.5
-          max: 0.99
-          default: 0.98
-        pca:
-          description: Use pca dim rduction or not
-          arg_name: pca
-          default: 0
-          min: 0
-          max: 1
-        scaling:
-          description: Use stationary columns or not. If yes which type of stationarity
-          arg_name: structural_break_regime
-          type: string
-          default: 'none'
-          choices: ['none','expanding']
-        num_threads:
-          arg_name: num_threads
-          description: Number of threads to use in mlfinlab multhithread function
-          min: 1
-          max: 32
-        sample_weights_type:
-          description: Sample weights to use in training
-          arg_name: sample_weights_type
-          type: string
-          default: 'none'
-          choices: [returns,time_decay,none]
-        cv_type:
-          description: type of cv
-          arg_name: cv_type
-          type: string
-          default: 'purged_kfold'
-          choices: ['purged_kfold']
-        cv_number:
-          description: Number of CV folds to use in CV
-          arg_name: cv_number
-          min: 1
-          max: 20
-        max_depth:
-          description: Maximum depth for the tree in random forest algorithm
-          arg_name: max_depth
-          min: 1
-          max: 10
-        max_features:
-          description: maximum number of featurs in random forest
-          arg_name: max_features
-          min: 1
-          max: 250
-        n_estimators:
-          description: Number of estimators (decision trees) in random forest
-          arg_name: n_estimators
-          min: 1
-          max: 10000
-        min_weight_fraction_leaf:
-          description: TODO
-          arg_name: min_weight_fraction_leaf
-          min: 0
-          max: 1
-        class_weight:
-          description: sklearn class_weight argument
-          arg_name: class_weight
-          type: string
-          default: 'balanced_subsample'
-          choices: ['balanced','balanced_subsample']
 
 # - model: random_forest_sklearnopt
 #   description: Random forest model with skelarn optimization
