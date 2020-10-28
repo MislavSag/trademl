@@ -32,3 +32,4 @@ from trademl.modeling.preprocessing import (
 from trademl.modeling.data_import import (
     import_ohlcv
 )
+from trademl.modeling.labeling import trend_labeling

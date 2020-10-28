@@ -19,6 +19,7 @@ import re
 matplotlib.use("Agg")  # don't show graphs
 
 
+
 ### TENSORBORADX WRITER
 log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
     "%Y%m%d-%H%M%S")
@@ -48,6 +49,11 @@ X_test = pd.read_pickle('X_test.pkl')
 y_train = pd.read_pickle('y_train.pkl')
 y_test = pd.read_pickle('y_test.pkl')
 labeling_info = pd.read_pickle('labeling_info.pkl')
+
+### LAB (COMMENT LATER)
+# X_train = X_train[['close', 'radf']]
+# X_test = X_test[['close', 'radf']]
+### LAB (COMMENT LATER)
 
 
 ### SAMPLE WEIGHTS
@@ -88,7 +94,6 @@ test_set = lgb.Dataset(data=X_test, label=y_test.astype(int))
 params = {
     'boosting_type': boosting_type,
     'num_leaves': num_leaves,
-    'max_depth': max_depth,
     'subsample': subsample,
     'max_depth': max_depth,
     'learning_rate': learning_rate,

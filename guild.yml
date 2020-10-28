@@ -13,6 +13,9 @@
       flags-import: all
       needed: no
       flags:
+        contract:
+          type: string
+          default: 'SPY_IB'
         input_path:
           description: Path to read data from. 
           arg_name: input_path
@@ -24,9 +27,9 @@
           type: string
           default: 'all'
           choices: ['all','chow']
-        stationarity_tecnique:
+        stationarity:
           description: Use stationary columns or not. If yes which type of stationarity
-          arg_name: structural_break_regime
+          arg_name: stationarity
           type: string
           default: 'fracdiff'
           choices: ['orig','fracdiff']
@@ -92,12 +95,12 @@
           min: 0.5
           max: 0.99
           default: 0.98
-        pca:
-          description: Use pca dim rduction or not
-          arg_name: pca
-          default: 0
-          min: 0
-          max: 1
+        dim_reduction:
+          description: Choose dim reduction technique
+          arg_name: dim_reduction
+          type: string
+          default: 'none'
+          choices: ['none','pca','gplearn']
         scaling:
           description: Use stationary columns or not. If yes which type of stationarity
           arg_name: structural_break_regime
@@ -117,8 +120,8 @@
           default: 1
         data-label:
           default: 'day_5'
-        data-pca:
-          default: 0
+        data-dim_reduction:
+          default: 'none'
         data-lookforward:
           default: 240
         data-tb_volatility_lookback:
@@ -144,7 +147,8 @@
       steps:
         - run: > 
             prepare-data label_tuning=${data-label_tuning} label=${data-label} tb_volatility_lookback=${data-tb_volatility_lookback}
-            tb_volatility_scaler=${data-tb_volatility_scaler} correlation_threshold=${data-correlation_threshold} pca=${data-pca} scaling=${data-scaling}
+            tb_volatility_scaler=${data-tb_volatility_scaler} correlation_threshold=${data-correlation_threshold} 
+            dim_reduction=${data-dim_reduction} scaling=${data-scaling}
           isolate-runs: no
           needed: no
         - run: >
@@ -155,45 +159,55 @@
     pipeline-rf-opt:
       sourcecode: 
         - include: '*.py'
-      flags:
-        data-label_tuning:
-          default: 1
-        data-label:
-          default: 'day_5'
-        data-pca:
-          default: 0
-        data-lookforward:
-          default: 240
-        data-tb_volatility_lookback:
-          default: 100
-        data-tb_volatility_scaler:
-          default: 1
-        data-tb_triplebar_num_days:
-          default: 8
-        data-correlation_threshold:
-          default: 0.98
-        data-scaling:
-          default: 'none'
-        random-class_weight:
-          default: 'balanced_subsample'
+      # flags:
+        # data-label_tuning:
+        #   default: 1
+        # data-label:
+        #   default: 'day_5'
+        # data-stationarity:
+        #   default: 'fracdiff'
+        # data-dim_reduction:
+        #   default: 'none'
+        # data-lookforward:
+        #   default: 240
+        # data-tb_volatility_lookback:
+        #   default: 100
+        # data-tb_volatility_scaler:
+        #   default: 1
+        # data-tb_triplebar_num_days:
+        #   default: 8
+        # data-correlation_threshold:
+        #   default: 0.98
+        # data-scaling:
+        #   default: 'none'
+        # random-class_weight:
+        #   default: 'balanced_subsample'
       steps:
-        - run: > 
-            prepare-data label_tuning=${data-label_tuning} label=${data-label} 
-            tb_volatility_lookback=${data-tb_volatility_lookback} 
-            tb_volatility_scaler=${data-tb_volatility_scaler} 
-            correlation_threshold=${data-correlation_threshold} 
-            pca=${data-pca} 
-            scaling=${data-scaling}
+        - run: prepare-data
+          flags:
+            scaling: [none,expanding]
+        # - run: > 
+        #     prepare-data label_tuning=${data-label_tuning} 
+        #     label=${data-label} 
+        #     tb_volatility_lookback=${data-tb_volatility_lookback} 
+        #     tb_volatility_scaler=${data-tb_volatility_scaler} 
+        #     correlation_threshold=${data-correlation_threshold} 
+        #     dim_reduction=${data-dim_reduction} 
+        #     scaling=${data-scaling}
           isolate-runs: no
           needed: no
         - run: random-forest:train
           isolate-runs: no
           needed: no
+          max-trials: 32
           flags:
-            max_depth: [2,3,4,5,6,7] 
-            max_features: [1,5,10]
-            n_estimators: [250,500]
-            min_weight_fraction_leaf: range[0.0:0.1:0.02]
+            class_weight: ['balanced','balanced_subsample']
+            max_depth: [2,3,4,5,6,7,10] 
+            # max_features: [1,5,10,20,50]
+            n_estimators: [250,500,750,1000]
+            # min_weight_fraction_leaf: range[0.0:0.1:0.02]
+            # min_samples_leaf: range[0.0:0.4:0.05]
+            # min_impurity_decrease: range[0.0:0.2:0.02]
     pipeline-lightgbm-opt:
       sourcecode: 
         - include: '*.py'
@@ -202,8 +216,10 @@
           default: 1
         data-label:
           default: 'day_5'
-        data-pca:
-          default: 0
+        data-stationarity:
+          default: 'fracdiff'
+        data-dim_reduction:
+          default: 'none'
         data-lookforward:
           default: 240
         data-tb_volatility_lookback:
@@ -220,11 +236,12 @@
           default: 8
       steps:
         - run: > 
-            prepare-data label_tuning=${data-label_tuning} label=${data-label} 
+            prepare-data label_tuning=${data-label_tuning}  
+            stationarity=${data-stationarity} 
             tb_volatility_lookback=${data-tb_volatility_lookback} 
             tb_volatility_scaler=${data-tb_volatility_scaler} 
             correlation_threshold=${data-correlation_threshold} 
-            pca=${data-pca} 
+            dim_reduction=${data-dim_reduction} 
             scaling=${data-scaling}
             num_threads=${data-num_threads}
           isolate-runs: no
@@ -232,10 +249,12 @@
         - run: lightgbm:train
           isolate-runs: no
           needed: no
-          max-trials: 64
+          max-trials: 32
+          # optimizer: gp
+          # maximize: mean_score
           flags:
             boosting_type: [gbdt,dart]
-            num_leaves: range[10:100]
+            num_leaves: range[10:120]
             max_depth: range[2:10]
             # min_child_samples: range[5:50]
             subsample: range[0.5:1.0:0.05]
@@ -304,6 +323,10 @@
           type: string
           default: 'balanced_subsample'
           choices: ['balanced','balanced_subsample']
+        min_samples_leaf:
+          default: 0
+        min_impurity_decrease:
+          default: 0
 
 - model: xgboost
   extends: meta-model
@@ -315,7 +338,6 @@
       requires: op-prepare
       sourcecode: 
         - include: '*.py'
-      # requires: prepared-data
       flags‑import: all
       flags:
         input_data_path:
@@ -452,7 +474,7 @@
       main: trademl.modeling.train_lstm  # Python module when running the operation
       sourcecode: 
         - include: '*.py'
-      requires: prepared-data
+      requires: prepare-data
       flags‑import: all
       flags:
         input_path:

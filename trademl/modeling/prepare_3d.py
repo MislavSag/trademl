@@ -8,6 +8,7 @@ import matplotlib
 import sklearn
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
 import mlfinlab as ml
 from mlfinlab.feature_importance import get_orthogonal_features
 import trademl as tml
@@ -15,39 +16,38 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import statsmodels.api as sm
+from pycaret.preprocess import Zroe_NearZero_Variance, Fix_multicollinearity
+from trademl.modeling.structural_breaks import ChowStructuralBreakSubsample
+from trademl.modeling.stationarity import StationarityMethod
 
 
 
 ### NON-MODEL HYPERPARAMETERS (for guildai)
 # load and save data
+contract = 'SPY_IB'
 input_data_path = 'D:/market_data/usa/ohlcv_features'
-output_data_path = 'D:/algo_trading_files'
 env_directory = None  # os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-# features
-include_ta = True
-# structural breaks
-structural_break_regime = 'all'
+# subsample
+chow_subsample = None
+stationarity = 'orig'
 # labeling
-label_tuning = False
-label = 'day_5'
-labeling_technique = 'trend_scanning'
-ts_look_forward_window = 240  # 60 * 8 * 10 (10 days)
-ts_min_sample_length = 30
-ts_step = 5
-tb_triplebar_num_days = 10
+label_tuning = True
+labeling_technique = 'tb'  # tb is triple-barrier; ts is trend scanning
+tb_triplebar_num_days = 2
 tb_triplebar_pt_sl = [1, 1]
 tb_triplebar_min_ret = 0.004
 ts_look_forward_window = 1200  # 60 * 8 * 10 (10 days)
 ts_min_sample_length = 30
 ts_step = 5
-tb_min_pct = 0.10
+tb_min_pct = 0.05
 # filtering
-tb_volatility_lookback = 200
+tb_volatility_lookback = 50
 tb_volatility_scaler = 1
-# stationarity
-stationarity_tecnique = 'fracdiff'
+train_test_split_ratio = 0.1
+time_step_length = 10
 # feature engineering
-correlation_threshold = 0.98
+correlation_threshold = 0.95
+dim_reduction = 'none'
 pca = False
 # scaling
 scaling = 'expanding'  # None
@@ -57,46 +57,13 @@ num_threads = 1
 train_val_index_split = 0.9
 
 
+# Import data
+file_name = contract + '_clean'
+data = pd.read_hdf(os.path.join(Path(input_data_path), file_name + '.h5'), file_name)
+data.sort_index(inplace=True)
 
-### IMPORT DATA
-def import_data(data_path, remove_cols, contract='SPY'):
-    # import data
-    with pd.HDFStore(os.path.join(data_path, contract + '.h5')) as store:
-        data = store.get(contract)
-    data.sort_index(inplace=True)
-    
-    # remove variables
-    remove_cols = [col for col in remove_cols if col in data.columns]
-    data.drop(columns=remove_cols, inplace=True)
-    
-    return data
-
-
-contract = 'SPY_raw_ta' if include_ta else 'SPY_raw'
-contract = 'SPY_raw_ta' if label_tuning else contract + '_labels'
-data = import_data(input_data_path, [], contract=contract)
-
-
-### REGIME DEPENDENT ANALYSIS
-if structural_break_regime == 'chow':
-    if (data.loc[data['chow_segment'] == 1].shape[0] / 60 / 8) < 365:
-        data = data.iloc[-(60*8*365):]
-    else:
-        data = data.loc[data['chow_segment'] == 1]
-data = data.drop(columns=['chow_segment'])
-
-
-### CHOOSE STATIONARY / UNSTATIONARY
-if stationarity_tecnique == 'fracdiff':
-    remove_cols = [col for col in data.columns if 'orig_' in col and col != 'orig_close']  
-elif stationarity_tecnique == 'orig':
-    remove_cols = [col for col in data.columns if 'fracdiff_' in col and col != 'orig_close']
-data = data.drop(columns=remove_cols)
-
-
-### CHOOSE SEQ LENGTH
-close_column = ['fracdiff_close' if 'fracdiff_close' in data.columns else 'orig_close']
-pacf = sm.tsa.stattools.pacf(data[close_column], nlags=200)
+# Choose sequence length
+pacf = sm.tsa.stattools.pacf(data['close'], nlags=200)
 sig_test = lambda tau_h: np.abs(tau_h) > 2.58/np.sqrt(len(data))
 for i in range(len(pacf)):
     if sig_test(pacf[i]) == False:
@@ -104,13 +71,22 @@ for i in range(len(pacf)):
         print('time_step_length set to ', time_step_length)
         break
 
+# Choose subsamples, stationarity method and make labels
+pipe = make_pipeline(
+    ChowStructuralBreakSubsample(min_length=10) if chow_subsample else None,
+    StationarityMethod(stationarity_method=stationarity),
+    )
+data = pipe.fit_transform(data)
 
-### LABELLING
+# categorical variables
+categorial_features = ['tick_rule', 'HT_TRENDMODE', 'volume_vix']
+categorial_features = [col for col in categorial_features if col in data.columns]
+data = data.drop(columns=categorial_features)  # remove for now
+
+# Labeling
 if label_tuning:
-    if labeling_technique == 'triple_barrier':
-        # TRIPLE BARRIER LABELING
+    if labeling_technique == 'tb':
         triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
-            close_name='orig_close' if 'orig_close' in data.columns else 'close',
             volatility_lookback=tb_volatility_lookback,
             volatility_scaler=tb_volatility_scaler,
             triplebar_num_days=tb_triplebar_num_days,
@@ -122,9 +98,8 @@ if label_tuning:
         tb_fit = triple_barrier_pipe.fit(data)
         labeling_info = tb_fit.triple_barrier_info
         X = tb_fit.transform(data)
-    elif labeling_technique == 'trend_scanning':
+    elif labeling_technique == 'ts':
         trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-            close_name='orig_close' if 'orig_close' in data.columns else 'close',
             volatility_lookback=tb_volatility_lookback,
             volatility_scaler=tb_volatility_scaler,
             ts_look_forward_window=ts_look_forward_window,
@@ -139,23 +114,12 @@ if label_tuning:
         labeling_info = labeling_info.rename(columns={'orig_close': 'bin'})
         print(labeling_info.iloc[:, 0].value_counts())
         X = X.iloc[:-1, :]
-else:
-    X_cols = [col for col in data.columns if 'day_' not in col]
-    X = data[X_cols]
-    y_cols = [col for col in data.columns if label in col]
-    labeling_info = data[y_cols]
 
+# Filering
+daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
+cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
 
-### FILTERING 
-if not label_tuning:
-    daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
-    cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
-else:
-    daily_vol = ml.util.get_daily_vol(data['orig_close' if 'orig_close' in data.columns else 'close'], lookback=50)
-    cusum_events = ml.filters.cusum_filter(data['orig_close' if 'orig_close' in data.columns else 'close'], threshold=daily_vol.mean()*1)
-
-
-### REMOVE NA
+# Remove NA
 remove_na_rows = labeling_info.isna().any(axis=1)
 X = X.loc[~remove_na_rows]
 labeling_info = labeling_info.loc[~remove_na_rows]
@@ -173,27 +137,27 @@ X = tml.modeling.preprocessing.remove_correlated_columns(
     threshold=correlation_threshold)
 print(X.shape)
 
-
-# TREAT CATEGORIAL VARIABLES
-X = X.drop(columns=['tick_rule', 'HT_TRENDMODE', 'volume_vix'])  # remove for now
-
-
-
-### TRAIN TEST SPLIT
+# Train test split
 X_train, X_test, y_train, y_test = train_test_split(
     X, labeling_info.loc[:, labeling_info.columns.str.contains('bin')],
     test_size=0.15, shuffle=False, stratify=None)
 
 
-### SCALING
+# Scaling
 if scaling == 'expanding':
-    stdize_input = lambda x: (x - x.expanding(time_step_length).mean()) / x.expanding(time_step_length).std()
+    stdize_input = lambda x: (x - x.expanding(tb_volatility_lookback).mean()) / x.expanding(tb_volatility_lookback).std()
     X_train = X_train.apply(stdize_input)
     X_test = X_test.apply(stdize_input)
     y_train = y_train.loc[~X_train.isna().any(axis=1)]
     X_train = X_train.dropna()
     y_test = y_test.loc[~X_test.isna().any(axis=1)]
     X_test = X_test.dropna()
+
+    y_train = y_train.loc[~X_train.isna().any(axis=1)]
+    X_train = X_train.dropna()
+    y_test = y_test.loc[~X_test.isna().any(axis=1)]
+    X_test = X_test.dropna()
+
     
 
 

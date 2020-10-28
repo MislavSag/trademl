@@ -18,6 +18,7 @@ import trademl as tml
 from tensorboardX import SummaryWriter
 import random
 import re
+from BorutaShap import BorutaShap
 matplotlib.use("Agg")  # don't show graphs
 
 
@@ -45,6 +46,12 @@ X_test = pd.read_pickle('X_test.pkl')
 y_train = pd.read_pickle('y_train.pkl')
 y_test = pd.read_pickle('y_test.pkl')
 labeling_info = pd.read_pickle('labeling_info.pkl')
+
+
+### LAB (COMMENT LATER)
+# X_train = X_train[['close', 'radf']]
+# X_test = X_test[['close', 'radf']]
+### LAB (COMMENT LATER)
 
 
 ### SAMPLE WEIGHTS
@@ -111,7 +118,7 @@ else:
     
     # refit the model and get results
     clf = RandomForestClassifier(criterion='entropy',
-                                max_features=max_features,
+                                # max_features=max_features,
                                 min_weight_fraction_leaf=min_weight_fraction_leaf,
                                 max_depth=max_depth,
                                 n_estimators=n_estimators,

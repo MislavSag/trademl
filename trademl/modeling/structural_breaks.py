@@ -201,7 +201,6 @@ def get_betas(X: np.array, y: np.array) -> Tuple[np.array, np.array]:
         return b_mean, b_var
 
 
-
 @numba.njit
 def _get_sadf_at_t(X: pd.DataFrame, y: pd.DataFrame, min_length: int, model: str, phi: float) -> float:
     """

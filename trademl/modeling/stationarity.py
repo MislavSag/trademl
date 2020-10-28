@@ -234,7 +234,7 @@ def unstat_cols_to_stat(data, min_d, stationaryCols):
     dataStationary = data[stationaryCols].loc[:, min_d > 0]
     diff_amt_args = min_d[min_d > 0].to_list()
     for i, col in enumerate(dataStationary.columns):
-        print("Making ", col, " stationary")
+        print(f"Making {col} stationary")
         dataStationary[col] = frac_diff_ffd(dataStationary[col].values, diff_amt_args[i])
 
     # add stationry spy to spy
