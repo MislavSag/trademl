@@ -14,29 +14,40 @@ from trademl.modeling.stationarity import Fracdiff
 save_path = 'D:/market_data/usa/ohlcv_features'
 contract = 'SPY_IB'
 keep_unstationary = True
+frequency = 'M'
 
 # Import data
 data = import_ohlcv(save_path, contract=contract)
 
+# Upsample
+if frequency == 'H':
+    data = data.resample('1H').agg({'open': 'first',
+                                    'high': 'max', 
+                                    'low': 'min', 
+                                    'close': 'last',
+                                    'volume': 'sum',
+                                    'average': 'last',
+                                    'barCount': 'sum'})
+data = data.dropna()
+
 # Preprocessing
 pipe = make_pipeline(
     RemoveOutlierDiffMedian(median_outlier_thrteshold=25),
-    AddFeatures(ta_periods=[10, 20]),
+    AddFeatures(add_ta = False),
     Fracdiff(keep_unstationary=keep_unstationary)
     )
 X = pipe.fit_transform(data)
+
+# add radf from R
+# if frequency == 'H':
+#     radf = pd.read_csv(
+#         'D:/algo_trading_files/exuber/radf_h_adf_4.csv',
+#         sep=';', index_col=['Index'], parse_dates=['Index'])
+#     radf = radf.resample('H').last()
+#     X = pd.concat([X, radf[['radf']]], axis = 1).dropna()
 
 # Save localy
 save_path_local = os.path.join(Path(save_path), contract + '_clean' + '.h5')
 if os.path.exists(save_path_local):
     os.remove(save_path_local)
-with pd.HDFStore(save_path_local) as store:
-    store.put(contract + '_clean', X)
-# save to mfiles
-# if env_directory is not None:
-#     mfiles_client = tml.modeling.utils.set_mfiles_client(env_directory)
-#     tml.modeling.utils.destroy_mfiles_object(mfiles_client, [file_name + '.h5'])
-#     wd = os.getcwd()
-#     os.chdir(Path(save_path))
-#     mfiles_client.upload_file(file_name + '.h5', object_type='Dokument')
-#     os.chdir(wd)
+X.to_hdf(save_path_local, contract + '_clean')

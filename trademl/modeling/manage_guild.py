@@ -21,7 +21,7 @@ def get_runs(operation):
     return runs
 
 
-def clean_runs(runs, filter_metric=['accuracy_test'], good_performance=False):
+def clean_runs(runs, filter_metric=['mean_score'], good_performance=False):
     runs = runs.dropna(axis=1, how='all')
     runs = runs.sort_values(by=filter_metric, ascending=False)
     if good_performance:
@@ -29,9 +29,9 @@ def clean_runs(runs, filter_metric=['accuracy_test'], good_performance=False):
     return runs
 
 
-runs = get_runs(operation=['lightgbm'])
+runs = get_runs(operation=['random-forest'])
 runs_clean = clean_runs(runs)
-runs_clean.head()
+runs_clean.head(20)
 
 
 # HYPERPARAMETER ANALYSIS

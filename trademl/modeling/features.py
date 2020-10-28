@@ -59,10 +59,6 @@ def add_ind_df(ohlcv, f, n, periods):
     """
     ind = [f(ohlcv, p).add_prefix((f._Function__namestr + '_' + str(p) + '_'))  
            for p in periods]
-    # ind = [f(ohlcv, p).
-    #        set_axis((f._Function__namestr + '_' +
-    #                  pd.Series(f.output_names) + '_' + str(p)), axis=1)
-    #        for p in periods]
     ind = pd.concat(ind, axis=1)
     return ind
 
@@ -82,7 +78,7 @@ def add_technical_indicators(data, periods):
     indsList = [DEMA, EMA, MIDPRICE, SMA, T3, # MIDPOINT
                 TEMA, TRIMA, WMA,  # KAMA memory intensive!
                 ADX, ADXR, AROONOSC, BOP, CMO, DX, MFI, MINUS_DM, MOM, ROC, RSI,
-                TRIX , WILLR,  # CCI NE RADI (VALJDA)
+                TRIX , WILLR,  # CCI DOEANST WORK?
                 ATR, NATR,
                 BETA, CORREL, LINEARREG, LINEARREG_ANGLE, LINEARREG_INTERCEPT,
                 LINEARREG_SLOPE, TSF]  # OVDJE NASTAVITI S NIZOM!!!
@@ -216,6 +212,7 @@ def add_ohlcv_features(data):
     data['momentum3'] = data['close'].pct_change(periods=3)
     data['momentum4'] = data['close'].pct_change(periods=4)
     data['momentum5'] = data['close'].pct_change(periods=5)
+    data['momentum10'] = data['close'].pct_change(periods=10)
     
     # Volatility
     data['volatility_60'] = np.log(data['close']).diff().rolling(
@@ -303,39 +300,6 @@ def add_ohlcv_features(data):
     return data
 
 
-class AddFeatures(BaseEstimator, TransformerMixin):
-
-    def __init__(self, add_ta=True, ta_periods=[10, 100]):
-        self.add_ta = add_ta
-        self.ta_periods = ta_periods
-
-    def fit(self, X, y=None):
-        print('Adding features')
-        
-        return self
-    
-    @time_method
-    def transform(self, X, y=None):
-        
-        # add tecnical indicators
-        if self.add_ta:
-            X = add_technical_indicators(X, periods=self.ta_periods)
-            X.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in X.columns]
-            print('Technical indicators added')
-        
-        # add other features
-        X = add_ohlcv_features(X)
-        print('Microstructural and other features added')
-        
-        # remove na
-        if self.add_ta:
-            X = X.loc[:, X.isna().sum() < (max(self.ta_periods) + 10)]
-        cols_remove_na = range((np.where(X.columns == 'volume')[0].item() + 1), X.shape[1])
-        X.dropna(subset=X.columns[cols_remove_na], inplace=True)
-        
-        return X
-
-
 def exponent(x):
     with np.errstate(over='ignore'):
         return np.where(np.abs(x) < 100, np.exp(x), 0.)
@@ -381,6 +345,39 @@ class Genetic(BaseEstimator, TransformerMixin):
         X = X.join(features)
 
         return X, y, self.state
+
+
+class AddFeatures(BaseEstimator, TransformerMixin):
+
+    def __init__(self, add_ta=True, ta_periods=[10, 100]):
+        self.add_ta = add_ta
+        self.ta_periods = ta_periods
+
+    def fit(self, X, y=None):
+        print('Adding features')
+        
+        return self
+    
+    @time_method
+    def transform(self, X, y=None):
+        
+        # add tecnical indicators
+        if self.add_ta:
+            X = add_technical_indicators(X, periods=self.ta_periods)
+            X.columns = [cl[0] if isinstance(cl, tuple) else cl for cl in X.columns]
+            print('Technical indicators added')
+        
+        # add other features
+        X = add_ohlcv_features(X)
+        print('Microstructural and other features added')
+        
+        # remove na
+        if self.add_ta:
+            X = X.loc[:, X.isna().sum() < (max(self.ta_periods) + 10)]
+        cols_remove_na = range((np.where(X.columns == 'volume')[0].item() + 1), X.shape[1])
+        X.dropna(subset=X.columns[cols_remove_na], inplace=True)
+        
+        return X
 
 
 ###### WEASEL #######

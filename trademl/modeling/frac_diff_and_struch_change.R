@@ -1,9 +1,13 @@
+library(data.table)
 library(DBI)
 library(RMySQL)
 library(anytime)
 library(exuber)
 library(psymonitor)
 library(PerformanceAnalytics)
+library(runner)
+library(dpseg)
+
 
 
 # IMPORT DATA -------------------------------------------------------------
@@ -31,13 +35,6 @@ contract_xts <- xts::xts(contract[, -1], order.by=contract$date, unique=TRUE, tz
 contract_ohlcv <- contract_xts[, c('open', 'high', 'low', 'close')]
 colnames(contract_ohlcv) <- c('open', 'high', 'low', 'close')
 contract_daily <- xts::to.daily(contract_ohlcv)
-contract_hourly <- xts::to.hourly(contract_ohlcv)
-contract_weekly <- xts::to.weekly(contract_ohlcv)
-contract_monthly <- xts::to.monthly(contract_ohlcv)
-close_daily <- contract_daily$contract_ohlcv.Close
-close_hourly <- contract_hourly$contract_ohlcv.Close
-close_weekly <- contract_weekly$contract_ohlcv.Close
-close_monthly <- contract_monthly$contract_ohlcv.Close
 
 
 # REMOVE OUTLIERS ---------------------------------------------------------
@@ -174,16 +171,68 @@ quantilesBsadf <- cvPSYwmboot(price_sample, swindow0 = swindow0, IC = 2,
 
 
 
+
+# Piecewise Linear Segmentation by Dynamic Programming --------------------
+
+library(dpseg)
+
+
+# parameters
+freq <- 'hourly'
+roll_window <- 600
+type <- "var"  # use the (default) scoring, -var(residuals(lm(y~x)))
+jumps <- FALSE # allow discrete jumps between segments?
+P <- 1e-4      # break-point penalty, use higher P for longer segments
+
+
+# prepare data
+if (freq == 'daily') {
+  x <- as.numeric(zoo::index(close_daily))
+  y <- zoo::coredata(close_daily)
+  time_xts <- zoo::index(close_daily)
+} else if (freq == 'hourly') {
+  x <- as.numeric(zoo::index(close_hourly))
+  y <- zoo::coredata(close_hourly)
+  time_xts <- zoo::index(close_hourly)
+}
+
+# apply lin segment by rolling
+DT <- data.table::as.data.table(cbind(x, y))
+colnames(DT) <- c('time', 'price')
+# DT <- DT[1:1000]
+dpseg_roll <- function(data) {
+  p <- estimateP(x=data$time, y=data$price, plot=FALSE)
+  segs <- dpseg(data$time, data$price, jumps=jumps, P=p, type=type, store.matrix=TRUE)
+  slope_last <- segs$segments$slope[length(segs$segments$slope)]
+  return(slope_last)
+}
+DT[, 
+   slope := runner(
+     x = .SD,
+     f = dpseg_roll,
+     k = 600,
+     na_pad = TRUE
+   )]
+DT <- DT[!is.na(slope)]
+
+# backtest
+DT_backtest <- data.table::copy(DT)
+DT_backtest[, sign := ifelse(slope > 0, 1, 0)]
+DT_backtest[, returns := (price - data.table::shift(price, 1L, type='lag')) / data.table::shift(price, 1L, type='lag')]
+DT_backtest <- DT_backtest[-1L]
+DT_backtest[, returns_strategy := returns * sign]
+pref <- as.xts(cbind.data.frame(benchmarg = DT_backtest$returns, strategy = DT_backtest$returns_strategy),
+               order.by = time_xts[roll_window:(roll_window+nrow(DT_backtest)-1)])
+head(pref)
+charts.PerformanceSummary(pref)
+
+
+
 # BACKTEST ----------------------------------------------------------------
 
 # Step 1: Load libraries and data
 library(quantmod)
 library(PerformanceAnalytics)
-## 
-## Attaching package: 'PerformanceAnalytics'
-## The following object is masked from 'package:graphics':
-## 
-##     legend
 
 getSymbols('NFCI', src = 'FRED', , from = '2000-01-01')
 ## [1] "NFCI"
