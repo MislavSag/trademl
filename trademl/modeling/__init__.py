@@ -27,7 +27,7 @@ from trademl.modeling.structural_breaks import (
     get_chow_type_stat, my_get_sadf, ChowStructuralBreakSubsample
 )
 from trademl.modeling.preprocessing import (
-    remove_correlated_columns, sequence_from_array
+    remove_correlated_columns, sequence_from_array, scale_expanding
 )
 from trademl.modeling.data_import import (
     import_ohlcv
