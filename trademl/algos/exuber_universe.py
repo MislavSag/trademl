@@ -20,7 +20,7 @@ USE_POLYGON = False
 # Define indicator
 class Radf(bt.Indicator):
     lines = ('radf',)
-    params = dict(period=600, adf_lag=2)
+    params = dict(period=300, adf_lag=2)
     
     def __init__(self):
         self.addminperiod(self.params.period)
@@ -66,21 +66,17 @@ class ExuberStrategy(bt.Strategy):
             print('%s, %s' % (dt.isoformat(), txt))
 
     def __init__(self):
-        # Keep a reference to the "close" line in the data[0] dataseries
-        # self.dataclose = self.datas[0].close
-
         # To keep track of pending orders and buy price/commission
-        self.order = {}
+        self.o = dict()  # orders per data (main, stop, limit, manual-close)
+        self.ind = dict()
         self.buyprice = {}
         self.buycomm = {}
-        self.inds = dict()
-        self.o = dict()
         
-        # radf
-        # self.radf = []
-        # for i, d in enumerate(self.datas):
-        #     self.radf.append(Radf(self.datas[i].close))
-
+        # radf for all datas
+        for i, d in enumerate(self.datas):
+            symbol = self.datas[i]._name
+            self.ind[symbol]= [Radf(self.datas[i])]
+        
         # Add a MovingAverageSimple indicator
         # for i, d in enumerate(self.datas):
         #     self.order[d] = None
@@ -98,83 +94,55 @@ class ExuberStrategy(bt.Strategy):
         #     self.datas[0], period=self.params.maperiod, plot=False, subplot=False)
         # self.radf = Radf(self.data)
 
-    def start(self):
-        self.cash_start = self.broker.get_cash()
+    # def start(self):
+    #     self.cash_start = self.broker.get_cash()
 
     # def nextstart(self):
     #     size = int(self.broker.get_cash() / self.data)
     #     self.buy(size=size)
         
-    # def notify_order(self, order):
-    #     if order.status in [order.Submitted, order.Accepted]:
-    #         # Buy/Sell order submitted/accepted to/by broker - Nothing to do
-    #         return
+    def notify_order(self, order):
+        if order.status == order.Submitted:
+            return
 
-    #     # Check if an order has been completed
-    #     # Attention: broker could reject order if not enough cash
-    #     if order.status in [order.Completed]:
-    #         if order.isbuy():
-    #             self.log(
-    #                 'BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
-    #                 (order.executed.price,
-    #                  order.executed.value,
-    #                  order.executed.comm), doprint=True)
+        dt, dn = self.datetime.date(), order.data._name
+        print('{} {} Order {} Status {}'.format(
+            dt, dn, order.ref, order.getstatusname())
+        )
 
-    #             self.buyprice = order.executed.price
-    #             self.buycomm = order.executed.comm
-    #         else:  # Sell
-    #             self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
-    #                      (order.executed.price,
-    #                       order.executed.value,
-    #                       order.executed.comm), doprint=True)
+        whichord = ['main', 'stop', 'limit', 'close']
+        if not order.alive():  # not alive - nullify
+            dorders = self.o[order.data]
+            idx = dorders.index(order)
+            dorders[idx] = None
+            print('-- No longer alive {} Ref'.format(whichord[idx]))
 
-    #         self.bar_executed = len(self)
-
-    #     elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-    #         self.log('Order Canceled/Margin/Rejected')
-
-    #     # Write down: no pending order
-    #     self.order = None
-
-    # def notify_trade(self, trade):
-    #     if not trade.isclosed:
-    #         return
-
-    #     self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' %
-    #              (trade.pnl, trade.pnlcomm), doprint=True)
+            if all(x is None for x in dorders):
+                dorders[:] = []  # empty list - New orders allowed
 
     def next(self):
         # Simply log the closing price of the series from the reference
         # self.log('Close, %.2f' % self.dataclose[0], doprint=True)
 
-        # Check if an order is pending ... if yes, we cannot send a 2nd one
-        if self.order:
-            return
-        
-        # for i, d in enumerate(self.datas):
-        #     dt, dn = self.datetime.date(), d._name
-        #     pos = self.getposition(d).size
-        #     print('{} {} Position {}'.format(dt, dn, pos))
-        #     if not pos and not self.o.get(d, None):  # no market / no orders
-        #         # Not yet ... we MIGHT BUY if ...
-        #         # # if self.dataclose[0] > self.sma[0]:
-        #         if self.inds[d]['radf'][0] < 1.012245:
-        #             # BUY, BUY, BUY!!! (with all possible default parameters)
-        #             self.log('BUY CREATE, %.2f' % d.close[0], doprint=True)
+        for i, d in enumerate(self.datas):
+            dt, dn = self.datetime.date(), d._name
+            pos = self.getposition(d).size
+            radf = self.ind[dn][0]
+            print('{} {} Position {}'.format(dt, dn, pos))
+            
+            self.log(f'Radf {dn}', doprint=True)
+            if not pos and not self.o.get(d, None):  # no market / no orders
+                # Not yet ... we MIGHT BUY if ...
+                self.log(f'Radf {radf[0]}', doprint=True)
+                if radf[0] < 1.012245:
+                    self.o[d] = [self.buy(data=d, exectype=self.p.exectype)]
+                    print('{} {} Buy {}'.format(dt, dn, self.o[d][0].ref))
 
-        #             # Keep track of the created order to avoid a 2nd order
-        #             self.order = self.buy(data=d,
-        #                                   exectype=self.p.exectype)
-        #     else:
-        #         # if self.dataclose[0] < self.sma[0]:
-        #         if self.inds[d]['radf'][0] > 1.012245:
-                    
-        #             # SELL, SELL, SELL!!! (with all possible default parameters)
-        #             self.log('SELL CREATE, %.2f' % d.close[0], doprint=True)
-
-        #             # Keep track of the created order to avoid a 2nd order
-        #             self.order = self.sell(data=d,
-        #                                    exectype=self.p.exectype)
+            else:
+                # if self.dataclose[0] < self.sma[0]:
+                if radf[0] > 1.012245:
+                    self.o[d] = [self.sell(data=d, exectype=self.p.exectype)]
+                    print('{} {} Sell {}'.format(dt, dn, self.o[d][0].ref))
                 
 
     # def stop(self):
@@ -241,12 +209,12 @@ def run(args=None):
     from_date = datetime.datetime.strptime(from_date, '%Y-%m-%d')
     timeframe = bt.TimeFrame.TFrame(args.timeframedata)
     compression = args.compression
-    resample = True
+    resample = False
 
     # Data feed
     if IS_BACKTEST:
         stockkwargs = dict(
-            timeframe=bt.TimeFrame.Minutes,
+            timeframe=bt.TimeFrame.Days,
             historical=True,
             fromdate=from_date,
             # todate=datetime.datetime(2020, 10, 10),
@@ -254,11 +222,14 @@ def run(args=None):
         )
         if broker == 'alpaca':
             for s in symbols:
+                print(f'Adding ticker {s} using {timeframe} timeframe.')
                 data = DataFactory(dataname=s, **stockkwargs)
                 if resample:
                     cerebro.resampledata(data,
                                          timeframe=bt.TimeFrame.Minutes,
                                          compression=60*4)
+                else:
+                    cerebro.adddata(data)
         # ZAVRSITI KADA CU KORISTITI IB
         elif broker == 'ib':  
             data0 = store.getdata(dataname=symbols, **stockkwargs)

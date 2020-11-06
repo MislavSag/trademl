@@ -206,97 +206,96 @@ def add_ohlcv_features(data):
     data['close_open'] = data['close'] - data['open']
     data['close_ath'] = data['close'].cummax()
         
-    # simple momentum
-    data['momentum1'] = data['close'].pct_change(periods=1)
-    data['momentum2'] = data['close'].pct_change(periods=2)
-    data['momentum3'] = data['close'].pct_change(periods=3)
-    data['momentum4'] = data['close'].pct_change(periods=4)
-    data['momentum5'] = data['close'].pct_change(periods=5)
-    data['momentum10'] = data['close'].pct_change(periods=10)
+    # # simple momentum
+    # data['momentum1'] = data['close'].pct_change(periods=1)
+    # data['momentum2'] = data['close'].pct_change(periods=2)
+    # data['momentum3'] = data['close'].pct_change(periods=3)
+    # data['momentum4'] = data['close'].pct_change(periods=4)
+    # data['momentum5'] = data['close'].pct_change(periods=5)
+    # data['momentum10'] = data['close'].pct_change(periods=10)
     
-    # Volatility
-    data['volatility_60'] = np.log(data['close']).diff().rolling(
-        window=60, min_periods=60, center=False).std()
-    data['volatility_30'] = np.log(data['close']).diff().rolling(
-        window=30, min_periods=30, center=False).std()
-    data['volatility_15'] = np.log(data['close']).diff().rolling(
-        window=15, min_periods=15, center=False).std()
-    data['volatility_10'] = np.log(data['close']).diff().rolling(
-        window=10, min_periods=10, center=False).std()
-    data['volatility_5'] =np.log(data['close']).diff().rolling(
-        window=5, min_periods=5, center=False).std()
+    # # Volatility
+    # data['volatility_60'] = np.log(data['close']).diff().rolling(
+    #     window=60, min_periods=60, center=False).std()
+    # data['volatility_30'] = np.log(data['close']).diff().rolling(
+    #     window=30, min_periods=30, center=False).std()
+    # data['volatility_15'] = np.log(data['close']).diff().rolling(
+    #     window=15, min_periods=15, center=False).std()
+    # data['volatility_10'] = np.log(data['close']).diff().rolling(
+    #     window=10, min_periods=10, center=False).std()
+    # data['volatility_5'] =np.log(data['close']).diff().rolling(
+    #     window=5, min_periods=5, center=False).std()
     
-    # Skewness
-    data['skew_60'] = np.log(data['close']).diff().rolling(
-        window=60, min_periods=60, center=False).skew()
-    data['skew_30'] = np.log(data['close']).diff().rolling(
-        window=30, min_periods=30, center=False).skew()
-    data['skew_15'] = np.log(data['close']).diff().rolling(
-        window=15, min_periods=15, center=False).skew()
-    data['skew_10'] = np.log(data['close']).diff().rolling(
-        window=10, min_periods=10, center=False).skew()
-    data['skew_5'] =np.log(data['close']).diff().rolling(
-        window=5, min_periods=5, center=False).skew()
+    # # Skewness
+    # data['skew_60'] = np.log(data['close']).diff().rolling(
+    #     window=60, min_periods=60, center=False).skew()
+    # data['skew_30'] = np.log(data['close']).diff().rolling(
+    #     window=30, min_periods=30, center=False).skew()
+    # data['skew_15'] = np.log(data['close']).diff().rolling(
+    #     window=15, min_periods=15, center=False).skew()
+    # data['skew_10'] = np.log(data['close']).diff().rolling(
+    #     window=10, min_periods=10, center=False).skew()
+    # data['skew_5'] =np.log(data['close']).diff().rolling(
+    #     window=5, min_periods=5, center=False).skew()
 
-    # kurtosis
-    data['kurtosis_60'] = np.log(data['close']).diff().rolling(
-        window=60, min_periods=60, center=False).kurt()
-    data['kurtosis_30'] = np.log(data['close']).diff().rolling(
-        window=30, min_periods=30, center=False).kurt()
-    data['kurtosis_15'] = np.log(data['close']).diff().rolling(
-        window=15, min_periods=15, center=False).kurt()
-    data['kurtosis_10'] = np.log(data['close']).diff().rolling(
-        window=10, min_periods=10, center=False).kurt()
-    data['kurtosis_5'] =np.log(data['close']).diff().rolling(
-        window=5, min_periods=5, center=False).kurt()
+    # # kurtosis
+    # data['kurtosis_60'] = np.log(data['close']).diff().rolling(
+    #     window=60, min_periods=60, center=False).kurt()
+    # data['kurtosis_30'] = np.log(data['close']).diff().rolling(
+    #     window=30, min_periods=30, center=False).kurt()
+    # data['kurtosis_15'] = np.log(data['close']).diff().rolling(
+    #     window=15, min_periods=15, center=False).kurt()
+    # data['kurtosis_10'] = np.log(data['close']).diff().rolling(
+    #     window=10, min_periods=10, center=False).kurt()
+    # data['kurtosis_5'] =np.log(data['close']).diff().rolling(
+    #     window=5, min_periods=5, center=False).kurt()
     
-    # microstructural features
-    data['roll_measure'] = micro.get_roll_measure(data['close'])
-    data['corwin_schultz_est'] = micro.get_corwin_schultz_estimator(
-        data['high'], data['low'], 100)
-    data['bekker_parkinson_vol'] = micro.get_bekker_parkinson_vol(
-        data['high'], data['low'], 100)
-    data['kyle_lambda'] = micro.get_bekker_parkinson_vol(
-        data['close'], data['volume'])
-    data['amihud_lambda'] = micro.get_bar_based_amihud_lambda(
-        data['close'], data['volume'])
-    data['hasbrouck_lambda'] = micro.get_bar_based_hasbrouck_lambda(
-        data['close'], data['volume'])
-    tick_diff = data['close'].diff()
-    data['tick_rule'] = np.where(tick_diff != 0,
-                                np.sign(tick_diff),
-                                np.sign(tick_diff).shift(periods=-1))
+    # # microstructural features
+    # data['roll_measure'] = micro.get_roll_measure(data['close'])
+    # data['corwin_schultz_est'] = micro.get_corwin_schultz_estimator(
+    #     data['high'], data['low'], 100)
+    # data['bekker_parkinson_vol'] = micro.get_bekker_parkinson_vol(
+    #     data['high'], data['low'], 100)
+    # data['kyle_lambda'] = micro.get_bekker_parkinson_vol(
+    #     data['close'], data['volume'])
+    # data['amihud_lambda'] = micro.get_bar_based_amihud_lambda(
+    #     data['close'], data['volume'])
+    # data['hasbrouck_lambda'] = micro.get_bar_based_hasbrouck_lambda(
+    #     data['close'], data['volume'])
+    # tick_diff = data['close'].diff()
+    # data['tick_rule'] = np.where(tick_diff != 0,
+    #                             np.sign(tick_diff),
+    #                             np.sign(tick_diff).shift(periods=-1))
     
-    # Add time features
-    data['minute'] = data.index.minute
-    data['hour'] = data.index.hour
-    data['day_of_week'] = data.index.dayofweek
-    data['week_of_month'] = data.index.to_series().apply(lambda d: (d.day - 1) // 7 + 1)
+    # # Add time features
+    # data['minute'] = data.index.minute
+    # data['hour'] = data.index.hour
+    # data['day_of_week'] = data.index.dayofweek
+    # data['week_of_month'] = data.index.to_series().apply(lambda d: (d.day - 1) // 7 + 1)
     
-    # Add smoothed lags
-    smooth_name = f"smooth_close"
-    data[smooth_name] = savgol_filter(data['close'], 31, 3)
-    data = data.assign(**{
-        f"{smooth_name}_lag_{t}": data[[smooth_name]].shift(t)
-        for t in list(dict.fromkeys(range_grow(1, 150, .055)))
-    })
+    # # Add smoothed lags
+    # smooth_name = f"smooth_close"
+    # data[smooth_name] = savgol_filter(data['close'], 31, 3)
+    # data = data.assign(**{
+    #     f"{smooth_name}_lag_{t}": data[[smooth_name]].shift(t)
+    #     for t in list(dict.fromkeys(range_grow(1, 150, .055)))
+    # })
     
-    ### ADD VIX TO DATABASE
-    q = 'SELECT date, open AS open_vix, high AS high_vix, low AS low_vix, \
-        close AS close_vix, volume AS volume_vix FROM VIX'
-    data_vix = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
-    data_vix.set_index(data_vix.date, inplace=True)
-    data_vix.drop(columns=['date'], inplace=True)
-    data_vix.sort_index(inplace=True)
-    # merge spy and vix with merge_asof which uses nearest back value for NA
-    data_vix = data_vix.sort_index()
-    data = pd.merge_asof(data, data_vix, left_index=True, right_index=True)
+    # ### ADD VIX TO DATABASE
+    # q = 'SELECT date, open AS open_vix, high AS high_vix, low AS low_vix, \
+    #     close AS close_vix, volume AS volume_vix FROM VIX'
+    # data_vix = tml.modeling.utils.query_to_db(q, 'odvjet12_market_data_usa')
+    # data_vix.set_index(data_vix.date, inplace=True)
+    # data_vix.drop(columns=['date'], inplace=True)
+    # data_vix.sort_index(inplace=True)
+    # # merge spy and vix with merge_asof which uses nearest back value for NA
+    # data_vix = data_vix.sort_index()
+    # data = pd.merge_asof(data, data_vix, left_index=True, right_index=True)
     
-    ### VIX FEATURES
-    data['vix_high_low'] = data['high'] - data['low']
-    data['vix_close_open'] = data['close'] - data['open']
+    # ### VIX FEATURES
+    # data['vix_high_low'] = data['high'] - data['low']
+    # data['vix_close_open'] = data['close'] - data['open']
 
-    
     return data
 
 

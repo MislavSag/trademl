@@ -37,7 +37,6 @@ env_directory = None # os.path.join(os.path.dirname(os.path.dirname(__file__)), 
 chow_subsample = None
 stationarity = 'orig'
 # labeling
-label_tuning = True
 labeling_technique = 'tl'  # tb is triple-barrier; ts is trend scanning; tl is trend labaling
 tb_triplebar_num_days = 2
 tb_triplebar_pt_sl = [1, 1]
@@ -50,9 +49,11 @@ w = 0.15
 # filtering
 tb_volatility_lookback = 50
 tb_volatility_scaler = 1
-train_test_split_ratio = 0.1
 time_step_length = 10
+# train test split
+train_test_split_ratio = 0.25
 # feature engineering
+choose_features = ['close']
 correlation_threshold = 0.95
 dim_reduction = 'none'
 # scaling
@@ -61,10 +62,11 @@ scaling = 'expanding'
 num_threads = 1
 
 
-# import data
+# Import data
 file_name = contract + '_clean'
 data = pd.read_hdf(os.path.join(Path(input_data_path), file_name + '.h5'), file_name)
 data.sort_index(inplace=True)
+
 
 # Choose subsamples, stationarity method and make labels
 pipe = make_pipeline(
@@ -73,52 +75,54 @@ pipe = make_pipeline(
     )
 data = pipe.fit_transform(data)
 
+
 # categorical variables
 categorial_features = ['tick_rule', 'HT_TRENDMODE', 'volume_vix']
 categorial_features = [col for col in categorial_features if col in data.columns]
 data = data.drop(columns=categorial_features)  # remove for now
 
+
 # Labeling_
-if label_tuning:
-    if labeling_technique == 'tl':
-        labeling_info = trend_labeling(
-            close=data['close'].to_list(),
-            time=data.index.to_list(),
-            w=w)
-        labeling_info = pd.DataFrame(labeling_info, index=data.index, columns=['bin'])
-        labeling_info['t1'] = np.nan
-        labeling_info['ret'] = np.nan
-        labeling_info['trgt'] = np.nan
-        X = data.copy()
-    if labeling_technique == 'tb':
-        triple_barrierpipe= tml.modeling.pipelines.TripleBarierLabeling(
-            volatility_lookback=tb_volatility_lookback,
-            volatility_scaler=tb_volatility_scaler,
-            triplebar_num_days=tb_triplebar_num_days,
-            triplebar_pt_sl=tb_triplebar_pt_sl,
-            triplebar_min_ret=tb_triplebar_min_ret,
-            num_threads=num_threads,
-            tb_min_pct=tb_min_pct
-        )   
-        tb_fit = triple_barrier_pipe.fit(data)
-        labeling_info = tb_fit.triple_barrier_info
-        X = tb_fit.transform(data)
-    elif labeling_technique == 'ts':
-        trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
-            volatility_lookback=tb_volatility_lookback,
-            volatility_scaler=tb_volatility_scaler,
-            ts_look_forward_window=ts_look_forward_window,
-            ts_min_sample_length=ts_min_sample_length,
-            ts_step=ts_step
-            )
-        labeling_info = trend_scanning_pipe.fit(data)
-        X = trend_scanning_pipe.transform(data)
-    elif labeling_technique == 'fixed_horizon':
-        X = data.copy()
-        labeling_info = ml.labeling.fixed_time_horizon(data['orig_close'], threshold=0.005, resample_by='B').dropna().to_frame()
-        labeling_info = labeling_info.rename(columns={'orig_close': 'bin'})
-        print(labeling_info.iloc[:, 0].value_counts())
-        X = X.iloc[:-1, :]
+if labeling_technique == 'tl':
+    labeling_info = tml.modeling.labeling.trend_labeling(
+        close=data['close'].to_list(),
+        time=data.index.to_list(),
+        w=w)
+    labeling_info = pd.DataFrame(labeling_info, index=data.index, columns=['bin'])
+    labeling_info['t1'] = np.nan
+    labeling_info['ret'] = np.nan
+    labeling_info['trgt'] = np.nan
+    X = data.copy()
+if labeling_technique == 'tb':
+    triple_barrier_pipe= tml.modeling.pipelines.TripleBarierLabeling(
+        volatility_lookback=tb_volatility_lookback,
+        volatility_scaler=tb_volatility_scaler,
+        triplebar_num_days=tb_triplebar_num_days,
+        triplebar_pt_sl=tb_triplebar_pt_sl,
+        triplebar_min_ret=tb_triplebar_min_ret,
+        num_threads=num_threads,
+        tb_min_pct=tb_min_pct
+    )   
+    tb_fit = triple_barrier_pipe.fit(data)
+    labeling_info = tb_fit.triple_barrier_info
+    X = tb_fit.transform(data)
+elif labeling_technique == 'ts':
+    trend_scanning_pipe = tml.modeling.pipelines.TrendScanning(
+        volatility_lookback=tb_volatility_lookback,
+        volatility_scaler=tb_volatility_scaler,
+        ts_look_forward_window=ts_look_forward_window,
+        ts_min_sample_length=ts_min_sample_length,
+        ts_step=ts_step
+        )
+    labeling_info = trend_scanning_pipe.fit(data)
+    X = trend_scanning_pipe.transform(data)
+elif labeling_technique == 'fixed_horizon':
+    X = data.copy()
+    labeling_info = ml.labeling.fixed_time_horizon(data['orig_close'], threshold=0.005, resample_by='B').dropna().to_frame()
+    labeling_info = labeling_info.rename(columns={'orig_close': 'bin'})
+    print(labeling_info.iloc[:, 0].value_counts())
+    X = X.iloc[:-1, :]
+# if label_tuning
 # else:
 #     X_cols = [col for col in data.columns if 'day_' not in col]
 #     X = data[X_cols]
@@ -134,10 +138,13 @@ if label_tuning:
 remove_na_rows = labeling_info['bin'].isna()
 X = X.loc[~remove_na_rows]
 labeling_info = labeling_info.loc[~remove_na_rows]
-# labeling_info.iloc[:, -1] = np.where(labeling_info.iloc[:, -1] == -1, 0, labeling_info.iloc[:, -1])
+labeling_info.loc[:, 'bin'] = np.where(
+    labeling_info.loc[:, 'bin'] == -1, 
+    0, 
+    labeling_info.loc[:, 'bin'])
 
 # Removing large values (TA issue - causes model problems / overflow)
-# X.apply(lambda x: any((x >= 1e12) | (x <= -1e12)), axis=0)
+X = X.loc[:, ~X.apply(lambda x: any((x >= 1e12) | (x <= -1e12)), axis=0)]
 
 # Remove correlated assets
 X = tml.modeling.preprocessing.remove_correlated_columns(
@@ -145,11 +152,13 @@ X = tml.modeling.preprocessing.remove_correlated_columns(
     columns_ignore=['close'],
     threshold=correlation_threshold)
 
-# train test split
+# Train test split
 X_train, X_test, y_train, y_test = train_test_split(
     X, labeling_info.loc[:, labeling_info.columns.str.contains('bin')],
     test_size=train_test_split_ratio, shuffle=False, stratify=None)
 
+
+##### GENETICS INDICATORS
 # x = y_train.squeeze()
 # x.value_counts()
 # add genetics indicators
@@ -158,6 +167,8 @@ X_train, X_test, y_train, y_test = train_test_split(
 #     gen.fit(X_train, y_train)
     
 #     test = X.predict(X_test)
+##### GENETICS INDICATORS
+
     
 ### SCALING
 if scaling == 'expanding':

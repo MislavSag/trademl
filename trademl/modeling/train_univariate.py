@@ -6,66 +6,62 @@ import tslearn
 from tslearn.neighbors import KNeighborsTimeSeriesClassifier
 from sktime.classification.compose import TimeSeriesForestClassifier
 import sktime
+import joblib
 from sklearn.metrics import (accuracy_score, confusion_matrix, recall_score,
                              precision_score, f1_score, classification_report,accuracy_score,
-                             roc_curve)
+                             roc_curve) ``
 
 
-### TENSORBORADX WRITER
+
+# Tensorboardx writer
 # log_dir = os.getenv("LOGDIR") or "logs/projector/" + datetime.now().strftime(
 #     "%Y%m%d-%H%M%S")
 # writer = SummaryWriter(log_dir)
 
 
-# MODEL HYPERPARAMETERS
-input_data_path = 'D:/algo_trading_files'
-# model
-
-
-## IMPORT PREPARED DATA
-X_train = np.load(os.path.join(Path(input_data_path), 'X_train_seq.npy'))
-X_test = np.load(os.path.join(Path(input_data_path), 'X_test_seq.npy'))
-X_val = np.load(os.path.join(Path(input_data_path), 'X_val_seq.npy'))
-y_train = np.load(os.path.join(Path(input_data_path), 'y_train_seq.npy'))
-y_test = np.load(os.path.join(Path(input_data_path), 'y_test_seq.npy'))
-y_val = np.load(os.path.join(Path(input_data_path), 'y_val_seq.npy'))
-col_names = pd.read_csv(os.path.join(Path(input_data_path), 'col_names.csv'))
+# Import data
+X_train = np.load('X_train.npy')
+X_test = np.load('X_test.npy')
+X_val = np.load('X_val.npy')
+y_train = np.load('y_train.npy')
+y_test = np.load('y_test.npy')
+y_val = np.load('y_val.npy')
+col_names = pd.read_csv('col_names.csv')
 col_names = col_names.iloc[:, 1]
 
 
-# CONVERT TO SKTIME DATA TYPE
+# Convert to sktime data type
 X_train = np.vstack([X_train, X_val])
 X_train = tslearn.utils.to_sktime_dataset(X_train) 
 X_test = tslearn.utils.to_sktime_dataset(X_test)
+y_train = np.vstack([y_train, y_val])
 y_train = pd.Series(y_train.reshape(-1))
 y_test = pd.Series(y_test.reshape(-1))
 
-# test on smaller subset
-sample_n = 100
-X_train_sample = X_train.iloc[:sample_n, :]
-y_train_sample = y_train[:sample_n]
-X_test_sample = X_test.iloc[:sample_n, :]
-y_test_sample = y_test[:sample_n]
 
+# Timeseries random foreset for every column
 for i, col in enumerate(col_names[:2]):
     print(col)
 
-    # CHOOSE FEATURE
-    X_train_step = X_train_sample.iloc[:, [i]]
-    X_test_step = X_test_sample.iloc[:, [i]]
+    # Choose one feature
+    X_train_step = X_train.iloc[:, [i]]
+    X_test_step = X_test.iloc[:, [i]]
 
-    ### TIME SERIES FOREST CLASSIFIER 
+    # Time series forest clf
     classifier = TimeSeriesForestClassifier()
-    classifier.fit(X_train_step, y_train_sample)
+    classifier.fit(X_train_step, y_train)
     y_pred = classifier.predict(X_test_step)
     
-    ### METRICS
-    print(f'accuracy_test: {accuracy_score(y_test_sample, y_pred)}')
-    print(f"recall_test: {recall_score(y_test_sample, y_pred)}")
-    print(f"precisoin_test: {precision_score(y_test_sample, y_pred)}")
-    print(f"f1_test: {f1_score(y_test_sample, y_pred)}")
+    # Metrics
+    print(f'accuracy_test: {accuracy_score(y_test, y_pred)}')
+    print(f"recall_test: {recall_score(y_test, y_pred)}")
+    print(f"precisoin_test: {precision_score(y_test, y_pred)}")
+    print(f"f1_test: {f1_score(y_test, y_pred)}")
 
 
+
+# clf2 = pickle.loads(s)
+# clf2.predict(X_test[0:1])
 
 
 # # KNeighbors Classifier
@@ -89,4 +85,5 @@ for i, col in enumerate(col_names[:2]):
 # gak_km.fit(X_train)
 # gak_km.get_params()
 # X_train_classes = gak_km.predict(X_train)
+
 

@@ -5,7 +5,6 @@ import json
 import h2o
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
-# from sklearn.tree._tree import Tree
 from sklearn.ensemble import RandomForestClassifier
 import time
 from functools import wraps
@@ -14,6 +13,7 @@ import mfiles
 from os import environ, path
 from dotenv import load_dotenv
 import pymysql
+from sklearn.tree._tree import Tree
 
 
 
@@ -55,6 +55,10 @@ def serialize_tree(tree):
 
 def serialize_decision_tree(model):
     tree, dtypes = serialize_tree(model.tree_)
+    model_params = model.get_params()
+    del model_params['ccp_alpha']
+    # del model_params['max_samples']
+    # model_params = model_params.pop('ccp_alpha')
     serialized_model = {
         'meta': 'decision-tree',
         'feature_importances_': model.feature_importances_.tolist(),
@@ -64,7 +68,7 @@ def serialize_decision_tree(model):
         'n_outputs_': model.n_outputs_,
         'tree_': tree,
         'classes_': model.classes_.tolist(),
-        'params': model.get_params()
+        'params': model_params
     }
 
 
@@ -90,7 +94,11 @@ def serialize_decision_tree(model):
 
 #     return deserialized_model
 
+
 def serialize_random_forest(model):
+    model_params = model.get_params()
+    del model_params['ccp_alpha']
+    del model_params['max_samples']
     serialized_model = {
         'meta': 'rf',
         'max_depth': model.max_depth,
@@ -105,7 +113,7 @@ def serialize_random_forest(model):
         'n_outputs_': model.n_outputs_,
         'classes_': model.classes_.tolist(),
         'estimators_': [serialize_decision_tree(decision_tree) for decision_tree in model.estimators_],
-        'params': model.get_params()
+        'params': model_params
     }
 
     if 'oob_score_' in model.__dict__:
@@ -119,6 +127,7 @@ def serialize_random_forest(model):
         serialized_model['n_classes_'] = model.n_classes_.tolist()
 
     return serialized_model
+
 
 def deserialize_random_forest(model_dict):
     model = RandomForestClassifier(**model_dict['params'])

@@ -260,6 +260,9 @@ class Fracdiff(BaseEstimator, TransformerMixin):
         print('Finding min d')
         stationaryCols, min_d = min_ffd_all_cols(X)
         
+        if not stationaryCols:
+            return X
+        
         # save to github for later 
         min_dmin_d_save_for_backtesting = pd.Series(0, index=X.columns)
         min_dmin_d_save_for_backtesting.update(min_d)

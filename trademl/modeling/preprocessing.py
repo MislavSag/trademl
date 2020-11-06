@@ -44,3 +44,26 @@ def sequence_from_array(data, target_vec, cusum_events, time_step_length):
     targets = np.vstack(targets)
     targets = targets.astype(np.int64)
     return lstm_sequences_all, targets
+
+
+def scale_expanding(X_train, y_train, X_test, y_test, expand_function):
+    """[summary]
+
+    Args:
+        X_train (pd.DataFrame): [description]
+        y_train (pd.Series): [description]
+        X_test (pd.DataFrame): [description]
+        y_test (pd.Series): [description]
+        expand_function (function): [description]
+
+    Returns:
+        pd.Dataframe: [description]
+    """
+    X_train = X_train.apply(expand_function)
+    X_test = X_test.apply(expand_function)
+    y_train = y_train.loc[~X_train.isna().any(axis=1)]
+    X_train = X_train.dropna()
+    y_test = y_test.loc[~X_test.isna().any(axis=1)]
+    X_test = X_test.dropna()
+
+    return X_train, X_test, y_train, y_test
